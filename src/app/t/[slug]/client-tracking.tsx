@@ -224,7 +224,10 @@ export default function ClientTracking({ slug }: ClientTrackingProps) {
 
         setRedirectStatus("Registrando acesso...");
 
-        // 1. Internal Click Track com dados completos
+        // Capturar UTMs da URL atual
+        const urlParams = new URLSearchParams(window.location.search);
+
+        // 1. Internal Click Track com dados completos (incluindo UTMs)
         const clickData = {
             timestamp: new Date().toISOString(),
             fbclid: fbParams.fbclid,
@@ -232,15 +235,26 @@ export default function ClientTracking({ slug }: ClientTrackingProps) {
             fbp: fbParams.fbp,
             user_agent: navigator.userAgent,
             page_url: window.location.href,
+            // UTMs
+            utm_source: urlParams.get("utm_source"),
+            utm_medium: urlParams.get("utm_medium"),
+            utm_campaign: urlParams.get("utm_campaign"),
+            utm_content: urlParams.get("utm_content"),
+            utm_term: urlParams.get("utm_term"),
         };
 
-        // Salvar evento de click (fire and forget para velocidade)
-        supabase.from("events").insert({
-            funnel_id: funnel.id,
-            visitor_id: visitorId,
-            event_type: "click",
-            metadata: clickData
-        });
+        // Salvar evento de click (AGUARDAR para garantir que seja salvo antes do redirect)
+        try {
+            await supabase.from("events").insert({
+                funnel_id: funnel.id,
+                visitor_id: visitorId,
+                event_type: "click",
+                metadata: clickData
+            });
+            console.log("Click event salvo com sucesso");
+        } catch (err) {
+            console.error("Erro ao salvar click event:", err);
+        }
 
         // 2. Facebook Event (client-side como backup)
         if (funnel.pixels?.pixel_id) {
