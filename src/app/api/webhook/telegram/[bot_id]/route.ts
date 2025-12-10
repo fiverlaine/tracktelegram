@@ -230,40 +230,72 @@ export async function POST(
                         .eq("id", funnelId)
                         .single();
 
-                    // Buscar metadata do visitante (fbc, fbp, user_agent)
-                    const { data: eventData } = await supabase
+                    // Buscar metadata do visitante (fbc, fbp, user_agent, UTMs, etc)
+                    // Prioridade: click > pageview (click tem dados mais completos)
+                    const { data: clickData } = await supabase
                         .from("events")
                         .select("metadata")
                         .eq("visitor_id", visitorId)
-                        .in("event_type", ["click", "pageview"])
+                        .eq("event_type", "click")
                         .order("created_at", { ascending: false })
                         .limit(1)
                         .single();
 
-                    // Registrar evento "join"
+                    const { data: pageviewData } = await supabase
+                        .from("events")
+                        .select("metadata")
+                        .eq("visitor_id", visitorId)
+                        .eq("event_type", "pageview")
+                        .order("created_at", { ascending: false })
+                        .limit(1)
+                        .single();
+
+                    // Usar click se disponível, senão pageview
+                    const eventData = clickData || pageviewData;
+                    const sourceMetadata: any = eventData?.metadata || {};
+
+                    // Registrar evento "join" com TODOS os metadados (UTMs, fbclid, etc)
                     await supabase.from("events").insert({
                         funnel_id: funnelId,
                         visitor_id: visitorId,
                         event_type: "join",
                         metadata: {
+                            // Dados do Telegram
                             source: "telegram_webhook",
                             telegram_user_id: telegramUserId,
                             telegram_username: telegramUsername,
                             chat_id: chatId,
                             chat_title: chatTitle,
-                            invite_name: inviteName
+                            invite_name: inviteName,
+                            // Dados do click/pageview (UTMs, Facebook, etc)
+                            ...sourceMetadata,
+                            // Sobrescrever com dados mais recentes do Telegram
+                            join_timestamp: new Date().toISOString()
                         }
                     });
 
                     console.log(`[Webhook] Evento JOIN registrado para visitor_id: ${visitorId}`);
 
-                    // Enviar para Facebook CAPI
-                    if (funnelData?.pixels && eventData?.metadata) {
+                    // Enviar para Facebook CAPI com TODOS os dados disponíveis
+                    if (funnelData?.pixels && sourceMetadata) {
                         const pixel: any = Array.isArray(funnelData.pixels) ? funnelData.pixels[0] : funnelData.pixels;
-                        const metadata: any = eventData.metadata;
+                        const metadata: any = sourceMetadata;
 
                         if (pixel?.access_token && pixel?.pixel_id) {
                             try {
+                                // Preparar custom_data com UTMs e outras informações
+                                const customData: any = {
+                                    content_name: funnelData.name,
+                                    content_category: "telegram_group"
+                                };
+
+                                // Adicionar UTMs se disponíveis
+                                if (metadata.utm_source) customData.utm_source = metadata.utm_source;
+                                if (metadata.utm_medium) customData.utm_medium = metadata.utm_medium;
+                                if (metadata.utm_campaign) customData.utm_campaign = metadata.utm_campaign;
+                                if (metadata.utm_content) customData.utm_content = metadata.utm_content;
+                                if (metadata.utm_term) customData.utm_term = metadata.utm_term;
+
                                 await sendCAPIEvent(
                                     pixel.access_token,
                                     pixel.pixel_id,
@@ -275,17 +307,22 @@ export async function POST(
                                         ip_address: metadata.ip_address || "0.0.0.0",
                                         external_id: visitorId
                                     },
-                                    {
-                                        content_name: funnelData.name
-                                    }
+                                    customData
                                 );
-                                console.log(`[Webhook] CAPI Lead enviado com sucesso!`);
+                                console.log(`[Webhook] CAPI Lead enviado com sucesso!`, {
+                                    visitor_id: visitorId,
+                                    has_utms: !!(metadata.utm_source || metadata.utm_medium),
+                                    has_fbc: !!metadata.fbc,
+                                    has_fbp: !!metadata.fbp
+                                });
                             } catch (capiError) {
                                 console.error(`[Webhook] Erro ao enviar CAPI:`, capiError);
                             }
                         } else {
                             console.log(`[Webhook] Pixel não configurado ou sem access_token`);
                         }
+                    } else {
+                        console.log(`[Webhook] Sem dados de pixel ou metadata para enviar CAPI`);
                     }
                 } else {
                     console.log(`[Webhook] Não foi possível encontrar visitor_id para telegram_user_id: ${telegramUserId}`);
