@@ -216,22 +216,33 @@ export async function POST(
 
                 // Processar se encontrou o visitor_id
                 if (visitorId && funnelId) {
-                    // Buscar dados do funil e pixel
-                    const { data: funnelData } = await supabase
+                    // Buscar dados do funil
+                    const { data: funnelData, error: funnelError } = await supabase
                         .from("funnels")
-                        .select(`
-                            id, 
-                            name,
-                            pixels (
-                                pixel_id, 
-                                access_token
-                            )
-                        `)
+                        .select("id, name, pixel_id")
                         .eq("id", funnelId)
                         .single();
 
+                    console.log(`[Webhook] Funil encontrado:`, funnelData, funnelError);
+
+                    // Buscar dados do pixel separadamente
+                    let pixelData = null;
+                    if (funnelData?.pixel_id) {
+                        const { data: pixel, error: pixelError } = await supabase
+                            .from("pixels")
+                            .select("id, pixel_id, access_token")
+                            .eq("id", funnelData.pixel_id)
+                            .single();
+                        
+                        pixelData = pixel;
+                        console.log(`[Webhook] Pixel encontrado:`, { 
+                            pixel_id: pixel?.pixel_id, 
+                            has_token: !!pixel?.access_token 
+                        }, pixelError);
+                    }
+
                     // Buscar metadata do visitante (fbc, fbp, user_agent)
-                    const { data: eventData } = await supabase
+                    const { data: eventData, error: eventError } = await supabase
                         .from("events")
                         .select("metadata")
                         .eq("visitor_id", visitorId)
@@ -239,6 +250,8 @@ export async function POST(
                         .order("created_at", { ascending: false })
                         .limit(1)
                         .single();
+
+                    console.log(`[Webhook] Metadata do visitor:`, eventData?.metadata ? 'encontrado' : 'não encontrado', eventError);
 
                     // Registrar evento "join"
                     await supabase.from("events").insert({
@@ -258,49 +271,49 @@ export async function POST(
                     console.log(`[Webhook] Evento JOIN registrado para visitor_id: ${visitorId}`);
 
                     // Enviar para Facebook CAPI
-                    if (funnelData?.pixels && eventData?.metadata) {
-                        const pixel: any = Array.isArray(funnelData.pixels) ? funnelData.pixels[0] : funnelData.pixels;
+                    if (pixelData?.access_token && pixelData?.pixel_id && eventData?.metadata) {
                         const metadata: any = eventData.metadata;
 
-                        if (pixel?.access_token && pixel?.pixel_id) {
-                            try {
-                                console.log(`[Webhook] Preparando envio CAPI...`);
-                                console.log(`[Webhook] Pixel ID: ${pixel.pixel_id}`);
-                                console.log(`[Webhook] FBC: ${metadata.fbc || 'N/A'}`);
-                                console.log(`[Webhook] FBP: ${metadata.fbp || 'N/A'}`);
-                                
-                                const capiResult = await sendCAPIEvent(
-                                    pixel.access_token,
-                                    pixel.pixel_id,
-                                    "Lead",
-                                    {
-                                        fbc: metadata.fbc,
-                                        fbp: metadata.fbp,
-                                        user_agent: metadata.user_agent,
-                                        ip_address: metadata.ip_address || undefined,
-                                        external_id: visitorId
-                                    },
-                                    {
-                                        content_name: funnelData.name
-                                    },
-                                    {
-                                        visitor_id: visitorId,
-                                        funnel_id: funnelId
-                                    }
-                                );
-                                
-                                if (capiResult) {
-                                    console.log(`[Webhook] ✅ CAPI Lead enviado com sucesso!`);
-                                } else {
-                                    console.log(`[Webhook] ⚠️ CAPI retornou null - verifique os logs`);
+                        try {
+                            console.log(`[Webhook] Preparando envio CAPI...`);
+                            console.log(`[Webhook] Pixel ID: ${pixelData.pixel_id}`);
+                            console.log(`[Webhook] FBC: ${metadata.fbc || 'N/A'}`);
+                            console.log(`[Webhook] FBP: ${metadata.fbp || 'N/A'}`);
+                            
+                            const capiResult = await sendCAPIEvent(
+                                pixelData.access_token,
+                                pixelData.pixel_id,
+                                "Lead",
+                                {
+                                    fbc: metadata.fbc,
+                                    fbp: metadata.fbp,
+                                    user_agent: metadata.user_agent,
+                                    ip_address: metadata.ip_address || undefined,
+                                    external_id: visitorId
+                                },
+                                {
+                                    content_name: funnelData?.name || "Lead"
+                                },
+                                {
+                                    visitor_id: visitorId,
+                                    funnel_id: funnelId
                                 }
-                            } catch (capiError) {
-                                console.error(`[Webhook] ❌ Erro ao enviar CAPI:`, capiError);
+                            );
+                            
+                            if (capiResult) {
+                                console.log(`[Webhook] ✅ CAPI Lead enviado com sucesso!`);
+                            } else {
+                                console.log(`[Webhook] ⚠️ CAPI retornou null - verifique os logs`);
                             }
-                        } else {
-                            console.log(`[Webhook] ⚠️ Pixel não configurado ou sem access_token`);
-                            console.log(`[Webhook] pixel_id: ${pixel?.pixel_id}, has_token: ${!!pixel?.access_token}`);
+                        } catch (capiError) {
+                            console.error(`[Webhook] ❌ Erro ao enviar CAPI:`, capiError);
                         }
+                    } else {
+                        console.log(`[Webhook] ⚠️ Não foi possível enviar CAPI:`);
+                        console.log(`[Webhook] - pixelData: ${pixelData ? 'existe' : 'null'}`);
+                        console.log(`[Webhook] - pixel_id: ${pixelData?.pixel_id || 'N/A'}`);
+                        console.log(`[Webhook] - has_token: ${!!pixelData?.access_token}`);
+                        console.log(`[Webhook] - eventData: ${eventData?.metadata ? 'existe' : 'null'}`);
                     }
                 } else {
                     console.log(`[Webhook] Não foi possível encontrar visitor_id para telegram_user_id: ${telegramUserId}`);
