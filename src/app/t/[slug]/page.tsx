@@ -15,9 +15,22 @@ export default async function TrackingPage({
     const forwardedFor = headersList.get("x-forwarded-for");
     const ip = forwardedFor ? forwardedFor.split(",")[0] : "0.0.0.0";
 
+    // Capturar Headers de Geolocalização (Vercel)
+    const city = headersList.get("x-vercel-ip-city");
+    const country = headersList.get("x-vercel-ip-country");
+    const region = headersList.get("x-vercel-ip-country-region"); // State
+
     return (
         <>
-            <ClientTracking slug={slug} ip={ip} />
+            <ClientTracking 
+                slug={slug} 
+                ip={ip} 
+                geo={{
+                    city: city ? decodeURIComponent(city) : undefined,
+                    country: country || undefined,
+                    region: region || undefined
+                }}
+            />
         </>
     );
 }

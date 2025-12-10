@@ -4,9 +4,16 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 
+interface GeoData {
+    city?: string;
+    country?: string;
+    region?: string;
+}
+
 interface ClientTrackingProps {
     slug: string;
     ip?: string;
+    geo?: GeoData;
 }
 
 interface FacebookParams {
@@ -15,7 +22,7 @@ interface FacebookParams {
     fbp: string | null;
 }
 
-export default function ClientTracking({ slug, ip }: ClientTrackingProps) {
+export default function ClientTracking({ slug, ip, geo }: ClientTrackingProps) {
     const [loading, setLoading] = useState(true);
     const [funnel, setFunnel] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
@@ -189,6 +196,9 @@ export default function ClientTracking({ slug, ip }: ClientTrackingProps) {
             utm_content: new URLSearchParams(window.location.search).get("utm_content"),
             utm_term: new URLSearchParams(window.location.search).get("utm_term"),
             ip_address: ip, // IP capturado via Server Component
+            city: geo?.city,
+            country: geo?.country,
+            region: geo?.region,
         };
 
         // A. Internal Tracking - Salvar no Supabase
@@ -247,6 +257,9 @@ export default function ClientTracking({ slug, ip }: ClientTrackingProps) {
             utm_content: urlParams.get("utm_content"),
             utm_term: urlParams.get("utm_term"),
             ip_address: ip, // IP capturado via Server Component
+            city: geo?.city,
+            country: geo?.country,
+            region: geo?.region,
         };
 
         // Salvar evento de click (AGUARDAR para garantir que seja salvo antes do redirect)

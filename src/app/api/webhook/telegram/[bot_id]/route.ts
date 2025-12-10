@@ -306,7 +306,11 @@ export async function POST(
                                     fbp: metadata?.fbp || undefined,
                                     user_agent: metadata?.user_agent || undefined,
                                     ip_address: metadata?.ip_address || undefined,
-                                    external_id: visitorId
+                                    external_id: visitorId,
+                                    // Geolocation (mapped from Vercel headers)
+                                    ct: metadata?.city || undefined,
+                                    st: metadata?.region || undefined, // x-vercel-ip-country-region is the ISO state code
+                                    country: metadata?.country || undefined
                                 },
                                 {
                                     content_name: funnelData?.name || "Lead"

@@ -29,6 +29,10 @@ interface CAPIUserData {
     email?: string;
     ip_address?: string;
     external_id?: string;
+    ct?: string; // City (SHA256)
+    st?: string; // State (SHA256)
+    zp?: string; // Zip (SHA256)
+    country?: string; // Country (SHA256)
 }
 
 interface CAPICustomData {
@@ -139,6 +143,20 @@ export async function sendCAPIEvent(
     if (userDataPayload.external_id) {
         // external_id deve ser hasheado conforme documentação
         userData.external_id = hashSHA256(userDataPayload.external_id);
+    }
+    
+    // Geolocation fields - Meta requires them to be hashed (lowercase + sha256)
+    if (userDataPayload.ct) {
+        userData.ct = hashSHA256(userDataPayload.ct.toLowerCase().trim());
+    }
+    if (userDataPayload.st) {
+        userData.st = hashSHA256(userDataPayload.st.toLowerCase().trim());
+    }
+    if (userDataPayload.zp) {
+        userData.zp = hashSHA256(userDataPayload.zp.toLowerCase().trim());
+    }
+    if (userDataPayload.country) {
+        userData.country = hashSHA256(userDataPayload.country.toLowerCase().trim());
     }
 
     // Construir custom_data
