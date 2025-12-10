@@ -708,8 +708,8 @@ export default function ChannelsPage() {
                                                     const status = integrationStatuses[bot.id];
                                                     // Verifica se o webhook está configurado para a API route correta (com o bot_id)
                                                     const expectedWebhookPath = `/api/webhook/telegram/${bot.id}`;
-                                                    const isWebhookCorrect = status?.webhook?.isSet && 
-                                                        status?.webhook?.url?.includes(expectedWebhookPath);
+                                                    const isWebhookCorrect = !!(status?.webhook?.isSet && 
+                                                        status?.webhook?.url?.includes(expectedWebhookPath));
                                                     
                                                     return (
                                                         <>
