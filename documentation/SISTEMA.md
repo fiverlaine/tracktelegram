@@ -292,6 +292,27 @@ O sistema envia eventos para o Facebook via Server-Side quando um usuário entra
 
 ### Event Match Quality (EMQ)
 
+#### ⚠️ IMPORTANTE: Qualidade Baixa quando tráfego vem do Instagram
+
+Se sua campanha usa **Instagram Reels, Stories ou Feed** como posicionamento, o `fbclid` **NÃO é enviado automaticamente**. Isso resulta em:
+- `fbc: null` nos eventos
+- Qualidade de match baixa (3-5/10)
+
+**Solução**: O Meta recomenda enviar **parâmetros adicionais** para melhorar o match:
+
+| Parâmetro | Descrição | Impacto no Match |
+|-----------|-----------|------------------|
+| `fbc` | Click ID do Facebook | ⭐⭐⭐⭐⭐ (Melhor) |
+| `fbp` | Browser ID | ⭐⭐⭐ |
+| `client_user_agent` | User-Agent | ⭐⭐ |
+| `client_ip_address` | IP do usuário | ⭐⭐ |
+| `email` (hasheado) | Email do usuário | ⭐⭐⭐⭐ |
+| `phone` (hasheado) | Telefone | ⭐⭐⭐⭐ |
+
+**Para melhorar o match sem fbclid:**
+1. Coletar email/telefone na landing page antes do redirecionamento
+2. Ou usar apenas posicionamentos de Facebook Ads (não Instagram) para garantir `fbclid`
+
 Para melhorar a qualidade de correspondência, o sistema envia:
 
 | Parâmetro | Descrição | Hash? |
@@ -382,6 +403,25 @@ Mostra os últimos 5 dias com:
 | Taxa de Cliques por Pageviews | `(clicks / pageviews) × 100` |
 | Taxa de Entradas por Cliques | `(joins / clicks) × 100` |
 | Taxa de Retenção | `((joins - leaves) / joins) × 100` |
+
+---
+
+## Arquitetura de Webhooks
+
+O sistema utiliza **Edge Functions do Supabase** como principal handler de webhooks do Telegram, não a API Route da Vercel.
+
+### URL do Webhook Telegram
+```
+https://qwqgefuvxnlruiqcgsil.supabase.co/functions/v1/telegram-webhook
+```
+
+### Versão Atual: v3.2 - CAPI + Logging
+Funcionalidades:
+- ✅ Processa eventos de entrada/saída do Telegram
+- ✅ Extrai `visitor_id` do `invite_link.name`
+- ✅ Envia eventos Lead para Facebook CAPI
+- ✅ **Salva logs na tabela `capi_logs`** (corrigido em v3.2)
+- ✅ Hash SHA256 para `external_id` conforme documentação Meta
 
 ---
 

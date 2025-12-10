@@ -54,9 +54,18 @@ interface CAPILogData {
 async function logCAPIEvent(data: CAPILogData) {
     try {
         const supabase = getSupabaseClient();
-        if (!supabase) return;
+        if (!supabase) {
+            console.error("[CAPI Log] ❌ Supabase client não disponível - verifique variáveis de ambiente");
+            return;
+        }
 
-        await supabase.from("capi_logs").insert({
+        console.log("[CAPI Log] Salvando log...", {
+            visitor_id: data.visitor_id?.substring(0, 8),
+            event_name: data.event_name,
+            status: data.status
+        });
+
+        const { data: insertedData, error } = await supabase.from("capi_logs").insert({
             visitor_id: data.visitor_id,
             funnel_id: data.funnel_id,
             event_name: data.event_name,
@@ -65,9 +74,15 @@ async function logCAPIEvent(data: CAPILogData) {
             request_payload: data.request_payload,
             response_payload: data.response_payload,
             error_message: data.error_message
-        });
+        }).select();
+
+        if (error) {
+            console.error("[CAPI Log] ❌ Erro ao inserir log:", error.message, error.details);
+        } else {
+            console.log("[CAPI Log] ✅ Log salvo com sucesso");
+        }
     } catch (e) {
-        console.error("[CAPI Log] Erro ao salvar log:", e);
+        console.error("[CAPI Log] ❌ Erro inesperado ao salvar log:", e);
     }
 }
 

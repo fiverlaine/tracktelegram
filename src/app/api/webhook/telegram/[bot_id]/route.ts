@@ -129,12 +129,11 @@ export async function POST(
                     
                     console.log(`[Webhook] Buscando por visitor_id que começa com: ${partialVisitorId}`);
 
-                    // Buscar o registro que corresponde ao visitor_id parcial
+                    // Primeiro: Buscar por visitor_id que começa com o prefixo (sem filtrar telegram_user_id)
                     const { data: linkData, error: linkError } = await supabase
                         .from("visitor_telegram_links")
                         .select("id, visitor_id, funnel_id, metadata")
                         .like("visitor_id", `${partialVisitorId}%`)
-                        .eq("telegram_user_id", 0) // Ainda não foi vinculado
                         .order("linked_at", { ascending: false })
                         .limit(1)
                         .single();
@@ -271,24 +270,42 @@ export async function POST(
                     console.log(`[Webhook] Evento JOIN registrado para visitor_id: ${visitorId}`);
 
                     // Enviar para Facebook CAPI
-                    if (pixelData?.access_token && pixelData?.pixel_id && eventData?.metadata) {
-                        const metadata: any = eventData.metadata;
+                    // Buscar metadata do click (mesmo que eventData tenha falhado, tentar buscar novamente)
+                    let metadata: any = eventData?.metadata || null;
+                    
+                    if (!metadata) {
+                        // Fallback: buscar diretamente pelo visitor_id
+                        console.log(`[Webhook] eventData nulo, buscando metadata diretamente...`);
+                        const { data: clickData } = await supabase
+                            .from("events")
+                            .select("metadata")
+                            .eq("visitor_id", visitorId)
+                            .eq("event_type", "click")
+                            .order("created_at", { ascending: false })
+                            .limit(1)
+                            .single();
+                        
+                        metadata = clickData?.metadata || null;
+                        console.log(`[Webhook] Metadata via fallback:`, metadata ? 'encontrado' : 'não encontrado');
+                    }
 
+                    if (pixelData?.access_token && pixelData?.pixel_id) {
                         try {
                             console.log(`[Webhook] Preparando envio CAPI...`);
                             console.log(`[Webhook] Pixel ID: ${pixelData.pixel_id}`);
-                            console.log(`[Webhook] FBC: ${metadata.fbc || 'N/A'}`);
-                            console.log(`[Webhook] FBP: ${metadata.fbp || 'N/A'}`);
+                            console.log(`[Webhook] FBC: ${metadata?.fbc || 'N/A'}`);
+                            console.log(`[Webhook] FBP: ${metadata?.fbp || 'N/A'}`);
+                            console.log(`[Webhook] User Agent: ${metadata?.user_agent ? 'presente' : 'N/A'}`);
                             
                             const capiResult = await sendCAPIEvent(
                                 pixelData.access_token,
                                 pixelData.pixel_id,
                                 "Lead",
                                 {
-                                    fbc: metadata.fbc,
-                                    fbp: metadata.fbp,
-                                    user_agent: metadata.user_agent,
-                                    ip_address: metadata.ip_address || undefined,
+                                    fbc: metadata?.fbc || undefined,
+                                    fbp: metadata?.fbp || undefined,
+                                    user_agent: metadata?.user_agent || undefined,
+                                    ip_address: metadata?.ip_address || undefined,
                                     external_id: visitorId
                                 },
                                 {
@@ -313,7 +330,7 @@ export async function POST(
                         console.log(`[Webhook] - pixelData: ${pixelData ? 'existe' : 'null'}`);
                         console.log(`[Webhook] - pixel_id: ${pixelData?.pixel_id || 'N/A'}`);
                         console.log(`[Webhook] - has_token: ${!!pixelData?.access_token}`);
-                        console.log(`[Webhook] - eventData: ${eventData?.metadata ? 'existe' : 'null'}`);
+                        console.log(`[Webhook] - metadata: ${metadata ? 'existe' : 'null'}`);
                     }
                 } else {
                     console.log(`[Webhook] Não foi possível encontrar visitor_id para telegram_user_id: ${telegramUserId}`);

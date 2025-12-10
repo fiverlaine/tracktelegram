@@ -256,18 +256,9 @@ export default function ClientTracking({ slug }: ClientTrackingProps) {
             console.error("Erro ao salvar click event:", err);
         }
 
-        // 2. Facebook Event (client-side como backup)
-        if (funnel.pixels?.pixel_id) {
-            try {
-                const ReactPixel = (await import("react-facebook-pixel")).default;
-                ReactPixel.track("InitiateCheckout", {
-                    content_name: funnel.name,
-                    content_category: "telegram_group",
-                });
-            } catch (e) {
-                console.warn("Facebook Pixel error:", e);
-            }
-        }
+        // 2. Facebook Event (client-side como backup) - REMOVIDO
+        // O evento Lead será enviado via CAPI no webhook quando o usuário entrar no canal
+        // Não disparamos eventos de pixel aqui para evitar duplicação
 
         setRedirectStatus("Gerando acesso exclusivo...");
 
