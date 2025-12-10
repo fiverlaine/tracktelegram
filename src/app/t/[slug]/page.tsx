@@ -65,6 +65,8 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
                 city, country, region
             };
 
+            let destinationUrl: string | null = null;
+            
             try {
                 // Registrar clique
                 await supabase.from("events").insert({
@@ -82,13 +84,17 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
                 });
 
                 if (result?.invite_link) {
-                    // 4. Redirecionar Imediatamente
-                    console.log(`[SSR] Redirecionando para: ${result.invite_link}`);
-                    redirect(result.invite_link);
+                    destinationUrl = result.invite_link;
                 }
 
             } catch (err) {
                 console.error("[SSR] Erro no processamento:", err);
+            }
+
+            // 4. Redirecionar Imediatamente (Fora do try/catch)
+            if (destinationUrl) {
+                console.log(`[SSR] Redirecionando para: ${destinationUrl}`);
+                redirect(destinationUrl);
             }
         }
     }
