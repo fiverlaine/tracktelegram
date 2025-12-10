@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 
 interface ClientTrackingProps {
     slug: string;
+    ip?: string;
 }
 
 interface FacebookParams {
@@ -14,7 +15,7 @@ interface FacebookParams {
     fbp: string | null;
 }
 
-export default function ClientTracking({ slug }: ClientTrackingProps) {
+export default function ClientTracking({ slug, ip }: ClientTrackingProps) {
     const [loading, setLoading] = useState(true);
     const [funnel, setFunnel] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
@@ -162,8 +163,11 @@ export default function ClientTracking({ slug }: ClientTrackingProps) {
      * Helper: Set Cookie
      */
     function setCookie(name: string, value: string, days: number) {
-        const expires = new Date(Date.now() + days * 864e5).toUTCString();
-        document.cookie = `${name}=${value}; expires=${expires}; path=/; SameSite=Lax`;
+        const date = new Date();
+        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+        const expires = `expires=${date.toUTCString()}`;
+        const domain = window.location.hostname.replace(/^www\./, "");
+        document.cookie = `${name}=${value};${expires};path=/;domain=.${domain};SameSite=Lax`;
     }
 
     /**
@@ -184,6 +188,7 @@ export default function ClientTracking({ slug }: ClientTrackingProps) {
             utm_campaign: new URLSearchParams(window.location.search).get("utm_campaign"),
             utm_content: new URLSearchParams(window.location.search).get("utm_content"),
             utm_term: new URLSearchParams(window.location.search).get("utm_term"),
+            ip_address: ip, // IP capturado via Server Component
         };
 
         // A. Internal Tracking - Salvar no Supabase
@@ -241,6 +246,7 @@ export default function ClientTracking({ slug }: ClientTrackingProps) {
             utm_campaign: urlParams.get("utm_campaign"),
             utm_content: urlParams.get("utm_content"),
             utm_term: urlParams.get("utm_term"),
+            ip_address: ip, // IP capturado via Server Component
         };
 
         // Salvar evento de click (AGUARDAR para garantir que seja salvo antes do redirect)

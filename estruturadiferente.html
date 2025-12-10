@@ -1,0 +1,90 @@
+<!-- Script 1: Criar _fbp cookie -->
+<script>
+(function () {
+  function getCookie(name) {
+    return document.cookie
+      .split("; ")
+      .find((row) => row.startsWith(name + "="))
+      ?.split("=")[1];
+  }
+  function setFbpCookie() {
+    if (!getCookie("_fbp")) {
+      var fbp = "fb.1." + Date.now() + "." + Math.floor(Math.random() * 1e10);
+      var expires = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toUTCString();
+      var domain = location.hostname.replace(/^www\./, "");
+      document.cookie = "_fbp=" + fbp
+        + "; path=/"
+        + "; domain=" + domain
+        + "; expires=" + expires
+        + "; samesite=lax";
+    }
+  }
+  setFbpCookie();
+})();
+</script>
+
+<!-- Script 2: Link direto + Beacon -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var params = new URLSearchParams(window.location.search);
+  var fbclid = params.get("fbclid");
+  var utm_content = params.get("utm_content");
+  
+  function getCookie(name) {
+    return document.cookie
+      .split("; ")
+      .find((row) => row.startsWith(name + "="))
+      ?.split("=")[1];
+  }
+  
+  var fbp = getCookie("_fbp");
+  var whatsappUrl = "https://chat.whatsapp.com/IM3JeEGsbG5GKL1qQO3suw";
+  var saveEndpoint = "https://roiflow.com.br/aff/zap-verso/save.php";
+  var device = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'iPhone' 
+             : (/Android/i.test(navigator.userAgent) ? 'Android' : 'Desktop');
+  
+  function tagAndTrack(a) {
+    a.href = whatsappUrl;
+    if (a._trackHandler) {
+      a.removeEventListener('click', a._trackHandler);
+    }
+    a._trackHandler = function(e) {
+      var data = {
+        fbclid: fbclid,
+        utm_content: utm_content,
+        fbp: fbp,
+        device: device,
+        timestamp: Date.now()
+      };
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(saveEndpoint, JSON.stringify(data));
+      } else {
+        fetch(saveEndpoint, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data),
+          keepalive: true
+        }).catch(function(err){});
+      }
+    };
+    a.addEventListener('click', a._trackHandler);
+  }
+  
+  var links = document.querySelectorAll("a[href*='ir.php'], a[href*='whatsapp.com'], .whatsapp-button, .cta-button");
+  links.forEach(tagAndTrack);
+  
+  var mo = new MutationObserver(function (muts) {
+    muts.forEach(function (m) {
+      m.addedNodes && m.addedNodes.forEach(function (n) {
+        if (!(n instanceof HTMLElement)) return;
+        if (n.tagName === 'A') {
+          tagAndTrack(n);
+        }
+        var inner = n.querySelectorAll ? n.querySelectorAll("a") : [];
+        inner && inner.forEach(tagAndTrack);
+      });
+    });
+  });
+  mo.observe(document.documentElement, { childList: true, subtree: true });
+});
+</script>
