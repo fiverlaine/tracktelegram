@@ -38,12 +38,7 @@ export async function GET(request: Request) {
   // 3. Facebook Parameters (FBC & FBP)
   const fbclid = getUrlParam('fbclid');
   
-  // Salvar fbclid no cookie se disponível
-  if (fbclid) {
-    setCookie('_fbclid', fbclid, 90);
-  }
-  
-  // FBC - Click ID (gerado a partir do fbclid)
+  // FBC - Click ID
   let fbc = getCookie('_fbc');
   if (fbclid && !fbc) {
     fbc = 'fb.1.' + Date.now() + '.' + fbclid;
@@ -89,11 +84,6 @@ export async function GET(request: Request) {
         // Adicionar visitor_id
         if (!url.searchParams.has('vid')) {
           url.searchParams.set('vid', vid);
-        }
-
-        // Adicionar fbclid (se disponível)
-        if (fbclid && !url.searchParams.has('fbclid')) {
-          url.searchParams.set('fbclid', fbclid);
         }
 
         // Adicionar FBC/FBP

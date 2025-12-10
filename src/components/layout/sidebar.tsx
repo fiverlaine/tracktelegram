@@ -12,7 +12,8 @@ import {
     MessageSquare,
     CreditCard,
     Code,
-    LogIn
+    LogIn,
+    FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,11 @@ const menuItems = [
         title: "Funis",
         href: "/funnels",
         icon: Filter,
+    },
+    {
+        title: "Logs CAPI",
+        href: "/logs",
+        icon: FileText,
     },
     {
         title: "Mensagens",

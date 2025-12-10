@@ -99,14 +99,6 @@ export default function ClientTracking({ slug }: ClientTrackingProps) {
         let fbc = urlParams.get("fbc");
         let fbp = urlParams.get("fbp");
 
-        // Salvar fbclid no cookie se vier da URL (importante para rastreamento)
-        if (fbclid) {
-            setCookie("_fbclid", fbclid, 90);
-        } else {
-            // Tentar ler do cookie se não estiver na URL
-            fbclid = getCookie("_fbclid");
-        }
-
         // 1. Prioridade: Parâmetros explícitos na URL (vindos do script externo)
         if (fbc) {
             setCookie("_fbc", fbc, 90);
