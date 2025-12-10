@@ -1,11 +1,22 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Supabase client com service role para bypass de RLS
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+/**
+ * Cria cliente Supabase com validação de variáveis de ambiente
+ */
+function getSupabaseClient() {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl) {
+        throw new Error("NEXT_PUBLIC_SUPABASE_URL não está configurada");
+    }
+    if (!supabaseKey) {
+        throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY ou SUPABASE_SERVICE_ROLE_KEY não está configurada");
+    }
+
+    return createClient(supabaseUrl, supabaseKey);
+}
 
 /**
  * API para gerar links de convite únicos do Telegram
@@ -17,6 +28,7 @@ const supabase = createClient(
  */
 export async function GET(request: Request) {
     try {
+        const supabase = getSupabaseClient();
         const { searchParams } = new URL(request.url);
         const funnelId = searchParams.get("funnel_id");
         const visitorId = searchParams.get("visitor_id");

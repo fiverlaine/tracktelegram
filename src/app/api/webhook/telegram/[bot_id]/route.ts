@@ -3,17 +3,29 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendCAPIEvent } from "@/lib/facebook-capi";
 
-// Initialize Supabase Client (Server-Side with Service Role if available)
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+/**
+ * Cria cliente Supabase com validação de variáveis de ambiente
+ */
+function getSupabaseClient() {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl) {
+        throw new Error("NEXT_PUBLIC_SUPABASE_URL não está configurada");
+    }
+    if (!supabaseKey) {
+        throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY ou SUPABASE_SERVICE_ROLE_KEY não está configurada");
+    }
+
+    return createClient(supabaseUrl, supabaseKey);
+}
 
 export async function POST(
     request: Request,
     { params }: { params: Promise<{ bot_id: string }> }
 ) {
     try {
+        const supabase = getSupabaseClient();
         const { bot_id } = await params;
         const update = await request.json();
 
