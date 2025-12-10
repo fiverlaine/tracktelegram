@@ -1,8 +1,55 @@
+import { createClient } from "@supabase/supabase-js";
 
 export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    let pixelCode = "";
+
+    // Se tiver ID de domínio, buscar configurações
+    if (id) {
+        try {
+            const supabase = createClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            );
+            
+            // Buscar domínio e pixel associado
+            const { data: domain } = await supabase
+                .from("domains")
+                .select("*, pixels(pixel_id)")
+                .eq("id", id)
+                .single();
+
+            // Se tiver pixel, injetar código
+            if (domain?.pixels?.pixel_id) {
+                const pixelId = domain.pixels.pixel_id;
+                console.log(`[Script] Injetando Pixel ${pixelId} para domínio ${domain.domain}`);
+                
+                pixelCode = `
+// --- Auto-Injected Facebook Pixel ---
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '${pixelId}');
+fbq('track', 'PageView');
+// ------------------------------------
+`;
+            }
+        } catch (err) {
+            console.error("[Script] Erro ao buscar dados do domínio:", err);
+        }
+    }
+
     const scriptContent = `
 (function() {
-  console.log("TrackGram Script Loaded v2.0");
+  ${pixelCode}
+
+  console.log("TrackGram Script Loaded v2.1");
 
   // 1. Helper Functions
   function generateUUID() {
@@ -20,7 +67,8 @@ export async function GET(request: Request) {
   function setCookie(name, value, days) {
     var d = new Date;
     d.setTime(d.getTime() + 24*60*60*1000*days);
-    document.cookie = name + "=" + value + ";path=/;expires=" + d.toGMTString() + ";SameSite=Lax";
+    const domain = window.location.hostname.replace(/^www\\./, "");
+    document.cookie = name + "=" + value + ";path=/;expires=" + d.toGMTString() + ";domain=." + domain + ";SameSite=Lax";
   }
 
   function getUrlParam(name) {
@@ -30,24 +78,38 @@ export async function GET(request: Request) {
 
   // 2. Identify / Create Visitor
   let vid = localStorage.getItem('track_vid');
-  if (!vid) {
+  let urlVid = getUrlParam('vid');
+  
+  // Prioridade: URL > LocalStorage
+  if (urlVid) {
+    vid = urlVid;
+    localStorage.setItem('track_vid', vid);
+  } else if (!vid) {
     vid = generateUUID();
     localStorage.setItem('track_vid', vid);
   }
 
   // 3. Facebook Parameters (FBC & FBP)
   const fbclid = getUrlParam('fbclid');
+  const fbcParam = getUrlParam('fbc');
+  const fbpParam = getUrlParam('fbp');
   
   // FBC - Click ID
   let fbc = getCookie('_fbc');
-  if (fbclid && !fbc) {
+  if (fbcParam) {
+     fbc = fbcParam;
+     setCookie('_fbc', fbc, 90);
+  } else if (fbclid && !fbc) {
     fbc = 'fb.1.' + Date.now() + '.' + fbclid;
     setCookie('_fbc', fbc, 90);
   }
   
   // FBP - Browser ID
   let fbp = getCookie('_fbp');
-  if (!fbp) {
+  if (fbpParam) {
+      fbp = fbpParam;
+      setCookie('_fbp', fbp, 90);
+  } else if (!fbp) {
     fbp = 'fb.1.' + Date.now() + '.' + Math.floor(Math.random() * 10000000000);
     setCookie('_fbp', fbp, 90);
   }
@@ -72,7 +134,8 @@ export async function GET(request: Request) {
     
     for (var i = 0; i < links.length; i++) {
       var href = links[i].getAttribute('href');
-      if (href && href.includes('/t/')) {
+      // Detectar links para o seu dominio de rastreamento (/t/)
+      if (href && (href.includes('/t/') || href.includes('tracktelegram.vercel.app'))) {
         var url;
         try {
           // Tentar criar URL absoluta
@@ -109,7 +172,10 @@ export async function GET(request: Request) {
           }
         }
 
-        links[i].setAttribute('href', url.toString());
+        // Update href se houver mudanças
+        if (links[i].getAttribute('href') !== url.toString()) {
+            links[i].setAttribute('href', url.toString());
+        }
       }
     }
   }
@@ -126,7 +192,7 @@ export async function GET(request: Request) {
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  console.log("TrackGram: vid=" + vid + ", fbc=" + fbc + ", fbp=" + fbp);
+  console.log("TrackGram: connected. vid=" + vid);
 })();
 `;
 

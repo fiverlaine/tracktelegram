@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Plus, Globe, Trash2, CheckCircle2, Eye, Copy } from "lucide-react";
 import { toast } from "sonner";
 
@@ -15,13 +16,16 @@ interface Domain {
     domain: string;
     verified: boolean;
     created_at: string;
+    pixel_id?: string;
+    pixels?: { name: string };
 }
 
 export default function DomainsPage() {
     const [domains, setDomains] = useState<Domain[]>([]);
+    const [pixels, setPixels] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
-    const [newDomain, setNewDomain] = useState("");
+    const [formData, setFormData] = useState({ domain: "", pixel_id: "" });
     const [saving, setSaving] = useState(false);
     const [detailsOpen, setDetailsOpen] = useState<Record<string, boolean>>({});
 
@@ -29,13 +33,19 @@ export default function DomainsPage() {
 
     useEffect(() => {
         fetchDomains();
+        fetchPixels();
     }, []);
+
+    async function fetchPixels() {
+        const { data } = await supabase.from("pixels").select("id, name");
+        if (data) setPixels(data);
+    }
 
     async function fetchDomains() {
         setLoading(true);
         const { data, error } = await supabase
             .from("domains")
-            .select("*")
+            .select("*, pixels(name)")
             .order("created_at", { ascending: false });
 
         if (error) {
@@ -48,10 +58,10 @@ export default function DomainsPage() {
     }
 
     async function handleAddDomain() {
-        if (!newDomain) return;
+        if (!formData.domain) return;
 
         // Basic validation
-        let domainClean = newDomain.replace(/^https?:\/\//, "").replace(/\/$/, "");
+        let domainClean = formData.domain.replace(/^https?:\/\//, "").replace(/\/$/, "");
 
         setSaving(true);
         const { data: { user } } = await supabase.auth.getUser();
@@ -65,6 +75,7 @@ export default function DomainsPage() {
         const { error } = await supabase.from("domains").insert({
             user_id: user.id,
             domain: domainClean,
+            pixel_id: formData.pixel_id || null, // Salvar Pixel vinculado
             verified: true // Auto-verified as requested
         });
 
@@ -73,7 +84,7 @@ export default function DomainsPage() {
             toast.error("Erro ao adicionar domínio");
         } else {
             toast.success("Domínio adicionado!");
-            setNewDomain("");
+            setFormData({ domain: "", pixel_id: "" });
             setOpen(false);
             fetchDomains();
         }
@@ -111,12 +122,31 @@ export default function DomainsPage() {
                                 <Input
                                     id="domain"
                                     placeholder="exemplo.com.br"
-                                    value={newDomain}
-                                    onChange={(e) => setNewDomain(e.target.value)}
+                                    value={formData.domain}
+                                    onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
                                 />
                                 <p className="text-xs text-muted-foreground">
                                     Insira o domínio onde você instalará o script de rastreamento.
                                 </p>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>Pixel (Opcional)</Label>
+                                <p className="text-[10px] text-muted-foreground mb-1">
+                                    Se selecionado, o script instalará automaticamente o Pixel neste domínio.
+                                </p>
+                                <Select
+                                    value={formData.pixel_id}
+                                    onValueChange={(val) => setFormData({ ...formData, pixel_id: val })}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecione um Pixel para Instalação Automática" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {pixels.map(p => (
+                                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
                         <div className="flex justify-end gap-2">
@@ -159,6 +189,11 @@ export default function DomainsPage() {
                                                 <CheckCircle2 className="h-4 w-4" />
                                                 Ativo
                                             </div>
+                                            {domain.pixels?.name && (
+                                                <div className="text-xs text-muted-foreground mt-1">
+                                                    Pixel: {domain.pixels.name}
+                                                </div>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-2">
