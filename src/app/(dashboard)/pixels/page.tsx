@@ -116,12 +116,14 @@ export default function PixelsPage() {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <PageHeader title="Pixels do Facebook" description="Gerencie seus Pixels para rastreamento de conversões via API (CAPI).">
                  <div className="flex items-center gap-4">
-                    {planLimits && (
-                        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs text-gray-400">
-                             <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
-                             {planLimits.pixels === 9999 ? "Ilimitado" : `${pixels.length} / ${planLimits.pixels} pixels`}
-                        </div>
-                    )}
+                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs text-gray-400">
+                    <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-gray-500"} animate-pulse`} />
+                    {!isSubscribed 
+                        ? "0 / 0 pixels"
+                        : planLimits?.pixels === 9999 
+                            ? "Ilimitado" 
+                            : `${pixels.length} / ${planLimits?.pixels || 0} pixels`}
+                </div>
                 </div>
                 <Button 
                     onClick={() => {

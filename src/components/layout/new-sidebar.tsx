@@ -104,32 +104,26 @@ export function NewSidebar() {
       <div className="mt-4 pt-4 border-t border-white/5 w-full px-3">
         {user && (
             <div className="px-4 py-2 mb-2">
-                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Logado como</div>
-                <div className="text-xs text-white font-medium truncate mb-1">{user.email}</div>
-                
-                {isSubscribed && subscription ? (
-                   <div className="mt-2 p-2 bg-gradient-to-r from-violet-900/20 to-fuchsia-900/20 rounded-lg border border-violet-500/20 flex items-center justify-between">
-                      <div>
-                        <div className="text-[10px] text-violet-300 font-semibold">{plan}</div>
-                        <div className="text-[9px] text-gray-500">
+                <div className="flex items-center justify-between mb-2">
+                    <div>
+                         <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Seu Plano</div>
+                         <div className="text-sm font-semibold text-white">{plan || "Gratuito"}</div>
+                    </div>
+                    {isSubscribed && subscription && (
+                        <div className="text-[10px] text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full border border-violet-500/20">
                           {subscription.current_period_end 
-                            ? `Renova em ${differenceInDays(parseISO(subscription.current_period_end), new Date())} dias`
+                            ? `${differenceInDays(parseISO(subscription.current_period_end), new Date())} dias`
                             : "Vitalício"}
                         </div>
-                      </div>
-                      <div className="text-xs text-emerald-400 font-bold">PRO</div>
-                   </div>
-                ) : (
-                  <div className="mt-2 text-[10px] text-gray-600">
-                    Plano Gratuito
-                  </div>
-                )}
+                    )}
+                </div>
+                <div className="text-[10px] text-gray-600 truncate">{user.email}</div>
             </div>
         )}
         {user ? (
             <button 
                 onClick={handleLogout}
-                className="flex items-center gap-3 w-full px-4 py-2.5 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors text-sm font-medium"
+                className="flex items-center gap-3 w-full px-4 py-2.5 text-gray-400 hover:bg-white/5 hover:text-white rounded-xl transition-colors text-sm font-medium"
             >
                 <LogOut size={18} />
                 <span>Sair</span>

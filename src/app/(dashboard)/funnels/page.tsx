@@ -194,12 +194,14 @@ export default function FunnelsPage() {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
              <PageHeader title="Funis de Rastreamento" description="Crie links de rastreamento para suas campanhas e monitore a conversão.">
                  <div className="flex items-center gap-4">
-                    {planLimits && (
-                        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs text-gray-400">
-                             <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
-                             {planLimits.funnels === 'unlimited' ? "Funes Ilimitados" : `${funnels.length} / ${planLimits.funnels} funis`}
-                        </div>
-                    )}
+                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs text-gray-400">
+                    <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-gray-500"} animate-pulse`} />
+                    {!isSubscribed 
+                        ? "0 / 0 funis"
+                        : planLimits?.funnels === 9999 || planLimits?.funnels === 'unlimited'
+                            ? "Ilimitado" 
+                            : `${funnels.length} / ${planLimits?.funnels || 0} funis`}
+                </div>
                 </div>
                 <Button 
                     onClick={handleNewFunnel} 

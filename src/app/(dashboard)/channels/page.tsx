@@ -544,12 +544,14 @@ export default function ChannelsPage() {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
              <PageHeader title="Meus Canais" description="Conecte seu Canal ou Grupo do Telegram para rastrear membros e enviar notificações.">
                  <div className="flex items-center gap-4">
-                    {planLimits && (
-                        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs text-gray-400">
-                             <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
-                             {planLimits.channels === 9999 ? "Ilimitado" : `${bots.length} / ${planLimits.channels} canais`}
-                        </div>
-                    )}
+                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs text-gray-400">
+                    <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-gray-500"} animate-pulse`} />
+                    {!isSubscribed 
+                        ? "0 / 0 canais"
+                        : planLimits?.channels === 9999 
+                            ? "Ilimitado" 
+                            : `${bots.length} / ${planLimits?.channels || 0} canais`}
+                </div>
                 </div>
 
                  <Button 
