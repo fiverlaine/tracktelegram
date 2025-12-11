@@ -149,7 +149,7 @@ const Navigation = () => (
   </nav>
 );
 
-const NeonCard = ({ title, value, icon: Icon, subLabel, subValue, accent, shadow }) => (
+const NeonCard = ({ title, value, icon: Icon, subLabel, subValue, accent, shadow }: any) => (
   <div className="relative group">
     <div className={`absolute inset-0 bg-gradient-to-r ${accent} rounded-2xl opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500 -z-10`} />
     <div className="h-full bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/5 p-5 rounded-2xl hover:-translate-y-1 transition-transform duration-300 flex flex-col justify-between overflow-hidden relative">
@@ -182,8 +182,8 @@ const NeonCard = ({ title, value, icon: Icon, subLabel, subValue, accent, shadow
   </div>
 );
 
-const RetentionRow = ({ data }) => {
-  const getStatusColor = (status) => {
+const RetentionRow = ({ data }: any) => {
+  const getStatusColor = (status: any) => {
     if (status === 'high') return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
     if (status === 'med') return 'text-amber-400 bg-amber-400/10 border-amber-400/20';
     return 'text-red-400 bg-red-400/10 border-red-400/20';
