@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { format, startOfDay, endOfDay, subDays } from "date-fns";
+import { format, startOfDay, endOfDay, subDays, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
   Eye, 
@@ -117,6 +117,22 @@ export default function DashboardPage() {
 
     const dailyStats: Record<string, typeof counts> = {};
 
+    // 1. Generate all days in the range (Default: Last 7 days)
+    const end = dateRange?.to || new Date();
+    const start = dateRange?.from || subDays(end, 6);
+    
+    // Normalize dates to avoid discrepancies
+    const rangeDays = eachDayOfInterval({ 
+        start: startOfDay(start), 
+        end: endOfDay(end) 
+    });
+
+    // Initialize stats with 0 for all days
+    rangeDays.forEach(day => {
+        const isoDate = format(day, "yyyy-MM-dd");
+        dailyStats[isoDate] = { pageviews: 0, clicks: 0, joins: 0, leaves: 0 };
+    });
+
     filteredEvents.forEach((event: any) => {
       // Calculate totals
       if (event.event_type === "pageview") counts.pageviews++;
@@ -127,12 +143,14 @@ export default function DashboardPage() {
       // Calculate daily stats
       const eventDate = new Date(event.created_at);
       const isoDate = format(eventDate, "yyyy-MM-dd");
-      if (!dailyStats[isoDate]) dailyStats[isoDate] = { pageviews: 0, clicks: 0, joins: 0, leaves: 0 };
-
-      if (event.event_type === "pageview") dailyStats[isoDate].pageviews++;
-      if (event.event_type === "click") dailyStats[isoDate].clicks++;
-      if (event.event_type === "join") dailyStats[isoDate].joins++;
-      if (event.event_type === "leave") dailyStats[isoDate].leaves++;
+      
+      // Safety check if event date is inside range
+      if (dailyStats[isoDate]) {
+          if (event.event_type === "pageview") dailyStats[isoDate].pageviews++;
+          if (event.event_type === "click") dailyStats[isoDate].clicks++;
+          if (event.event_type === "join") dailyStats[isoDate].joins++;
+          if (event.event_type === "leave") dailyStats[isoDate].leaves++;
+      }
     });
 
     setMetrics(counts);
@@ -142,7 +160,7 @@ export default function DashboardPage() {
       .sort()
       .map(isoDate => {
         const dStats = dailyStats[isoDate];
-        const retentionRateVal = dStats.joins > 0 ? (dStats.joins - dStats.leaves) / dStats.joins : 1;
+        const retentionRateVal = dStats.joins > 0 ? (dStats.joins - dStats.leaves) / dStats.joins : 0;
         
         return {
           name: format(new Date(isoDate), "dd/MM"),
@@ -153,7 +171,7 @@ export default function DashboardPage() {
           joins: dStats.joins,
           leaves: dStats.leaves,
           retencao: Math.round(retentionRateVal * 100) + "%",
-          status: retentionRateVal < 0.8 ? 'low' : 'high'
+          status: retentionRateVal < 0.5 ? 'low' : retentionRateVal < 0.8 ? 'med' : 'high'
         };
       });
 
@@ -468,12 +486,12 @@ export default function DashboardPage() {
             </div>
 
             {/* Retention List */}
-            <div className="bg-[#0a0a0a]/60 backdrop-blur-xl border border-white/5 rounded-2xl p-5 flex flex-col">
+            <div className="bg-[#0a0a0a]/60 backdrop-blur-xl border border-white/5 rounded-2xl p-5 flex flex-col h-[450px]">
               <div className="flex justify-between items-center mb-4 px-1">
                 <div>
                   <h3 className="text-lg font-bold text-white">Retenção</h3>
                   <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">
-                    Últimos 7 dias
+                    {dateRangeDisplay === "Selecionar período" ? "Últimos 7 dias" : dateRangeDisplay}
                   </p>
                 </div>
                 <button className="p-1.5 hover:bg-white/5 rounded-lg text-gray-400 transition-colors">
@@ -481,9 +499,25 @@ export default function DashboardPage() {
                 </button>
               </div>
 
+              {/* Table Header */}
+              <div className="flex items-center justify-between px-3 py-2 border-b border-white/5 mb-2">
+                <div className="flex items-center gap-3 w-[120px]">
+                    <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Dia</span>
+                </div>
+                <div className="hidden sm:block text-right w-[80px]">
+                    <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Entradas</span>
+                </div>
+                <div className="hidden sm:block text-right w-[80px]">
+                    <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Saídas</span>
+                </div>
+                <div className="text-right w-[80px]">
+                    <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Retenção</span>
+                </div>
+              </div>
+
               <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
                 {chartData.length > 0 ? (
-                  [...chartData].reverse().slice(0, 7).map((data: any, idx: number) => (
+                  [...chartData].reverse().map((data: any, idx: number) => (
                     <RetentionRow key={idx} data={{
                           dia: data.date,
                           entradas: data.joins,
