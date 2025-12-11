@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useRouter } from "next/navigation";
+import { getPlanLimits } from "@/config/subscription-plans";
 
 interface Funnel {
     id: string;
@@ -31,8 +32,9 @@ export default function FunnelsPage() {
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
     
-    const { isSubscribed, isLoading: subLoading } = useSubscription();
+    const { isSubscribed, isLoading: subLoading, plan: planName } = useSubscription();
     const router = useRouter();
+    const planLimits = getPlanLimits(planName);
 
     const [formData, setFormData] = useState({
         name: "",
@@ -83,6 +85,12 @@ export default function FunnelsPage() {
         
         if (!isSubscribed) {
             toast.error("Assine um plano para criar funis e liberar todos os recursos.");
+            router.push("/subscription");
+            return;
+        }
+
+        if (planLimits && planLimits.funnels !== 'unlimited' && funnels.length >= planLimits.funnels) {
+            toast.error(`Seu plano permite apenas ${planLimits.funnels} funis. Faça upgrade para adicionar mais.`);
             router.push("/subscription");
             return;
         }
@@ -190,6 +198,14 @@ export default function FunnelsPage() {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
              <PageHeader title="Funis de Rastreamento" description="Crie links de rastreamento para suas campanhas e monitore a conversão.">
+                 <div className="flex items-center gap-4">
+                    {planLimits && (
+                        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs text-gray-400">
+                             <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+                             {planLimits.funnels === 'unlimited' ? "Funes Ilimitados" : `${funnels.length} / ${planLimits.funnels} funis`}
+                        </div>
+                    )}
+                </div>
                 <Button 
                     onClick={handleNewFunnel} 
                     className="bg-white text-black hover:bg-gray-200 gap-2 font-bold"

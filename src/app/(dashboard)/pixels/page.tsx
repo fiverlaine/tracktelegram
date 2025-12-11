@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useRouter } from "next/navigation";
+import { getPlanLimits } from "@/config/subscription-plans";
 
 interface Pixel {
     id: string;
@@ -27,8 +28,9 @@ export default function PixelsPage() {
     const [formData, setFormData] = useState({ name: "", pixel_id: "", access_token: "" });
     const [saving, setSaving] = useState(false);
 
-    const { isSubscribed, isLoading: subLoading } = useSubscription();
+    const { isSubscribed, isLoading: subLoading, plan: planName } = useSubscription();
     const router = useRouter();
+    const planLimits = getPlanLimits(planName);
 
     const supabase = createClient();
 
@@ -113,6 +115,14 @@ export default function PixelsPage() {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <PageHeader title="Pixels do Facebook" description="Gerencie seus Pixels para rastreamento de conversões via API (CAPI).">
+                 <div className="flex items-center gap-4">
+                    {planLimits && (
+                        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs text-gray-400">
+                             <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+                             {planLimits.pixels === 9999 ? "Ilimitado" : `${pixels.length} / ${planLimits.pixels} pixels`}
+                        </div>
+                    )}
+                </div>
                 <Button 
                     onClick={() => {
                         if (subLoading) return;
@@ -121,6 +131,13 @@ export default function PixelsPage() {
                             router.push("/subscription");
                             return;
                         }
+
+                        if (planLimits && planLimits.pixels !== 9999 && pixels.length >= planLimits.pixels) {
+                            toast.error(`Seu plano permite apenas ${planLimits.pixels} pixels. Faça upgrade para adicionar mais.`);
+                            router.push("/subscription");
+                            return;
+                        }
+
                         setOpen(true);
                     }}
                     className="bg-white text-black hover:bg-gray-200 gap-2 font-bold"
