@@ -15,15 +15,17 @@ interface Plan {
     highlight?: boolean;
     buttonText?: string;
     color: string;
+    checkoutUrl?: string; // Added field
 }
 
 const plans: Plan[] = [
     {
         id: "starter",
-        name: "Starter",
-        price: "97",
+        name: "Starter (Teste)", // Updated name slightly to indicate checking
+        price: "5", // Updated price
         description: "Ideal para quem está começando a escalar suas campanhas.",
         color: "blue",
+        checkoutUrl: "https://pay.cakto.com.br/whxxcwj_684643", // Added URL
         features: [
             "5 Domínios Personalizados",
             "5 Pixels do Facebook",
@@ -51,6 +53,7 @@ const plans: Plan[] = [
             "Acesso à API (Em breve)"
         ]
     },
+    // ... Enterprise stays same
     {
         id: "enterprise",
         name: "Enterprise",
@@ -74,12 +77,21 @@ export default function SubscriptionPage() {
 
     const handleSubscribe = (planId: string) => {
         setLoading(planId);
+        
+        const plan = plans.find(p => p.id === planId);
+        if (plan?.checkoutUrl) {
+             window.location.href = plan.checkoutUrl;
+             return;
+        }
+
         // Placeholder for future payment gateway integration
         setTimeout(() => {
-            toast.info("Integração de pagamento em breve!");
+            toast.info("Em breve disponível!");
             setLoading(null);
         }, 1000);
     };
+    
+    // ... Rest of component stays same
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
