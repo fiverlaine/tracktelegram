@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Plus, Globe, Trash2, CheckCircle2, Eye, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
+import { useSubscription } from "@/hooks/use-subscription";
+import { useRouter } from "next/navigation";
 
 interface Domain {
     id: string;
@@ -28,6 +30,9 @@ export default function DomainsPage() {
     const [formData, setFormData] = useState({ domain: "", pixel_id: "" });
     const [saving, setSaving] = useState(false);
     const [detailsOpen, setDetailsOpen] = useState<Record<string, boolean>>({});
+
+    const { isSubscribed, isLoading: subLoading } = useSubscription();
+    const router = useRouter();
 
     const supabase = createClient();
 
@@ -56,6 +61,18 @@ export default function DomainsPage() {
         }
         setLoading(false);
     }
+
+    const handleNewDomain = () => {
+        if (subLoading) return;
+        
+        if (!isSubscribed) {
+            toast.error("Assine um plano para adicionar domínios.");
+            router.push("/subscription");
+            return;
+        }
+
+        setOpen(true);
+    };
 
     async function handleAddDomain() {
         if (!formData.domain) return;
@@ -104,13 +121,15 @@ export default function DomainsPage() {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <PageHeader title="Meus Domínios" description="Gerencie os domínios onde o script de rastreamento será instalado.">
+                <Button 
+                    onClick={handleNewDomain} 
+                    className="bg-white text-black hover:bg-gray-200 gap-2 font-bold"
+                >
+                    <Plus className="h-4 w-4" />
+                    Adicionar Domínio
+                </Button>
+
                 <Dialog open={open} onOpenChange={setOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="bg-white text-black hover:bg-gray-200 gap-2 font-bold">
-                            <Plus className="h-4 w-4" />
-                            Adicionar Domínio
-                        </Button>
-                    </DialogTrigger>
                     <DialogContent className="bg-[#0a0a0a] border-white/10 text-white sm:max-w-[425px]">
                         <DialogHeader>
                             <DialogTitle className="text-white">Novo Domínio</DialogTitle>
@@ -159,7 +178,8 @@ export default function DomainsPage() {
                     </DialogContent>
                 </Dialog>
             </PageHeader>
-
+            
+            {/* Rest of the component (domain list) */}
             <div className="space-y-4">
                 {loading ? (
                     <div className="flex justify-center p-8"><Loader2 className="animate-spin text-violet-500" /></div>

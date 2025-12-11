@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Loader2, BarChart2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
+import { useSubscription } from "@/hooks/use-subscription";
+import { useRouter } from "next/navigation";
 
 interface Pixel {
     id: string;
@@ -24,6 +26,9 @@ export default function PixelsPage() {
     const [open, setOpen] = useState(false);
     const [formData, setFormData] = useState({ name: "", pixel_id: "", access_token: "" });
     const [saving, setSaving] = useState(false);
+
+    const { isSubscribed, isLoading: subLoading } = useSubscription();
+    const router = useRouter();
 
     const supabase = createClient();
 
@@ -107,14 +112,24 @@ export default function PixelsPage() {
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <PageHeader title="Pixels do Facebook" description="Gerencie seus Pixels para rastreamento de conversões via API (CAPI).">
+            <PageHeader title="Pixels do Facebook" description="Gerencie seus Pixels para rastreamento de conversões via API (CAPI).">
+                <Button 
+                    onClick={() => {
+                        if (subLoading) return;
+                        if (!isSubscribed) {
+                            toast.error("Assine um plano para adicionar pixels.");
+                            router.push("/subscription");
+                            return;
+                        }
+                        setOpen(true);
+                    }}
+                    className="bg-white text-black hover:bg-gray-200 gap-2 font-bold"
+                >
+                    <Plus className="h-4 w-4" />
+                    Novo Pixel
+                </Button>
+
                 <Dialog open={open} onOpenChange={setOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="bg-white text-black hover:bg-gray-200 gap-2 font-bold">
-                            <Plus className="h-4 w-4" />
-                            Novo Pixel
-                        </Button>
-                    </DialogTrigger>
                     <DialogContent className="bg-[#0a0a0a] border-white/10 text-white sm:max-w-[425px]">
                         <DialogHeader>
                             <DialogTitle className="text-white">Novo Pixel do Facebook</DialogTitle>

@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Loader2, Bot, CheckCircle2, AlertTriangle, ExternalLink, Zap, Copy, Check, Info, XCircle, RefreshCw, Save, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
+import { useSubscription } from "@/hooks/use-subscription";
+import { useRouter } from "next/navigation";
 
 interface TelegramBot {
     id: string;
@@ -61,6 +63,9 @@ export default function ChannelsPage() {
     const [chatIdInput, setChatIdInput] = useState<Record<string, string>>({});
     const [savingChatId, setSavingChatId] = useState<string | null>(null);
     const [detailsOpen, setDetailsOpen] = useState<Record<string, boolean>>({});
+
+    const { isSubscribed, isLoading: subLoading } = useSubscription();
+    const router = useRouter();
 
     const supabase = createClient();
 
@@ -537,13 +542,24 @@ export default function ChannelsPage() {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
              <PageHeader title="Meus Canais" description="Conecte seu Canal ou Grupo do Telegram para rastrear membros e enviar notificações.">
+
+                 <Button 
+                     onClick={() => {
+                        if (subLoading) return;
+                        if (!isSubscribed) {
+                            toast.error("Assine um plano para adicionar canais.");
+                            router.push("/subscription");
+                            return;
+                        }
+                        setOpen(true);
+                     }} 
+                     className="bg-white text-black hover:bg-gray-200 gap-2 font-bold"
+                 >
+                     <Plus className="h-4 w-4" />
+                     Adicionar Canal
+                 </Button>
+
                  <Dialog open={open} onOpenChange={setOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="bg-white text-black hover:bg-gray-200 gap-2 font-bold">
-                            <Plus className="h-4 w-4" />
-                            Adicionar Canal
-                        </Button>
-                    </DialogTrigger>
                     <DialogContent className="sm:max-w-[500px] bg-[#0a0a0a] border-white/10 text-white">
                         <DialogHeader>
                             <DialogTitle className="text-white">Configurar Novo Canal</DialogTitle>

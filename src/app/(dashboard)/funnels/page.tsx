@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Plus, Copy, Check, Trash2, Link as LinkIcon, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
+import { useSubscription } from "@/hooks/use-subscription";
+import { useRouter } from "next/navigation";
 
 interface Funnel {
     id: string;
@@ -28,6 +30,9 @@ export default function FunnelsPage() {
     const [bots, setBots] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
+    
+    const { isSubscribed, isLoading: subLoading } = useSubscription();
+    const router = useRouter();
 
     const [formData, setFormData] = useState({
         name: "",
@@ -72,6 +77,18 @@ export default function FunnelsPage() {
         }
         setLoading(false);
     }
+
+    const handleNewFunnel = () => {
+        if (subLoading) return;
+        
+        if (!isSubscribed) {
+            toast.error("Assine um plano para criar funis e liberar todos os recursos.");
+            router.push("/subscription");
+            return;
+        }
+
+        setOpen(true);
+    };
 
     async function handleSave() {
         setSaving(true);
@@ -173,13 +190,15 @@ export default function FunnelsPage() {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
              <PageHeader title="Funis de Rastreamento" description="Crie links de rastreamento para suas campanhas e monitore a conversão.">
+                <Button 
+                    onClick={handleNewFunnel} 
+                    className="bg-white text-black hover:bg-gray-200 gap-2 font-bold"
+                >
+                    <Plus className="h-4 w-4" />
+                    Novo Funil
+                </Button>
+
                 <Dialog open={open} onOpenChange={setOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="bg-white text-black hover:bg-gray-200 gap-2 font-bold">
-                            <Plus className="h-4 w-4" />
-                            Novo Funil
-                        </Button>
-                    </DialogTrigger>
                     <DialogContent className="sm:max-w-[425px] bg-[#0a0a0a] border-white/10 text-white">
                         <DialogHeader>
                             <DialogTitle className="text-white">Criar Link de Rastreamento</DialogTitle>
