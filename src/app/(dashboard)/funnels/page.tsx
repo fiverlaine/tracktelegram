@@ -4,13 +4,12 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, ArrowRight, Copy, Check, Trash2 } from "lucide-react";
+import { Loader2, Plus, Copy, Check, Trash2, Link as LinkIcon, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/layout/page-header";
 
 interface Funnel {
     id: string;
@@ -84,7 +83,6 @@ export default function FunnelsPage() {
             return;
         }
 
-        // Validações obrigatórias
         if (!formData.name) {
             toast.error("Nome da campanha é obrigatório.");
             setSaving(false);
@@ -104,7 +102,6 @@ export default function FunnelsPage() {
         }
 
         if (!formData.slug) {
-            // Auto-generate slug if not provided
             formData.slug = formData.name.toLowerCase().replace(/ /g, "-") + "-" + Math.random().toString(36).substring(7);
         }
 
@@ -147,19 +144,16 @@ export default function FunnelsPage() {
 
         setDeleting(id);
 
-        // Deletar eventos relacionados primeiro (opcional, mas limpa o banco)
         await supabase
             .from("events")
             .delete()
             .eq("funnel_id", id);
 
-        // Deletar links de visitantes relacionados
         await supabase
             .from("visitor_telegram_links")
             .delete()
             .eq("funnel_id", id);
 
-        // Agora deletar o funil
         const { error } = await supabase
             .from("funnels")
             .delete()
@@ -178,143 +172,171 @@ export default function FunnelsPage() {
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold tracking-tight">Funis de Rastreamento</h1>
+             <PageHeader title="Funis de Rastreamento" description="Crie links de rastreamento para suas campanhas e monitore a conversão.">
                 <Dialog open={open} onOpenChange={setOpen}>
                     <DialogTrigger asChild>
-                        <Button className="bg-primary hover:bg-primary/90 text-white gap-2">
+                        <Button className="bg-white text-black hover:bg-gray-200 gap-2 font-bold">
                             <Plus className="h-4 w-4" />
                             Novo Funil
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px] bg-card border-border">
+                    <DialogContent className="sm:max-w-[425px] bg-[#0a0a0a] border-white/10 text-white">
                         <DialogHeader>
-                            <DialogTitle>Criar Link de Rastreamento</DialogTitle>
+                            <DialogTitle className="text-white">Criar Link de Rastreamento</DialogTitle>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="name">Nome da Campanha</Label>
+                                <Label htmlFor="name" className="text-gray-400">Nome da Campanha</Label>
                                 <Input
                                     id="name"
                                     placeholder="Ex: Campanha FB Ads #01"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="slug">Slug Personalizado (Opcional)</Label>
+                                <Label htmlFor="slug" className="text-gray-400">Slug Personalizado (Opcional)</Label>
                                 <Input
                                     id="slug"
                                     placeholder="promocao-especial"
                                     value={formData.slug}
                                     onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
                                 />
-                                <p className="text-[10px] text-muted-foreground">O link final será: {typeof window !== 'undefined' ? window.location.origin : '...'}/t/seu-slug</p>
+                                <p className="text-[10px] text-gray-500">O link final será: {typeof window !== 'undefined' ? window.location.origin : '...'}/t/seu-slug</p>
                             </div>
                             <div className="grid gap-2">
-                                <Label>Pixel do Facebook</Label>
+                                <Label className="text-gray-400">Pixel do Facebook</Label>
                                 <Select
                                     value={formData.pixel_id}
                                     onValueChange={(val) => setFormData({ ...formData, pixel_id: val })}
                                 >
-                                    <SelectTrigger>
+                                    <SelectTrigger className="bg-black/40 border-white/10 text-white">
                                         <SelectValue placeholder="Selecione um Pixel" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="bg-[#0a0a0a] border-white/10 text-white">
                                         {pixels.map(p => (
-                                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                            <SelectItem key={p.id} value={p.id} className="focus:bg-white/10 focus:text-white">{p.name}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="grid gap-2">
-                                <Label>Canal de Destino (Bot)</Label>
+                                <Label className="text-gray-400">Canal de Destino (Bot)</Label>
                                 <Select
                                     value={formData.bot_id}
                                     onValueChange={(val) => setFormData({ ...formData, bot_id: val })}
                                 >
-                                    <SelectTrigger>
+                                    <SelectTrigger className="bg-black/40 border-white/10 text-white">
                                         <SelectValue placeholder="Selecione um Bot" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="bg-[#0a0a0a] border-white/10 text-white">
                                         {bots.map(b => (
-                                            <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                                            <SelectItem key={b.id} value={b.id} className="focus:bg-white/10 focus:text-white">{b.name}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
                         </div>
                         <div className="flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-                            <Button onClick={handleSave} disabled={saving} className="bg-primary text-white">
+                            <Button variant="outline" onClick={() => setOpen(false)} className="bg-transparent border-white/10 hover:bg-white/5 text-gray-400">Cancelar</Button>
+                            <Button onClick={handleSave} disabled={saving} className="bg-violet-600 hover:bg-violet-700 text-white">
                                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Criar Link
                             </Button>
                         </div>
                     </DialogContent>
                 </Dialog>
-            </div>
+            </PageHeader>
 
-            <div className="space-y-4">
-                {loading ? (
-                    <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>
-                ) : funnels.length === 0 ? (
-                    <div className="text-center p-8 text-muted-foreground border border-dashed rounded-lg">
-                        Você ainda não criou nenhum funil.
-                    </div>
-                ) : (
-                    <div className="rounded-md border border-border bg-card/50 backdrop-blur-sm">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="hover:bg-transparent border-border">
-                                    <TableHead>Campanha</TableHead>
-                                    <TableHead>Link Gerado</TableHead>
-                                    <TableHead>Configurações</TableHead>
-                                    <TableHead className="text-right">Ações</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {funnels.map(funnel => (
-                                    <TableRow key={funnel.id} className="hover:bg-muted/50 border-border">
-                                        <TableCell className="font-medium">{funnel.name}</TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2 bg-background/50 p-2 rounded-md border border-border text-xs font-mono max-w-[300px] overflow-hidden">
-                                                <span className="truncate">{typeof window !== 'undefined' ? `${window.location.origin}/t/${funnel.slug}` : `/t/${funnel.slug}`}</span>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6 shrink-0"
-                                                    onClick={() => handleCopyLink(funnel.slug)}
-                                                >
-                                                    {copiedId === funnel.slug ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">
-                                            Pixel: {funnel.pixels?.name || '-'} <br />
-                                            Bot: {funnel.telegram_bots?.name || '-'}
-                                        </TableCell>
-                                        <TableCell className="text-right">
+            <div className="bg-[#0a0a0a]/60 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden">
+                <table className="w-full text-sm text-left">
+                    <thead className="text-xs text-gray-500 uppercase bg-white/5 border-b border-white/5">
+                        <tr>
+                            <th className="px-6 py-4 font-medium">Campanha</th>
+                            <th className="px-6 py-4 font-medium">Link Gerado</th>
+                            <th className="px-6 py-4 font-medium">Configurações</th>
+                            <th className="px-6 py-4 font-medium text-right">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                        {loading ? (
+                            <tr>
+                                <td colSpan={4} className="px-6 py-8 text-center text-violet-500">
+                                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                                </td>
+                            </tr>
+                        ) : funnels.length === 0 ? (
+                            <tr>
+                                <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                                    Você ainda não criou nenhum funil.
+                                </td>
+                            </tr>
+                        ) : (
+                            funnels.map(funnel => (
+                                <tr key={funnel.id} className="hover:bg-white/5 transition-colors group text-gray-300">
+                                    <td className="px-6 py-4 font-medium text-white flex items-center gap-3">
+                                        <div className="p-2 rounded-lg bg-pink-500/10 text-pink-400 hidden sm:block">
+                                            <LinkIcon className="h-4 w-4" />
+                                        </div>
+                                        {funnel.name}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-2 bg-black/40 p-2 rounded-lg border border-white/5 text-xs font-mono max-w-[300px] overflow-hidden group/link">
+                                            <span className="truncate text-gray-400 group-hover/link:text-gray-300 transition-colors">
+                                                {typeof window !== 'undefined' ? `${window.location.origin}/t/${funnel.slug}` : `/t/${funnel.slug}`}
+                                            </span>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-                                                onClick={() => handleDelete(funnel.id, funnel.name)}
-                                                disabled={deleting === funnel.id}
+                                                className="h-6 w-6 shrink-0 text-gray-500 hover:text-white hover:bg-white/10"
+                                                onClick={() => handleCopyLink(funnel.slug)}
                                             >
-                                                {deleting === funnel.id ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <Trash2 className="h-4 w-4" />
-                                                )}
+                                                {copiedId === funnel.slug ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
                                             </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-                )}
+                                            <a 
+                                                href={`/t/${funnel.slug}`} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="h-6 w-6 flex items-center justify-center rounded-md text-gray-500 hover:text-white hover:bg-white/10"
+                                            >
+                                                <ExternalLink className="h-3 w-3" />
+                                            </a>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-xs text-gray-500">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="flex items-center gap-2">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                                Pixel: <span className="text-gray-300">{funnel.pixels?.name || '-'}</span>
+                                            </span>
+                                            <span className="flex items-center gap-2">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                Bot: <span className="text-gray-300">{funnel.telegram_bots?.name || '-'}</span>
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-gray-500 hover:text-red-400 hover:bg-red-500/10"
+                                            onClick={() => handleDelete(funnel.id, funnel.name)}
+                                            disabled={deleting === funnel.id}
+                                        >
+                                            {deleting === funnel.id ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Trash2 className="h-4 w-4" />
+                                            )}
+                                        </Button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
             </div>
         </div>
     );

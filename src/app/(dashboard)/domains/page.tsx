@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Plus, Globe, Trash2, CheckCircle2, Eye, Copy } from "lucide-react";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/layout/page-header";
 
 interface Domain {
     id: string;
@@ -103,135 +103,139 @@ export default function DomainsPage() {
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold tracking-tight">Meus Domínios</h1>
+            <PageHeader title="Meus Domínios" description="Gerencie os domínios onde o script de rastreamento será instalado.">
                 <Dialog open={open} onOpenChange={setOpen}>
                     <DialogTrigger asChild>
-                        <Button className="bg-primary hover:bg-primary/90 text-white gap-2">
+                        <Button className="bg-white text-black hover:bg-gray-200 gap-2 font-bold">
                             <Plus className="h-4 w-4" />
                             Adicionar Domínio
                         </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="bg-[#0a0a0a] border-white/10 text-white sm:max-w-[425px]">
                         <DialogHeader>
-                            <DialogTitle>Novo Domínio</DialogTitle>
+                            <DialogTitle className="text-white">Novo Domínio</DialogTitle>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="domain">URL do Site</Label>
+                                <Label htmlFor="domain" className="text-gray-400">URL do Site</Label>
                                 <Input
                                     id="domain"
                                     placeholder="exemplo.com.br"
                                     value={formData.domain}
                                     onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
                                 />
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-xs text-gray-500">
                                     Insira o domínio onde você instalará o script de rastreamento.
                                 </p>
                             </div>
                             <div className="grid gap-2">
-                                <Label>Pixel (Opcional)</Label>
-                                <p className="text-[10px] text-muted-foreground mb-1">
+                                <Label className="text-gray-400">Pixel (Opcional)</Label>
+                                <p className="text-[10px] text-gray-500 mb-1">
                                     Se selecionado, o script instalará automaticamente o Pixel neste domínio.
                                 </p>
                                 <Select
                                     value={formData.pixel_id}
                                     onValueChange={(val) => setFormData({ ...formData, pixel_id: val })}
                                 >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecione um Pixel para Instalação Automática" />
+                                    <SelectTrigger className="bg-black/40 border-white/10 text-white">
+                                        <SelectValue placeholder="Selecione um Pixel" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="bg-[#0a0a0a] border-white/10 text-white">
                                         {pixels.map(p => (
-                                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                            <SelectItem key={p.id} value={p.id} className="focus:bg-white/10 focus:text-white cursor-pointer">{p.name}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
                         </div>
                         <div className="flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-                            <Button onClick={handleAddDomain} disabled={saving}>
+                            <Button variant="outline" onClick={() => setOpen(false)} className="bg-transparent border-white/10 hover:bg-white/5 text-gray-400">Cancelar</Button>
+                            <Button onClick={handleAddDomain} disabled={saving} className="bg-violet-600 hover:bg-violet-700 text-white">
                                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Adicionar
                             </Button>
                         </div>
                     </DialogContent>
                 </Dialog>
-            </div>
+            </PageHeader>
 
             <div className="space-y-4">
                 {loading ? (
-                    <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>
+                    <div className="flex justify-center p-8"><Loader2 className="animate-spin text-violet-500" /></div>
                 ) : domains.length === 0 ? (
-                    <div className="text-center p-8 text-muted-foreground border border-dashed rounded-lg">
+                    <div className="text-center p-8 text-gray-500 border border-dashed border-white/10 rounded-2xl bg-white/[0.02]">
                         Nenhum domínio cadastrado. Adicione o site onde sua página de vendas está hospedada.
                     </div>
                 ) : (
-                    <div className="rounded-md border border-border bg-card/50 backdrop-blur-sm">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Domínio</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Ações</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
+                    <div className="bg-[#0a0a0a]/60 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-xs text-gray-500 uppercase bg-white/5 border-b border-white/5">
+                                <tr>
+                                    <th className="px-6 py-4 font-medium">Domínio</th>
+                                    <th className="px-6 py-4 font-medium">Status</th>
+                                    <th className="px-6 py-4 font-medium text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
                                 {domains.map(domain => (
-                                    <TableRow key={domain.id}>
-                                        <TableCell className="font-medium flex items-center gap-2">
-                                            <Globe className="h-4 w-4 text-muted-foreground" />
-                                            {domain.domain}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2 text-green-500 text-sm">
-                                                <CheckCircle2 className="h-4 w-4" />
-                                                Ativo
+                                    <tr key={domain.id} className="hover:bg-white/5 transition-colors group">
+                                        <td className="px-6 py-4 font-medium text-white flex items-center gap-3">
+                                            <div className="p-2 rounded-lg bg-white/5 text-gray-400">
+                                                <Globe className="h-4 w-4" />
                                             </div>
-                                            {domain.pixels?.name && (
-                                                <div className="text-xs text-muted-foreground mt-1">
-                                                    Pixel: {domain.pixels.name}
+                                            {domain.domain}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+                                                    <CheckCircle2 className="h-3 w-3" />
+                                                    Ativo
                                                 </div>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex items-center justify-end gap-2">
+                                                {domain.pixels?.name && (
+                                                    <span className="text-xs text-gray-500 bg-white/5 px-2 py-1 rounded-md">
+                                                        {domain.pixels.name}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex items-center justify-end gap-2 text-gray-400">
                                                 <Dialog open={detailsOpen[domain.id] || false} onOpenChange={(open) => setDetailsOpen(prev => ({ ...prev, [domain.id]: open }))}>
                                                     <DialogTrigger asChild>
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
-                                                            title="Ver detalhes e script"
+                                                            className="hover:bg-white/10 hover:text-white"
+                                                            title="Ver detalhes"
                                                         >
                                                             <Eye className="h-4 w-4" />
                                                         </Button>
                                                     </DialogTrigger>
-                                                    <DialogContent className="sm:max-w-[600px] bg-card border-border max-h-[90vh] overflow-y-auto">
+                                                    <DialogContent className="sm:max-w-[600px] bg-[#0a0a0a] border-white/10 text-white max-h-[90vh] overflow-y-auto">
                                                         <DialogHeader>
-                                                            <DialogTitle className="flex items-center gap-2">
-                                                                <Globe className="h-5 w-5 text-primary" />
+                                                            <DialogTitle className="flex items-center gap-2 text-white">
+                                                                <Globe className="h-5 w-5 text-violet-500" />
                                                                 Detalhes: {domain.domain}
                                                             </DialogTitle>
                                                         </DialogHeader>
                                                         <div className="space-y-6 py-4">
                                                             {/* Status */}
-                                                            <div className="flex items-center gap-2 text-green-500 text-sm">
+                                                            <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium">
                                                                 <CheckCircle2 className="h-4 w-4" />
-                                                                <span className="font-medium">Domínio Ativo</span>
+                                                                <span>Domínio Ativo</span>
                                                             </div>
 
                                                             {/* Script de Instalação */}
                                                             <div className="space-y-3">
                                                                 <div>
-                                                                    <h3 className="font-semibold mb-2">Script de Rastreamento</h3>
-                                                                    <p className="text-sm text-muted-foreground mb-3">
-                                                                        Copie o script abaixo e cole no <code className="bg-muted px-1 py-0.5 rounded">&lt;head&gt;</code> de todas as páginas do seu site <strong>{domain.domain}</strong>.
-                                                                        Este script é responsável por capturar os dados do Facebook e identificar o usuário.
+                                                                    <h3 className="font-semibold text-white mb-2">Script de Rastreamento</h3>
+                                                                    <p className="text-sm text-gray-400 mb-3">
+                                                                        Copie o script abaixo e cole no <code className="bg-white/10 px-1 py-0.5 rounded text-gray-300">&lt;head&gt;</code> de todas as páginas do seu site <strong>{domain.domain}</strong>.
                                                                     </p>
                                                                 </div>
                                                                 
-                                                                <div className="bg-muted p-4 rounded-md font-mono text-xs overflow-x-auto relative group">
+                                                                <div className="bg-black/50 border border-white/10 p-4 rounded-xl font-mono text-xs overflow-x-auto relative group text-gray-300">
                                                                     <pre className="whitespace-pre-wrap">
 {`<script>
   (function(w,d,s,l,i){
@@ -247,7 +251,7 @@ export default function DomainsPage() {
                                                                     <Button
                                                                         variant="secondary"
                                                                         size="sm"
-                                                                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white text-black hover:bg-gray-200"
                                                                         onClick={() => {
                                                                             const code = `<script>
   (function(w,d,s,l,i){
@@ -270,12 +274,12 @@ export default function DomainsPage() {
                                                             </div>
 
                                                             {/* Instruções */}
-                                                            <div className="bg-blue-500/10 border border-blue-500/30 p-4 rounded-lg text-sm">
+                                                            <div className="bg-blue-500/5 border border-blue-500/20 p-4 rounded-xl text-sm">
                                                                 <h4 className="font-semibold text-blue-400 mb-2">Instruções de Instalação:</h4>
-                                                                <ol className="list-decimal pl-4 space-y-1 text-muted-foreground">
+                                                                <ol className="list-decimal pl-4 space-y-1 text-gray-400">
                                                                     <li>Copie o script acima</li>
-                                                                    <li>Cole no <code className="bg-muted px-1 py-0.5 rounded">&lt;head&gt;</code> de todas as páginas do seu site</li>
-                                                                    <li>Certifique-se de que o script está presente antes do fechamento da tag <code className="bg-muted px-1 py-0.5 rounded">&lt;/head&gt;</code></li>
+                                                                    <li>Cole no <code className="bg-white/10 px-1 py-0.5 rounded text-gray-300">&lt;head&gt;</code> de todas as páginas do seu site</li>
+                                                                    <li>Certifique-se de que o script está presente antes do fechamento da tag <code className="bg-white/10 px-1 py-0.5 rounded text-gray-300">&lt;/head&gt;</code></li>
                                                                     <li>O script funciona automaticamente após a instalação</li>
                                                                 </ol>
                                                             </div>
@@ -286,20 +290,19 @@ export default function DomainsPage() {
                                                     variant="ghost"
                                                     size="icon"
                                                     onClick={() => handleDelete(domain.id)}
-                                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                                    className="hover:bg-red-500/10 hover:text-red-400"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             </div>
-                                        </TableCell>
-                                    </TableRow>
+                                        </td>
+                                    </tr>
                                 ))}
-                            </TableBody>
-                        </Table>
+                            </tbody>
+                        </table>
                     </div>
                 )}
             </div>
-
         </div>
     );
 }

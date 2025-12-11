@@ -32,75 +32,84 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
 
     const vid = search.vid as string;
 
+    // --- FETCH FUNNEL SERVER SIDE (Always) ---
+    // Usamos Service Role se disponível para garantir acesso, ou Anon se não tiver
+    // Isso evita problemas de RLS no client-side para visitantes anônimos
+    const { data: funnel } = await supabase
+        .from("funnels")
+        .select(`
+            *,
+            pixels(*),
+            telegram_bots(
+                id,
+                name,
+                username,
+                channel_link,
+                bot_token,
+                chat_id
+            )
+        `)
+        .eq("slug", slug)
+        .single();
+
     // --- MODO RÁPIDO (Server-Side Redirect) ---
     // Se já temos o Visitor ID (vindo da Landing Page), processamos tudo no servidor
-    if (vid) {
+    if (vid && funnel) {
         console.log(`[SSR] Processando acesso rápido para VID: ${vid}`);
         
-        // 1. Buscar Funil
-        const { data: funnel } = await supabase
-            .from("funnels")
-            .select("*, telegram_bots(*)")
-            .eq("slug", slug)
-            .single();
+        // 2. Rastrear Clique (Assíncrono - fire & forget)
+        const clickData = {
+            timestamp: new Date().toISOString(),
+            fbclid: search.fbclid,
+            fbc: search.fbc,
+            fbp: search.fbp,
+            user_agent: userAgent,
+            page_url: `https://${headersList.get("host")}/t/${slug}`,
+            utm_source: search.utm_source,
+            utm_medium: search.utm_medium,
+            utm_campaign: search.utm_campaign,
+            utm_content: search.utm_content,
+            utm_term: search.utm_term,
+            ip_address: ip,
+            city, country, region
+        };
 
-        if (funnel) {
-            // 2. Rastrear Clique (Assíncrono - fire & forget)
-            // Não usamos 'await' para não bloquear o redirect, mas em serverless
-            // é ideal usar await leve ou context.waitUntil (se disponível)
-            // Aqui vamos usar await rápido pois precisamos garantir o insert
-            const clickData = {
-                timestamp: new Date().toISOString(),
-                fbclid: search.fbclid,
-                fbc: search.fbc,
-                fbp: search.fbp,
-                user_agent: userAgent,
-                page_url: `https://${headersList.get("host")}/t/${slug}`,
-                utm_source: search.utm_source,
-                utm_medium: search.utm_medium,
-                utm_campaign: search.utm_campaign,
-                utm_content: search.utm_content,
-                utm_term: search.utm_term,
-                ip_address: ip,
-                city, country, region
-            };
+        let destinationUrl: string | null = null;
+        
+        try {
+            // Registrar clique
+            await supabase.from("events").insert({
+                funnel_id: funnel.id,
+                visitor_id: vid,
+                event_type: "click", // Consideramos 'click' pois é a transição para o canal
+                metadata: clickData
+            });
 
-            let destinationUrl: string | null = null;
-            
-            try {
-                // Registrar clique
-                await supabase.from("events").insert({
-                    funnel_id: funnel.id,
-                    visitor_id: vid,
-                    event_type: "click", // Consideramos 'click' pois é a transição para o canal
-                    metadata: clickData
-                });
+            // 3. Gerar Link Telegram
+            const result = await generateTelegramInvite({
+                funnelId: funnel.id,
+                visitorId: vid,
+                bot: funnel.telegram_bots
+            });
 
-                // 3. Gerar Link Telegram
-                const result = await generateTelegramInvite({
-                    funnelId: funnel.id,
-                    visitorId: vid,
-                    bot: funnel.telegram_bots
-                });
-
-                if (result?.invite_link) {
-                    destinationUrl = result.invite_link;
-                }
-
-            } catch (err) {
-                console.error("[SSR] Erro no processamento:", err);
+            if (result?.invite_link) {
+                destinationUrl = result.invite_link;
             }
 
-            // 4. Redirecionar Imediatamente (Fora do try/catch)
-            if (destinationUrl) {
-                console.log(`[SSR] Redirecionando para: ${destinationUrl}`);
-                redirect(destinationUrl);
-            }
+        } catch (err) {
+            console.error("[SSR] Erro no processamento:", err);
+        }
+
+        // 4. Redirecionar Imediatamente (Fora do try/catch)
+        if (destinationUrl) {
+            console.log(`[SSR] Redirecionando para: ${destinationUrl}`);
+            redirect(destinationUrl);
         }
     }
 
     // --- MODO LEGADO / FALLBACK (Client-Side) ---
     // Se o usuário acessou direto sem 'vid', usamos o client-tracking para gerar o ID
+    // Passamos o funnel pré-carregado para evitar fetch no cliente (que falharia com RLS restrito)
     return (
         <ClientTracking 
             slug={slug} 
@@ -110,6 +119,7 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
                 country: country || undefined,
                 region: region || undefined
             }}
+            initialFunnelData={funnel}
         />
     );
 }

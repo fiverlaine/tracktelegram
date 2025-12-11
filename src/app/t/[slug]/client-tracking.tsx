@@ -1,5 +1,6 @@
 "use client";
 
+// ... imports
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
@@ -14,6 +15,7 @@ interface ClientTrackingProps {
     slug: string;
     ip?: string;
     geo?: GeoData;
+    initialFunnelData?: any;
 }
 
 interface FacebookParams {
@@ -22,9 +24,9 @@ interface FacebookParams {
     fbp: string | null;
 }
 
-export default function ClientTracking({ slug, ip, geo }: ClientTrackingProps) {
+export default function ClientTracking({ slug, ip, geo, initialFunnelData }: ClientTrackingProps) {
     const [loading, setLoading] = useState(true);
-    const [funnel, setFunnel] = useState<any>(null);
+    const [funnel, setFunnel] = useState<any>(initialFunnelData || null);
     const [error, setError] = useState<string | null>(null);
     const [visitorId, setVisitorId] = useState<string>("");
     const [fbParams, setFbParams] = useState<FacebookParams>({ fbclid: null, fbc: null, fbp: null });
@@ -41,29 +43,35 @@ export default function ClientTracking({ slug, ip, geo }: ClientTrackingProps) {
             const fb = captureFacebookParams();
             setFbParams(fb);
 
-            // 3. Fetch Funnel Details
-            const { data, error } = await supabase
-                .from("funnels")
-                .select(`
-                    *,
-                    pixels(*),
-                    telegram_bots(
-                        id,
-                        name,
-                        username,
-                        channel_link,
-                        bot_token,
-                        chat_id
-                    )
-                `)
-                .eq("slug", slug)
-                .single();
+            let data = funnel;
 
-            if (error || !data) {
-                console.error("Erro ao buscar funil:", error);
-                setError("Link inválido ou expirado.");
-                setLoading(false);
-                return;
+            // 3. Fetch Funnel Details (ONLY if not provided)
+            if (!data) {
+                 const { data: fetchedData, error } = await supabase
+                    .from("funnels")
+                    .select(`
+                        *,
+                        pixels(*),
+                        telegram_bots(
+                            id,
+                            name,
+                            username,
+                            channel_link,
+                            bot_token,
+                            chat_id
+                        )
+                    `)
+                    .eq("slug", slug)
+                    .single();
+
+                if (error || !fetchedData) {
+                    console.error("Erro ao buscar funil:", error);
+                    setError("Link inválido ou expirado.");
+                    setLoading(false);
+                    return;
+                }
+                data = fetchedData;
+                setFunnel(data);
             }
 
             // Debug: verificar dados do bot
@@ -86,8 +94,6 @@ export default function ClientTracking({ slug, ip, geo }: ClientTrackingProps) {
                 setLoading(false);
                 return;
             }
-
-            setFunnel(data);
 
             // 4. Track PageView (internal + prepare for CAPI)
             await trackPageView(data, vid, fb);

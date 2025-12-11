@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Loader2, Bot, CheckCircle2, AlertTriangle, ExternalLink, Zap, Copy, Check, Info, XCircle, RefreshCw, Save, Eye } from "lucide-react";
 import { toast } from "sonner";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/layout/page-header";
 
 interface TelegramBot {
     id: string;
@@ -64,8 +64,6 @@ export default function ChannelsPage() {
 
     const supabase = createClient();
 
-    // URL do webhook - usa a API Route do Next.js em produção
-    // A URL base é detectada automaticamente pelo domínio atual ou pela variável de ambiente
     const getWebhookBaseUrl = () => {
         if (typeof window !== 'undefined') {
             return window.location.origin;
@@ -99,8 +97,8 @@ export default function ChannelsPage() {
             toast.error("Erro ao carregar canais");
         } else {
             setBots(data || []);
-            // Check integration status for each bot
             for (const bot of data || []) {
+                // Background check without blocking UI
                 checkIntegrationStatus(bot);
             }
         }
@@ -130,14 +128,12 @@ export default function ChannelsPage() {
                 status.bot.canReadMessages = botData.result.can_read_all_group_messages || false;
                 botUserId = botData.result.id;
 
-                // Atualizar username no banco se necessário
                 if (botData.result.username && botData.result.username !== bot.username) {
                     await supabase
                         .from("telegram_bots")
                         .update({ username: botData.result.username })
                         .eq("id", bot.id);
                     
-                    // Atualizar localmente
                     setBots(prev => prev.map(b => 
                         b.id === bot.id ? { ...b, username: botData.result.username } : b
                     ));
@@ -158,7 +154,6 @@ export default function ChannelsPage() {
 
             // 3. Verificar conexão com canal
             if (status.bot.isValid && botUserId) {
-                // Buscar dados atualizados do bot (pode ter chat_id salvo)
                 const { data: freshBot } = await supabase
                     .from("telegram_bots")
                     .select("chat_id")
@@ -168,31 +163,22 @@ export default function ChannelsPage() {
                 const storedChatId = freshBot?.chat_id;
                 let chatId: string | number | null = storedChatId || null;
                 
-                // Se temos chat_id armazenado, usar ele diretamente
                 if (storedChatId) {
-                    console.log("Usando chat_id armazenado:", storedChatId);
                     chatId = storedChatId;
                 } else if (bot.channel_link) {
-                    // Tentar extrair do link
                     const channelMatch = bot.channel_link.match(/t\.me\/([^\/\?]+)/);
-                    
                     if (channelMatch) {
                         const channelIdentifier = channelMatch[1];
-                        
-                        // Se é link público (não começa com +)
                         if (!channelIdentifier.startsWith("+")) {
                             chatId = `@${channelIdentifier}`;
                         } else {
-                            // Link privado - marcar como privado
                             status.channel.chatType = "private";
                         }
                     }
                 }
                 
-                // Se temos um chatId válido, verificar status do bot
                 if (chatId) {
                     try {
-                        // Tentar obter informações do chat
                         const chatRes = await fetch(`https://api.telegram.org/bot${bot.bot_token}/getChat?chat_id=${chatId}`);
                         const chatData = await chatRes.json();
                         
@@ -203,7 +189,6 @@ export default function ChannelsPage() {
                             
                             const finalChatId = chatData.result.id || chatId;
                             
-                            // Se não tínhamos chat_id armazenado, salvar agora
                             if (!storedChatId && chatData.result.id) {
                                 await supabase
                                     .from("telegram_bots")
@@ -211,22 +196,19 @@ export default function ChannelsPage() {
                                     .eq("id", bot.id);
                             }
                             
-                            // Verificar se bot é admin usando getChatMember
                             try {
                                 const memberRes = await fetch(`https://api.telegram.org/bot${bot.bot_token}/getChatMember?chat_id=${finalChatId}&user_id=${botUserId}`);
                                 const memberData = await memberRes.json();
                                 
                                 if (memberData.ok) {
                                     const memberStatus = memberData.result.status;
-                                    // Status pode ser: creator, administrator, member, restricted, left, kicked
                                     status.channel.botIsAdmin = memberStatus === "creator" || memberStatus === "administrator";
                                     status.channel.isConnected = memberStatus !== "left" && memberStatus !== "kicked";
                                 }
                             } catch (e) {
-                                console.log("Não foi possível verificar status do membro:", e);
+                                // Ignore
                             }
                             
-                            // Tentar obter lista de administradores (backup)
                             if (!status.channel.botIsAdmin) {
                                 try {
                                     const adminRes = await fetch(`https://api.telegram.org/bot${bot.bot_token}/getChatAdministrators?chat_id=${finalChatId}`);
@@ -242,11 +224,10 @@ export default function ChannelsPage() {
                                         }
                                     }
                                 } catch (e) {
-                                    console.log("Não foi possível obter lista de administradores:", e);
+                                    // Ignore
                                 }
                             }
                             
-                            // Tentar contar membros
                             try {
                                 const countRes = await fetch(`https://api.telegram.org/bot${bot.bot_token}/getChatMemberCount?chat_id=${finalChatId}`);
                                 const countData = await countRes.json();
@@ -254,14 +235,13 @@ export default function ChannelsPage() {
                                     status.channel.memberCount = countData.result;
                                 }
                             } catch (e) {
-                                // Pode falhar se bot não tiver permissão
+                                // Ignore
                             }
                         }
                     } catch (e) {
-                        console.log("Erro ao verificar canal:", e);
+                        // Ignore
                     }
                 } else if (status.channel.chatType === "private") {
-                    // Para canais privados sem chat_id salvo, verificar eventos recentes
                     try {
                         const { data: recentEvents } = await supabase
                             .from("events")
@@ -274,15 +254,12 @@ export default function ChannelsPage() {
                         if (recentEvents && recentEvents.length > 0) {
                             const metadata = recentEvents[0].metadata as any;
                             
-                            // Se encontrou eventos com chat_id, tentar verificar
                             if (metadata?.chat_id) {
-                                // Atualizar chat_id no banco
                                 await supabase
                                     .from("telegram_bots")
                                     .update({ chat_id: metadata.chat_id.toString() })
                                     .eq("id", bot.id);
                                 
-                                // Tentar verificar admin status
                                 try {
                                     const memberRes = await fetch(`https://api.telegram.org/bot${bot.bot_token}/getChatMember?chat_id=${metadata.chat_id}&user_id=${botUserId}`);
                                     const memberData = await memberRes.json();
@@ -293,7 +270,7 @@ export default function ChannelsPage() {
                                         status.channel.isConnected = memberStatus !== "left" && memberStatus !== "kicked";
                                     }
                                 } catch (e) {
-                                    console.log("Erro ao verificar admin status:", e);
+                                    // Ignore
                                 }
                                 
                                 if (metadata.chat_title) {
@@ -302,7 +279,7 @@ export default function ChannelsPage() {
                             }
                         }
                     } catch (e) {
-                        console.log("Erro ao verificar eventos:", e);
+                        // Ignore
                     }
                 }
             }
@@ -335,7 +312,6 @@ export default function ChannelsPage() {
             return;
         }
 
-        // Validar token do bot
         toast.info("Validando token do bot...");
         let username = formData.username;
         
@@ -383,34 +359,29 @@ export default function ChannelsPage() {
 
         setDeleting(bot.id);
 
-        // Primeiro, remover webhook se existir
         try {
             await fetch(`https://api.telegram.org/bot${bot.bot_token}/deleteWebhook`);
         } catch (e) {
             console.warn("Não foi possível remover webhook:", e);
         }
 
-        // Verificar se há funis usando este bot
         const { data: funnels } = await supabase
             .from("funnels")
             .select("id")
             .eq("bot_id", bot.id);
 
         if (funnels && funnels.length > 0) {
-            // Desvincular funis primeiro
             await supabase
                 .from("funnels")
                 .update({ bot_id: null })
                 .eq("bot_id", bot.id);
         }
 
-        // Remover vínculos de visitor_telegram_links
         await supabase
             .from("visitor_telegram_links")
             .delete()
             .eq("bot_id", bot.id);
 
-        // Agora deletar o bot
         const { error } = await supabase
             .from("telegram_bots")
             .delete()
@@ -431,12 +402,6 @@ export default function ChannelsPage() {
         setActivating(bot.id);
 
         try {
-            // Set webhook with allowed updates for tracking
-            // my_chat_member: detecta quando bot é adicionado/removido do canal
-            // chat_member: detecta quando membros entram/saem
-            // chat_join_request: detecta solicitações de entrada em canais privados
-            // message: detecta mensagens e comando /start
-            // Monta a URL do webhook com o bot_id específico
             const webhookUrl = `${WEBHOOK_BASE_URL}/api/webhook/telegram/${bot.id}`;
             
             const params = new URLSearchParams({
@@ -455,7 +420,6 @@ export default function ChannelsPage() {
 
             if (data.ok) {
                 toast.success("Rastreamento Ativado! Webhook configurado.");
-                // Atualizar status
                 await checkIntegrationStatus(bot);
             } else {
                 toast.error(`Erro Telegram: ${data.description}`);
@@ -493,7 +457,6 @@ export default function ChannelsPage() {
             return;
         }
 
-        // Validar formato do ID (deve ser um número, geralmente negativo para grupos/canais)
         if (!/^-?\d+$/.test(inputChatId)) {
             toast.error("ID inválido. O ID deve ser um número (ex: -1002406299839)");
             return;
@@ -502,7 +465,6 @@ export default function ChannelsPage() {
         setSavingChatId(bot.id);
 
         try {
-            // Verificar se o ID é válido tentando obter informações do chat
             const chatRes = await fetch(`https://api.telegram.org/bot${bot.bot_token}/getChat?chat_id=${inputChatId}`);
             const chatData = await chatRes.json();
 
@@ -512,7 +474,6 @@ export default function ChannelsPage() {
                 return;
             }
 
-            // Salvar no banco
             const { error } = await supabase
                 .from("telegram_bots")
                 .update({ chat_id: inputChatId })
@@ -523,15 +484,11 @@ export default function ChannelsPage() {
             } else {
                 toast.success(`Canal vinculado: ${chatData.result.title || inputChatId}`);
                 
-                // Atualizar estado local
                 setBots(prev => prev.map(b => 
                     b.id === bot.id ? { ...b, chat_id: inputChatId } : b
                 ));
 
-                // Limpar input
                 setChatIdInput(prev => ({ ...prev, [bot.id]: "" }));
-
-                // Atualizar status
                 await checkIntegrationStatus(bot);
             }
         } catch (e) {
@@ -542,15 +499,6 @@ export default function ChannelsPage() {
         setSavingChatId(null);
     }
 
-    function copyBotLink(username: string) {
-        const link = `https://t.me/${username}`;
-        navigator.clipboard.writeText(link);
-        setCopiedId(username);
-        toast.success("Link copiado!");
-        setTimeout(() => setCopiedId(null), 2000);
-    }
-
-    // Renderizar status item
     function StatusItem({ 
         status, 
         title, 
@@ -563,22 +511,22 @@ export default function ChannelsPage() {
         type?: "success" | "error" | "warning" 
     }) {
         const colors = {
-            success: { bg: "bg-green-500/20", icon: "text-green-500", text: "text-green-400" },
-            error: { bg: "bg-red-500/20", icon: "text-red-500", text: "text-red-400" },
-            warning: { bg: "bg-yellow-500/20", icon: "text-yellow-500", text: "text-yellow-400" }
+            success: { bg: "bg-emerald-500/10", icon: "text-emerald-400", text: "text-emerald-400" },
+            error: { bg: "bg-red-500/10", icon: "text-red-400", text: "text-red-400" },
+            warning: { bg: "bg-amber-500/10", icon: "text-amber-400", text: "text-amber-400" }
         };
         
         const color = status ? colors.success : colors[type];
         const Icon = status ? CheckCircle2 : type === "warning" ? AlertTriangle : XCircle;
 
         return (
-            <div className="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg">
+            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/5">
                 <div className={`h-8 w-8 rounded-full ${color.bg} flex items-center justify-center shrink-0`}>
                     <Icon className={`h-4 w-4 ${color.icon}`} />
                 </div>
                 <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{title}</p>
-                    <p className={`text-xs ${status ? "text-green-400" : color.text}`}>
+                    <p className="text-sm font-medium text-white truncate">{title}</p>
+                    <p className={`text-xs ${status ? "text-emerald-400" : color.text}`}>
                         {description}
                     </p>
                 </div>
@@ -588,23 +536,22 @@ export default function ChannelsPage() {
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold tracking-tight">Canal</h1>
-                <Dialog open={open} onOpenChange={setOpen}>
+             <PageHeader title="Meus Canais" description="Conecte seu Canal ou Grupo do Telegram para rastrear membros e enviar notificações.">
+                 <Dialog open={open} onOpenChange={setOpen}>
                     <DialogTrigger asChild>
-                        <Button className="bg-green-600 hover:bg-green-700 text-white gap-2">
+                        <Button className="bg-white text-black hover:bg-gray-200 gap-2 font-bold">
                             <Plus className="h-4 w-4" />
                             Adicionar Canal
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[500px] bg-card border-border">
+                    <DialogContent className="sm:max-w-[500px] bg-[#0a0a0a] border-white/10 text-white">
                         <DialogHeader>
-                            <DialogTitle>Configurar Novo Canal</DialogTitle>
+                            <DialogTitle className="text-white">Configurar Novo Canal</DialogTitle>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
-                            <div className="bg-secondary/20 p-3 rounded text-xs text-muted-foreground mb-2">
-                                <p className="font-bold text-foreground">Instruções:</p>
-                                <ol className="list-decimal pl-4 space-y-1 mt-1">
+                            <div className="bg-white/5 border border-white/5 p-3 rounded text-xs text-gray-400 mb-2">
+                                <p className="font-bold text-white mb-1">Instruções:</p>
+                                <ol className="list-decimal pl-4 space-y-1">
                                     <li>Crie um Bot no <strong>@BotFather</strong>.</li>
                                     <li>Crie um Canal ou Grupo no Telegram.</li>
                                     <li><strong>Adicione o Bot como Administrador</strong> do seu Canal/Grupo.</li>
@@ -613,50 +560,53 @@ export default function ChannelsPage() {
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="name">Nome do Canal</Label>
+                                <Label htmlFor="name" className="text-gray-400">Nome do Canal</Label>
                                 <Input
                                     id="name"
                                     placeholder="Ex: Ofertas VIP"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="token">Token do Bot (BotFather)</Label>
+                                <Label htmlFor="token" className="text-gray-400">Token do Bot (BotFather)</Label>
                                 <Input
                                     id="token"
                                     placeholder="123456:ABC-DEF..."
                                     value={formData.bot_token}
                                     onChange={(e) => setFormData({ ...formData, bot_token: e.target.value })}
+                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="link">Link do Canal (Destino Final)</Label>
+                                <Label htmlFor="link" className="text-gray-400">Link do Canal (Destino Final)</Label>
                                 <Input
                                     id="link"
                                     placeholder="https://t.me/+AbCdEfGhIj..."
                                     value={formData.channel_link}
                                     onChange={(e) => setFormData({ ...formData, channel_link: e.target.value })}
+                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
                                 />
-                                <p className="text-[10px] text-muted-foreground">
+                                <p className="text-[10px] text-gray-500">
                                     Link de convite do seu canal/grupo. O usuário receberá este link após iniciar o bot.
                                 </p>
                             </div>
                         </div>
                         <div className="flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-                            <Button onClick={handleSave} disabled={saving} className="bg-green-600 hover:bg-green-700 text-white">
+                            <Button variant="outline" onClick={() => setOpen(false)} className="bg-transparent border-white/10 hover:bg-white/5 text-gray-400">Cancelar</Button>
+                            <Button onClick={handleSave} disabled={saving} className="bg-violet-600 hover:bg-violet-700 text-white">
                                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Salvar e Validar
                             </Button>
                         </div>
                     </DialogContent>
                 </Dialog>
-            </div>
+            </PageHeader>
 
             {/* Table Header */}
-            <div className="rounded-lg border border-border bg-card/50 overflow-hidden">
-                <div className="grid grid-cols-4 gap-4 p-4 border-b border-border text-sm font-medium text-muted-foreground">
+            <div className="bg-[#0a0a0a]/60 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden">
+                <div className="grid grid-cols-4 gap-4 p-4 border-b border-white/5 text-xs font-medium text-gray-500 uppercase">
                     <div>NOME DO CANAL</div>
                     <div>NOME DO BOT</div>
                     <div>TOKEN</div>
@@ -665,10 +615,10 @@ export default function ChannelsPage() {
 
                 {loading ? (
                     <div className="flex justify-center p-8">
-                        <Loader2 className="animate-spin text-primary" />
+                        <Loader2 className="animate-spin text-violet-500" />
                     </div>
                 ) : bots.length === 0 ? (
-                    <div className="text-center p-8 text-muted-foreground">
+                    <div className="text-center p-8 text-gray-500 border-t border-white/5">
                         Nenhum bot configurado.
                     </div>
                 ) : (
@@ -676,12 +626,17 @@ export default function ChannelsPage() {
                         const status = integrationStatuses[bot.id];
                         
                         return (
-                            <div key={bot.id} className="grid grid-cols-4 gap-4 p-4 border-b border-border items-center">
-                                <div className="font-medium">{bot.name}</div>
+                            <div key={bot.id} className="grid grid-cols-4 gap-4 p-4 border-b border-white/5 items-center hover:bg-white/5 transition-colors group text-gray-300 last:border-0">
+                                <div className="font-medium text-white flex items-center gap-2">
+                                    <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
+                                        <Bot className="h-4 w-4" />
+                                    </div>
+                                    {bot.name}
+                                </div>
                                 <div className="text-sm">
                                     {status?.bot?.username ? `@${status.bot.username}` : bot.username ? `@${bot.username}` : "—"}
                                 </div>
-                                <div className="font-mono text-xs text-muted-foreground">
+                                <div className="font-mono text-xs text-gray-500">
                                     {bot.bot_token.substring(0, 15)}...
                                 </div>
                                 <div className="flex items-center justify-end gap-2">
@@ -690,23 +645,22 @@ export default function ChannelsPage() {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
+                                                className="hover:bg-white/10 hover:text-white text-gray-400"
                                                 title="Ver detalhes"
                                             >
                                                 <Eye className="h-4 w-4" />
                                             </Button>
                                         </DialogTrigger>
-                                        <DialogContent className="sm:max-w-[700px] bg-card border-border max-h-[90vh] overflow-y-auto">
+                                        <DialogContent className="sm:max-w-[700px] bg-[#0a0a0a] border-white/10 text-white max-h-[90vh] overflow-y-auto">
                                             <DialogHeader>
-                                                <DialogTitle className="flex items-center gap-2">
-                                                    <Bot className="h-5 w-5 text-primary" />
+                                                <DialogTitle className="flex items-center gap-2 text-white">
+                                                    <Bot className="h-5 w-5 text-violet-500" />
                                                     Detalhes: {bot.name}
                                                 </DialogTitle>
                                             </DialogHeader>
                                             <div className="space-y-6 py-4">
-                                                {/* Status da Integração */}
                                                 {(() => {
                                                     const status = integrationStatuses[bot.id];
-                                                    // Verifica se o webhook está configurado para a API route correta (com o bot_id)
                                                     const expectedWebhookPath = `/api/webhook/telegram/${bot.id}`;
                                                     const isWebhookCorrect = !!(status?.webhook?.isSet && 
                                                         status?.webhook?.url?.includes(expectedWebhookPath));
@@ -715,8 +669,8 @@ export default function ChannelsPage() {
                                                         <>
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                                 {/* Status do Bot */}
-                                                                <div className="bg-secondary/20 rounded-lg p-4 space-y-3">
-                                                                    <h4 className="font-semibold text-center mb-4">Status do Bot</h4>
+                                                                <div className="bg-white/5 border border-white/5 rounded-lg p-4 space-y-3">
+                                                                    <h4 className="font-semibold text-center mb-4 text-white">Status do Bot</h4>
                                                                     
                                                                     <StatusItem
                                                                         status={isWebhookCorrect}
@@ -740,12 +694,12 @@ export default function ChannelsPage() {
                                                                                     placeholder="-1002406299839"
                                                                                     value={chatIdInput[bot.id] || ""}
                                                                                     onChange={(e) => setChatIdInput(prev => ({ ...prev, [bot.id]: e.target.value }))}
-                                                                                    className="text-xs h-8"
+                                                                                    className="text-xs h-8 bg-black/40 border-white/10 text-white"
                                                                                 />
                                                                                 <Button
                                                                                     variant="outline"
                                                                                     size="sm"
-                                                                                    className="border-green-500/50 hover:bg-green-500/10 text-green-400 h-8 px-3"
+                                                                                    className="border-white/10 hover:bg-white/10 text-emerald-400 h-8 px-3"
                                                                                     onClick={() => saveChatId(bot)}
                                                                                     disabled={savingChatId === bot.id}
                                                                                 >
@@ -756,7 +710,7 @@ export default function ChannelsPage() {
                                                                                     )}
                                                                                 </Button>
                                                                             </div>
-                                                                            <p className="text-[10px] text-muted-foreground">
+                                                                            <p className="text-[10px] text-gray-500">
                                                                                 Cole o ID do canal (ex: -1002406299839). 
                                                                                 <a 
                                                                                     href="https://t.me/getidsbot" 
@@ -776,7 +730,7 @@ export default function ChannelsPage() {
                                                                             <Button
                                                                                 variant="outline"
                                                                                 size="sm"
-                                                                                className="w-full border-red-500/50 hover:bg-red-500/10 text-red-500"
+                                                                                className="w-full border-red-500/20 hover:bg-red-500/10 text-red-500 bg-transparent"
                                                                                 onClick={() => {
                                                                                     deactivateWebhook(bot);
                                                                                     setTimeout(() => checkIntegrationStatus(bot), 1000);
@@ -793,7 +747,7 @@ export default function ChannelsPage() {
                                                                         ) : (
                                                                             <Button
                                                                                 size="sm"
-                                                                                className="w-full bg-green-600 hover:bg-green-700"
+                                                                                className="w-full bg-violet-600 hover:bg-violet-700 text-white"
                                                                                 onClick={() => {
                                                                                     activateWebhook(bot);
                                                                                     setTimeout(() => checkIntegrationStatus(bot), 1000);
@@ -812,8 +766,8 @@ export default function ChannelsPage() {
                                                                 </div>
 
                                                                 {/* Status do Canal */}
-                                                                <div className="bg-secondary/20 rounded-lg p-4 space-y-3">
-                                                                    <h4 className="font-semibold text-center mb-4">Status do Canal</h4>
+                                                                <div className="bg-white/5 border border-white/5 rounded-lg p-4 space-y-3">
+                                                                    <h4 className="font-semibold text-center mb-4 text-white">Status do Canal</h4>
                                                                     
                                                                     <StatusItem
                                                                         status={status?.channel?.chatType !== "private"}
@@ -836,12 +790,12 @@ export default function ChannelsPage() {
                                                                     />
 
                                                                     {status?.channel?.memberCount && (
-                                                                        <div className="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg">
+                                                                        <div className="flex items-center gap-3 p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
                                                                             <div className="h-8 w-8 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
                                                                                 <Info className="h-4 w-4 text-blue-500" />
                                                                             </div>
                                                                             <div>
-                                                                                <p className="text-sm font-medium">Membros no Canal</p>
+                                                                                <p className="text-sm font-medium text-white">Membros no Canal</p>
                                                                                 <p className="text-xs text-blue-400">{status.channel.memberCount} membros</p>
                                                                             </div>
                                                                         </div>
@@ -853,7 +807,7 @@ export default function ChannelsPage() {
                                                                             href={bot.channel_link} 
                                                                             target="_blank" 
                                                                             rel="noopener noreferrer"
-                                                                            className="flex items-center justify-center gap-2 p-2 bg-primary/10 hover:bg-primary/20 rounded text-primary text-sm transition-colors"
+                                                                            className="flex items-center justify-center gap-2 p-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded text-gray-300 text-sm transition-colors"
                                                                         >
                                                                             <ExternalLink className="h-4 w-4" />
                                                                             Abrir Canal no Telegram
@@ -868,6 +822,7 @@ export default function ChannelsPage() {
                                                                     variant="outline"
                                                                     onClick={() => checkIntegrationStatus(bot)}
                                                                     disabled={checkingStatus === bot.id}
+                                                                    className="border-white/10 hover:bg-white/5 text-gray-400"
                                                                 >
                                                                     {checkingStatus === bot.id ? (
                                                                         <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -886,7 +841,7 @@ export default function ChannelsPage() {
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                                        className="text-gray-500 hover:text-red-400 hover:bg-red-500/10"
                                         onClick={() => handleDelete(bot)}
                                         disabled={deleting === bot.id}
                                     >
@@ -904,10 +859,10 @@ export default function ChannelsPage() {
             </div>
 
             {/* Warning Banner */}
-            <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-lg flex gap-3 text-yellow-400 text-sm">
-                <AlertTriangle className="h-5 w-5 shrink-0" />
+            <div className="bg-amber-500/5 border border-amber-500/20 p-4 rounded-xl flex gap-3 text-amber-500/80 text-sm">
+                <AlertTriangle className="h-5 w-5 shrink-0 animate-pulse" />
                 <p>
-                    <span className="font-semibold">Importante:</span> Para garantir o correto funcionamento, o bot configurado para a TrackGram não deve ser utilizado simultaneamente em outras plataformas ou para outras finalidades. O uso indevido pode causar interferências e comprometer as funcionalidades da TrackGram
+                    <span className="font-semibold text-amber-500">Importante:</span> Para garantir o correto funcionamento, o bot configurado para a TrackGram não deve ser utilizado simultaneamente em outras plataformas ou para outras finalidades. O uso indevido pode causar interferências e comprometer as funcionalidades da TrackGram
                 </p>
             </div>
         </div>
