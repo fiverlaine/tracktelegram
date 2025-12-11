@@ -36,7 +36,10 @@ t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
 fbq('init', '${pixelId}');
-fbq('track', 'PageView');
+if (!sessionStorage.getItem('fb_pv_fired')) {
+  fbq('track', 'PageView');
+  sessionStorage.setItem('fb_pv_fired', 'true');
+}
 // ------------------------------------
 `;
             }
@@ -179,6 +182,55 @@ fbq('track', 'PageView');
       }
     }
   }
+
+  // --- NEW: Internal Tracking (Supabase) ---
+  const API_URL = "${new URL(request.url).origin}/api/track";
+  const DOMAIN_ID = "${id || ''}";
+
+  function sendEvent(eventType, extraMetadata = {}) {
+    const payload = {
+      visitor_id: vid,
+      event_type: eventType,
+      domain_id: DOMAIN_ID,
+      metadata: {
+        page_url: window.location.href,
+        title: document.title,
+        user_agent: navigator.userAgent,
+        fbc: fbc,
+        fbp: fbp,
+        ...extraMetadata
+      }
+    };
+
+    fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true // Garante envio mesmo se navegar
+    }).catch(err => console.error("[TrackGram] Log error:", err));
+  }
+
+  // 1. Track PageView immediately
+  sendEvent('pageview');
+
+  // 2. Track Clicks on Buttons
+  document.addEventListener('click', function(e) {
+    const target = e.target.closest('button');
+    if (target) {
+        sendEvent('click', {
+            tag: 'button',
+            button_text: target.innerText || target.textContent,
+            classes: target.className
+        });
+    }
+    
+    // Also track links that are NOT redirects (optional, or requested?)
+    // User requested "quando algum botao da pagina é clicado". 
+    // We stick to buttons for now to be specific, or maybe elements with role='button'?
+    // Let's stick to <button> tag for now as requested.
+  });
+
+  // ------------------------------------------
 
   // Run on load and periodically (for SPAs)
   decorateLinks();
