@@ -79,20 +79,32 @@ export async function POST(request: Request) {
     }
 
     // 4. Prepare Subscription Data
-    // We extract relevant fields from the payload
-    // Note: 'subscription' object inside 'data' often has the most up-to-date info for recurring
     const subData = data.subscription || {};
+
+    // Helper to determine plan name based on price or name triggers
+    const rawPlanName = data.offer?.name || data.product?.name || 'Starter (Teste)';
+    const amount = parseFloat(data.offer?.price || data.amount || '0');
+
+    let finalPlanName = rawPlanName;
+
+    // Fix: If Cakto sends "TrackGram" (product name) instead of the specific plan name, try to map by price
+    if (rawPlanName === 'TrackGram' || rawPlanName === 'TrackGram Assinatura') {
+        if (amount >= 290) {
+            finalPlanName = 'Enterprise';
+        } else if (amount >= 190) {
+            finalPlanName = 'Pro Scale';
+        } else {
+            // Default low tier
+            finalPlanName = 'Starter (Teste)';
+        }
+    }
 
     const subscriptionPayload = {
         user_id: userId,
-        // Prefer the ID from the subscription object, fallback to data.id for one-off
         cakto_id: subData.id || data.id,
         status: status,
-        // Plan name from offer or product
-        plan_name: data.offer?.name || data.product?.name || 'Standard',
-        // Amount
-        amount: data.offer?.price || data.amount,
-        // Next payment date
+        plan_name: finalPlanName,
+        amount: amount,
         current_period_end: subData.next_payment_date 
             ? new Date(subData.next_payment_date).toISOString() 
             : null,
