@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Track4You Dashboard</title>
+    <title>Track4You - Telegram Analytics</title>
     
-    <!-- Phosphor Icons -->
+    <!-- Phosphor Icons (Duotone for a more modern look) -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     
     <!-- Google Fonts: Poppins -->
@@ -23,24 +23,24 @@
                         sans: ['Poppins', 'sans-serif'],
                     },
                     colors: {
-                        brand: {
-                            bg: '#020617',       // Slate 950 (Mais escuro e profundo)
-                            sidebar: '#0f172a',  // Slate 900
+                        tele: {
+                            bg: '#0f172a',       // Slate 900 (Deep Blue-Grey)
+                            sidebar: '#1e293b',  // Slate 800
                             card: '#1e293b',     // Slate 800
-                            hover: '#334155',    // Slate 700
-                            primary: '#06b6d4',  // Cyan 500 (Novo destaque)
-                            primaryHover: '#0891b2', 
-                            text: '#f8fafc',     // Slate 50
+                            cardHover: '#334155', // Slate 700
+                            primary: '#38bdf8',  // Sky 400 (Telegram Light Blue)
+                            primaryDark: '#0284c7', // Sky 600
+                            accent: '#0ea5e9',   // Sky 500
+                            text: '#f1f5f9',     // Slate 100
                             muted: '#94a3b8',    // Slate 400
                             border: '#334155',   // Slate 700
-                            success: '#10b981',  // Emerald
-                            danger: '#ef4444',   // Red
-                            warning: '#f59e0b',  // Amber
+                            success: '#22c55e',
+                            danger: '#ef4444'
                         }
                     },
                     boxShadow: {
-                        'neon': '0 0 5px theme("colors.brand.primary"), 0 0 20px theme("colors.brand.primary")',
-                        'card': '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.15)',
+                        'glow': '0 0 15px rgba(56, 189, 248, 0.15)',
+                        'card': '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
                     }
                 }
             }
@@ -48,7 +48,7 @@
     </script>
     
     <style>
-        /* Custom Scrollbar */
+        /* Modern Scrollbar */
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
@@ -63,390 +63,374 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #475569; 
         }
+        
+        /* Glass Effect Class */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
 
-        /* Subtle Gradient Background for Active State */
-        .nav-active {
-            background: linear-gradient(90deg, rgba(6,182,212,0.15) 0%, rgba(6,182,212,0) 100%);
-            border-left: 3px solid #06b6d4;
-            color: #06b6d4;
+        .nav-item.active {
+            background: linear-gradient(90deg, rgba(56, 189, 248, 0.1) 0%, rgba(56, 189, 248, 0) 100%);
+            border-left: 3px solid #38bdf8;
+            color: #38bdf8;
         }
     </style>
 </head>
-<body class="bg-brand-bg text-brand-text font-sans h-screen flex overflow-hidden selection:bg-brand-primary selection:text-white">
+<body class="bg-tele-bg text-tele-text font-sans h-screen flex overflow-hidden selection:bg-tele-primary selection:text-white">
 
-    <!-- SIDEBAR -->
-    <aside class="w-72 bg-brand-sidebar flex flex-col h-full border-r border-brand-border flex-shrink-0 z-20">
+    <!-- SIDEBAR (Modern & Slimmer) -->
+    <aside class="w-20 lg:w-64 bg-tele-sidebar flex flex-col h-full border-r border-tele-border transition-all duration-300 z-20">
         <!-- Logo Area -->
-        <div class="h-20 flex items-center px-8 border-b border-brand-border/50">
-            <div class="flex items-center gap-2.5">
-                <div class="bg-brand-primary/10 p-2 rounded-lg text-brand-primary">
-                    <i class="ph-fill ph-infinity text-2xl"></i>
+        <div class="h-20 flex items-center justify-center lg:justify-start lg:px-6 border-b border-tele-border/50">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-tele-primary to-tele-primaryDark flex items-center justify-center shadow-glow text-white">
+                    <i class="ph-bold ph-paper-plane-tilt text-xl transform -translate-x-[1px] translate-y-[1px]"></i>
                 </div>
-                <div>
-                    <h1 class="text-xl font-bold tracking-tight text-white leading-tight">TRACK4YOU</h1>
-                    <p class="text-[10px] text-brand-muted font-medium tracking-wider uppercase">Analytics Suite</p>
+                <div class="hidden lg:flex flex-col">
+                    <span class="text-lg font-bold tracking-tight text-white">Track4You</span>
+                    <span class="text-[10px] text-tele-primary uppercase font-semibold tracking-wider">Telegram Analytics</span>
                 </div>
             </div>
         </div>
 
         <!-- Menu Items -->
-        <nav class="flex-1 px-0 py-6 space-y-1 overflow-y-auto">
-            <div class="px-6 mb-2 text-xs font-semibold text-brand-muted/50 uppercase tracking-widest">Principal</div>
+        <nav class="flex-1 py-6 space-y-1 overflow-y-auto px-2">
             
-            <!-- Active Item -->
-            <a href="#" class="nav-active flex items-center gap-4 px-6 py-3.5 transition-all group">
-                <i class="ph-fill ph-squares-four text-xl"></i>
-                <span class="font-medium text-sm">Dashboard</span>
+            <p class="hidden lg:block px-4 text-xs font-semibold text-tele-muted uppercase tracking-wider mb-2">Principal</p>
+            
+            <a href="#" class="nav-item active flex items-center gap-3 px-3 py-3 rounded-r-lg text-tele-muted hover:text-white transition-all group">
+                <i class="ph-duotone ph-squares-four text-2xl lg:text-xl"></i>
+                <span class="hidden lg:block font-medium text-sm">Dashboard</span>
             </a>
 
-            <!-- Inactive Items -->
-            <a href="#" class="flex items-center gap-4 px-6 py-3.5 text-brand-muted hover:text-white hover:bg-white/5 transition-all group border-l-4 border-transparent">
-                <i class="ph ph-globe text-xl group-hover:text-brand-primary transition-colors"></i>
-                <span class="font-medium text-sm">Domínios</span>
+            <a href="#" class="nav-item flex items-center gap-3 px-3 py-3 rounded-r-lg text-tele-muted hover:bg-white/5 hover:text-white transition-all group border-l-3 border-transparent">
+                <i class="ph-duotone ph-globe-hemisphere-west text-2xl lg:text-xl group-hover:text-tele-primary transition-colors"></i>
+                <span class="hidden lg:block font-medium text-sm">Domínios</span>
             </a>
 
-            <a href="#" class="flex items-center gap-4 px-6 py-3.5 text-brand-muted hover:text-white hover:bg-white/5 transition-all group border-l-4 border-transparent">
-                <i class="ph ph-chart-bar text-xl group-hover:text-brand-primary transition-colors"></i>
-                <span class="font-medium text-sm">Pixels</span>
+            <a href="#" class="nav-item flex items-center gap-3 px-3 py-3 rounded-r-lg text-tele-muted hover:bg-white/5 hover:text-white transition-all group border-l-3 border-transparent">
+                <i class="ph-duotone ph-target text-2xl lg:text-xl group-hover:text-tele-primary transition-colors"></i>
+                <span class="hidden lg:block font-medium text-sm">Pixels</span>
             </a>
 
-            <div class="px-6 mt-6 mb-2 text-xs font-semibold text-brand-muted/50 uppercase tracking-widest">Ferramentas</div>
+            <p class="hidden lg:block px-4 text-xs font-semibold text-tele-muted uppercase tracking-wider mb-2 mt-6">Telegram</p>
 
-            <a href="#" class="flex items-center gap-4 px-6 py-3.5 text-brand-muted hover:text-white hover:bg-white/5 transition-all group border-l-4 border-transparent">
-                <i class="ph ph-paper-plane-tilt text-xl group-hover:text-brand-primary transition-colors"></i>
-                <span class="font-medium text-sm">Canal</span>
+            <a href="#" class="nav-item flex items-center gap-3 px-3 py-3 rounded-r-lg text-tele-muted hover:bg-white/5 hover:text-white transition-all group border-l-3 border-transparent">
+                <i class="ph-duotone ph-chats-circle text-2xl lg:text-xl group-hover:text-tele-primary transition-colors"></i>
+                <span class="hidden lg:block font-medium text-sm">Canal</span>
             </a>
 
-            <a href="#" class="flex items-center gap-4 px-6 py-3.5 text-brand-muted hover:text-white hover:bg-white/5 transition-all group border-l-4 border-transparent">
-                <i class="ph ph-funnel text-xl group-hover:text-brand-primary transition-colors"></i>
-                <span class="font-medium text-sm">Funis</span>
+            <a href="#" class="nav-item flex items-center gap-3 px-3 py-3 rounded-r-lg text-tele-muted hover:bg-white/5 hover:text-white transition-all group border-l-3 border-transparent">
+                <i class="ph-duotone ph-funnel text-2xl lg:text-xl group-hover:text-tele-primary transition-colors"></i>
+                <span class="hidden lg:block font-medium text-sm">Funis</span>
             </a>
 
-            <a href="#" class="flex items-center gap-4 px-6 py-3.5 text-brand-muted hover:text-white hover:bg-white/5 transition-all group border-l-4 border-transparent opacity-50 cursor-not-allowed" title="Em breve">
-                <i class="ph ph-chat-circle-text text-xl group-hover:text-brand-primary transition-colors"></i>
-                <span class="font-medium text-sm flex-1">Mensagens</span>
-                <i class="ph-fill ph-lock-key text-xs"></i>
+            <div class="relative">
+                <a href="#" class="nav-item flex items-center gap-3 px-3 py-3 rounded-r-lg text-tele-muted/50 hover:text-tele-muted/50 transition-all group border-l-3 border-transparent cursor-not-allowed">
+                    <i class="ph-duotone ph-envelope text-2xl lg:text-xl"></i>
+                    <span class="hidden lg:block font-medium text-sm">Mensagens</span>
+                    <i class="ph-fill ph-lock-key absolute right-3 top-1/2 -translate-y-1/2 text-xs hidden lg:block"></i>
+                </a>
+            </div>
+
+            <p class="hidden lg:block px-4 text-xs font-semibold text-tele-muted uppercase tracking-wider mb-2 mt-6">Configurações</p>
+
+            <a href="#" class="nav-item flex items-center gap-3 px-3 py-3 rounded-r-lg text-tele-muted hover:bg-white/5 hover:text-white transition-all group border-l-3 border-transparent">
+                <i class="ph-duotone ph-credit-card text-2xl lg:text-xl group-hover:text-tele-primary transition-colors"></i>
+                <span class="hidden lg:block font-medium text-sm">Assinatura</span>
             </a>
 
-            <div class="px-6 mt-6 mb-2 text-xs font-semibold text-brand-muted/50 uppercase tracking-widest">Configurações</div>
-
-            <a href="#" class="flex items-center gap-4 px-6 py-3.5 text-brand-muted hover:text-white hover:bg-white/5 transition-all group border-l-4 border-transparent">
-                <i class="ph ph-credit-card text-xl group-hover:text-brand-primary transition-colors"></i>
-                <span class="font-medium text-sm">Assinatura</span>
-            </a>
-
-            <a href="#" class="flex items-center gap-4 px-6 py-3.5 text-brand-muted hover:text-white hover:bg-white/5 transition-all group border-l-4 border-transparent">
-                <i class="ph ph-code text-xl group-hover:text-brand-primary transition-colors"></i>
-                <span class="font-medium text-sm">Postbacks</span>
+             <a href="#" class="nav-item flex items-center gap-3 px-3 py-3 rounded-r-lg text-tele-muted hover:bg-white/5 hover:text-white transition-all group border-l-3 border-transparent">
+                <i class="ph-duotone ph-brackets-curly text-2xl lg:text-xl group-hover:text-tele-primary transition-colors"></i>
+                <span class="hidden lg:block font-medium text-sm">Postbacks</span>
             </a>
         </nav>
 
-        <!-- Profile / Exit Area -->
-        <div class="p-6 border-t border-brand-border/50">
-            <button class="w-full flex items-center justify-between px-4 py-3 bg-brand-card hover:bg-brand-hover border border-brand-border rounded-xl transition-all group">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-full bg-brand-primary/20 flex items-center justify-center text-brand-primary font-bold text-xs">U</div>
-                    <div class="text-left">
-                        <p class="text-xs font-semibold text-white">Usuário</p>
-                        <p class="text-[10px] text-brand-muted">Sair da conta</p>
-                    </div>
-                </div>
-                <i class="ph ph-sign-out text-brand-danger"></i>
+        <!-- User Profile / Exit -->
+        <div class="p-4 border-t border-tele-border/50">
+             <button class="w-full flex items-center justify-center lg:justify-start gap-3 p-2 rounded-xl hover:bg-white/5 text-tele-muted hover:text-tele-danger transition-colors group">
+                <i class="ph-bold ph-sign-out text-xl"></i>
+                <span class="hidden lg:block font-medium text-sm">Sair da Conta</span>
             </button>
         </div>
     </aside>
 
     <!-- MAIN CONTENT -->
-    <main class="flex-1 flex flex-col h-full overflow-hidden relative bg-brand-bg">
+    <main class="flex-1 flex flex-col h-full overflow-hidden bg-tele-bg relative">
         
-        <!-- Header -->
-        <header class="flex flex-col xl:flex-row justify-between items-start xl:items-center px-8 py-6 gap-6 bg-brand-bg/95 backdrop-blur-sm sticky top-0 z-10 border-b border-brand-border/30">
+        <!-- Top Bar (Floating Header Look) -->
+        <header class="px-8 py-6 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 z-10">
             <div>
-                <h1 class="text-2xl font-bold text-white mb-1">Visão Geral</h1>
-                <p class="text-sm text-brand-muted">Bem-vindo de volta ao seu painel de controle.</p>
+                <h1 class="text-2xl font-bold text-white">Bem-vindo de volta! 👋</h1>
+                <p class="text-sm text-tele-muted">Aqui está o desempenho dos seus canais hoje.</p>
             </div>
 
-            <!-- Modern Filters -->
-            <div class="flex flex-wrap items-center gap-3 bg-brand-card/50 p-1.5 rounded-2xl border border-brand-border/50">
+            <!-- Unified Filter Bar -->
+            <div class="flex flex-wrap items-center bg-tele-card rounded-2xl p-1.5 border border-tele-border shadow-lg">
                 
-                <!-- Funis Filter -->
-                <div class="relative group">
-                    <select class="appearance-none bg-brand-bg text-sm text-brand-muted font-medium pl-4 pr-10 py-2.5 rounded-xl border border-transparent hover:border-brand-border focus:border-brand-primary focus:outline-none cursor-pointer transition-all min-w-[140px]">
-                        <option>Todos Funis</option>
-                        <option>Funil Principal</option>
+                <!-- Filter Group -->
+                <div class="flex items-center gap-1 px-2 border-r border-tele-border/50">
+                    <i class="ph-duotone ph-funnel text-tele-muted text-lg"></i>
+                    <select class="bg-transparent text-sm font-medium text-white p-2 outline-none cursor-pointer hover:text-tele-primary transition-colors">
+                        <option>Todos os Funis</option>
+                        <option>Funil Telegram V1</option>
+                        <option>Funil Telegram V2</option>
                     </select>
-                    <i class="ph-bold ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted pointer-events-none group-hover:text-white transition-colors"></i>
                 </div>
 
-                <div class="w-px h-6 bg-brand-border mx-1"></div>
-
-                <!-- Pixels Filter -->
-                <div class="relative group">
-                    <select class="appearance-none bg-brand-bg text-sm text-brand-muted font-medium pl-4 pr-10 py-2.5 rounded-xl border border-transparent hover:border-brand-border focus:border-brand-primary focus:outline-none cursor-pointer transition-all min-w-[140px]">
-                        <option>Todos Pixels</option>
+                <div class="flex items-center gap-1 px-2 border-r border-tele-border/50">
+                    <i class="ph-duotone ph-target text-tele-muted text-lg"></i>
+                    <select class="bg-transparent text-sm font-medium text-white p-2 outline-none cursor-pointer hover:text-tele-primary transition-colors">
+                        <option>Todos os Pixels</option>
                         <option>Pixel Facebook</option>
+                        <option>Pixel Google</option>
                     </select>
-                    <i class="ph-bold ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted pointer-events-none group-hover:text-white transition-colors"></i>
                 </div>
 
-                <div class="w-px h-6 bg-brand-border mx-1"></div>
-
-                <!-- Date Filter -->
-                <div class="relative group">
-                    <div class="flex items-center bg-brand-bg rounded-xl border border-transparent hover:border-brand-border focus-within:border-brand-primary transition-colors cursor-pointer">
-                        <i class="ph ph-calendar-blank text-brand-muted pl-3 text-lg group-hover:text-white transition-colors"></i>
-                        <input type="text" placeholder="Selecionar Período" class="bg-transparent text-sm text-white font-medium pl-2 pr-4 py-2.5 outline-none w-40 placeholder-brand-muted cursor-pointer">
-                    </div>
+                <!-- Date Picker Style -->
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-white/5 cursor-pointer transition-colors">
+                    <i class="ph-duotone ph-calendar-blank text-tele-primary text-lg"></i>
+                    <span class="text-sm font-medium text-white">04 Dez - 10 Dez</span>
+                    <i class="ph-bold ph-caret-down text-xs text-tele-muted ml-1"></i>
                 </div>
 
-                <!-- Search Button -->
-                <button class="bg-brand-primary hover:bg-brand-primaryHover text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-lg shadow-brand-primary/20 hover:shadow-brand-primary/40 flex items-center gap-2">
+                <!-- Action Button -->
+                <button class="ml-2 bg-tele-primary hover:bg-tele-primaryDark text-white px-5 py-2 rounded-xl font-semibold text-sm transition-all shadow-glow flex items-center gap-2">
                     <i class="ph-bold ph-magnifying-glass"></i>
-                    <span>Filtrar</span>
+                    Filtrar
                 </button>
             </div>
         </header>
 
-        <!-- Scrollable Content -->
-        <div class="flex-1 overflow-y-auto px-8 pb-8 pt-6">
+        <!-- Scrollable Dashboard Content -->
+        <div class="flex-1 overflow-y-auto px-8 pb-8 custom-scrollbar">
             
-            <!-- Metric Cards Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Metric Cards: New Layout (Horizontal Floating) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
                 
-                <!-- Card 1: Pageviews -->
-                <div class="bg-brand-card p-6 rounded-2xl border border-brand-border hover:border-brand-primary/30 transition-all hover:shadow-card group relative overflow-hidden">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-brand-primary/5 rounded-bl-full -mr-4 -mt-4 transition-all group-hover:bg-brand-primary/10"></div>
+                <!-- Card 1 -->
+                <div class="bg-tele-card rounded-2xl p-5 border border-tele-border shadow-card hover:border-tele-primary/30 transition-all group relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-tele-primary/5 rounded-full -mr-8 -mt-8 group-hover:scale-110 transition-transform"></div>
                     
-                    <div class="flex items-center gap-4 mb-4 relative">
-                        <div class="p-3 rounded-xl bg-blue-500/10 text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all duration-300">
-                            <i class="ph-fill ph-eye text-2xl"></i>
+                    <div class="flex justify-between items-start mb-4 relative z-10">
+                        <div class="p-3 bg-tele-bg rounded-xl border border-tele-border text-tele-primary shadow-sm">
+                            <i class="ph-duotone ph-eye text-2xl"></i>
                         </div>
-                        <span class="text-brand-muted font-medium text-sm">Pageviews</span>
+                        <span class="flex items-center gap-1 text-xs font-medium bg-tele-bg px-2 py-1 rounded-lg text-tele-muted">
+                            <i class="ph-bold ph-minus text-tele-muted"></i> 0%
+                        </span>
                     </div>
                     
-                    <div class="flex items-end justify-between relative">
-                        <div>
-                            <div class="text-3xl font-bold text-white mb-1">0</div>
-                            <div class="flex items-center gap-1.5 text-xs font-medium text-brand-warning bg-brand-warning/10 px-2 py-0.5 rounded-md w-fit">
-                                <i class="ph-bold ph-minus"></i>
-                                <span>Estável</span>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-[10px] text-brand-muted uppercase tracking-wider mb-0.5">Conversão</p>
-                            <p class="text-lg font-bold text-white">0%</p>
-                        </div>
+                    <div class="relative z-10">
+                        <span class="text-tele-muted text-sm font-medium block mb-1">Pageviews</span>
+                        <h3 class="text-3xl font-bold text-white tracking-tight">0</h3>
+                        <p class="text-xs text-tele-muted mt-2 flex items-center gap-1">
+                            Conv. Geral
+                            <span class="text-white font-semibold">0%</span>
+                        </p>
                     </div>
                 </div>
 
-                <!-- Card 2: Clicks -->
-                <div class="bg-brand-card p-6 rounded-2xl border border-brand-border hover:border-brand-primary/30 transition-all hover:shadow-card group relative overflow-hidden">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-brand-primary/5 rounded-bl-full -mr-4 -mt-4 transition-all group-hover:bg-brand-primary/10"></div>
-                    
-                    <div class="flex items-center gap-4 mb-4 relative">
-                        <div class="p-3 rounded-xl bg-purple-500/10 text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-all duration-300">
-                            <i class="ph-fill ph-cursor-click text-2xl"></i>
+                <!-- Card 2 -->
+                <div class="bg-tele-card rounded-2xl p-5 border border-tele-border shadow-card hover:border-tele-primary/30 transition-all group relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-tele-primary/5 rounded-full -mr-8 -mt-8 group-hover:scale-110 transition-transform"></div>
+
+                    <div class="flex justify-between items-start mb-4 relative z-10">
+                        <div class="p-3 bg-tele-bg rounded-xl border border-tele-border text-tele-primary shadow-sm">
+                            <i class="ph-duotone ph-cursor-click text-2xl"></i>
                         </div>
-                        <span class="text-brand-muted font-medium text-sm">Clicks</span>
+                        <span class="flex items-center gap-1 text-xs font-medium bg-tele-bg px-2 py-1 rounded-lg text-tele-muted">
+                            <i class="ph-bold ph-minus text-tele-muted"></i> 0%
+                        </span>
                     </div>
                     
-                    <div class="flex items-end justify-between relative">
-                        <div>
-                            <div class="text-3xl font-bold text-white mb-1">0</div>
-                            <div class="flex items-center gap-1.5 text-xs font-medium text-brand-warning bg-brand-warning/10 px-2 py-0.5 rounded-md w-fit">
-                                <i class="ph-bold ph-minus"></i>
-                                <span>Estável</span>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-[10px] text-brand-muted uppercase tracking-wider mb-0.5">CTR</p>
-                            <p class="text-lg font-bold text-white">0%</p>
-                        </div>
+                    <div class="relative z-10">
+                        <span class="text-tele-muted text-sm font-medium block mb-1">Cliques na Página</span>
+                        <h3 class="text-3xl font-bold text-white tracking-tight">0</h3>
+                        <p class="text-xs text-tele-muted mt-2 flex items-center gap-1">
+                            CTR Pageview
+                            <span class="text-white font-semibold">0%</span>
+                        </p>
                     </div>
                 </div>
 
-                <!-- Card 3: Entradas -->
-                <div class="bg-brand-card p-6 rounded-2xl border border-brand-border hover:border-brand-primary/30 transition-all hover:shadow-card group relative overflow-hidden">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-brand-primary/5 rounded-bl-full -mr-4 -mt-4 transition-all group-hover:bg-brand-primary/10"></div>
-                    
-                    <div class="flex items-center gap-4 mb-4 relative">
-                        <div class="p-3 rounded-xl bg-brand-primary/10 text-brand-primary group-hover:bg-brand-primary group-hover:text-white transition-all duration-300">
-                            <i class="ph-fill ph-sign-in text-2xl"></i>
+                <!-- Card 3 -->
+                <div class="bg-tele-card rounded-2xl p-5 border border-tele-border shadow-card hover:border-tele-primary/30 transition-all group relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-tele-primary/5 rounded-full -mr-8 -mt-8 group-hover:scale-110 transition-transform"></div>
+
+                    <div class="flex justify-between items-start mb-4 relative z-10">
+                        <div class="p-3 bg-tele-bg rounded-xl border border-tele-border text-tele-primary shadow-sm">
+                            <i class="ph-duotone ph-sign-in text-2xl"></i>
                         </div>
-                        <span class="text-brand-muted font-medium text-sm">Entradas</span>
+                        <span class="flex items-center gap-1 text-xs font-medium bg-tele-bg px-2 py-1 rounded-lg text-tele-muted">
+                            <i class="ph-bold ph-minus text-tele-muted"></i> 0%
+                        </span>
                     </div>
                     
-                    <div class="flex items-end justify-between relative">
-                        <div>
-                            <div class="text-3xl font-bold text-white mb-1">0</div>
-                            <div class="flex items-center gap-1.5 text-xs font-medium text-brand-warning bg-brand-warning/10 px-2 py-0.5 rounded-md w-fit">
-                                <i class="ph-bold ph-minus"></i>
-                                <span>Estável</span>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-[10px] text-brand-muted uppercase tracking-wider mb-0.5">Conv. Entradas</p>
-                            <p class="text-lg font-bold text-white">0%</p>
-                        </div>
+                    <div class="relative z-10">
+                        <span class="text-tele-muted text-sm font-medium block mb-1">Entradas no Canal</span>
+                        <h3 class="text-3xl font-bold text-white tracking-tight">0</h3>
+                        <p class="text-xs text-tele-muted mt-2 flex items-center gap-1">
+                            Conv. Clique
+                            <span class="text-white font-semibold">0%</span>
+                        </p>
                     </div>
                 </div>
 
-                <!-- Card 4: Saídas -->
-                <div class="bg-brand-card p-6 rounded-2xl border border-brand-border hover:border-brand-primary/30 transition-all hover:shadow-card group relative overflow-hidden">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-brand-primary/5 rounded-bl-full -mr-4 -mt-4 transition-all group-hover:bg-brand-primary/10"></div>
-                    
-                    <div class="flex items-center gap-4 mb-4 relative">
-                        <div class="p-3 rounded-xl bg-brand-danger/10 text-brand-danger group-hover:bg-brand-danger group-hover:text-white transition-all duration-300">
-                            <i class="ph-fill ph-sign-out text-2xl"></i>
+                <!-- Card 4 -->
+                <div class="bg-tele-card rounded-2xl p-5 border border-tele-border shadow-card hover:border-tele-primary/30 transition-all group relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-tele-danger/10 rounded-full -mr-8 -mt-8 group-hover:scale-110 transition-transform"></div>
+
+                    <div class="flex justify-between items-start mb-4 relative z-10">
+                        <div class="p-3 bg-tele-bg rounded-xl border border-tele-border text-tele-danger shadow-sm">
+                            <i class="ph-duotone ph-sign-out text-2xl"></i>
                         </div>
-                        <span class="text-brand-muted font-medium text-sm">Saídas</span>
+                        <span class="flex items-center gap-1 text-xs font-medium bg-tele-bg px-2 py-1 rounded-lg text-tele-muted">
+                            <i class="ph-bold ph-minus text-tele-muted"></i> 0%
+                        </span>
                     </div>
                     
-                    <div class="flex items-end justify-between relative">
-                        <div>
-                            <div class="text-3xl font-bold text-white mb-1">0</div>
-                            <div class="flex items-center gap-1.5 text-xs font-medium text-brand-warning bg-brand-warning/10 px-2 py-0.5 rounded-md w-fit">
-                                <i class="ph-bold ph-minus"></i>
-                                <span>Estável</span>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-[10px] text-brand-muted uppercase tracking-wider mb-0.5">Retenção</p>
-                            <p class="text-lg font-bold text-white">0%</p>
-                        </div>
+                    <div class="relative z-10">
+                        <span class="text-tele-muted text-sm font-medium block mb-1">Saídas do Canal</span>
+                        <h3 class="text-3xl font-bold text-white tracking-tight">0</h3>
+                        <p class="text-xs text-tele-muted mt-2 flex items-center gap-1">
+                            Retenção
+                            <span class="text-white font-semibold">0%</span>
+                        </p>
                     </div>
                 </div>
             </div>
 
-            <!-- Content Grid: Chart & Table -->
+            <!-- Charts & Data Section -->
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 
-                <!-- Chart Section -->
-                <div class="xl:col-span-2 bg-brand-card rounded-2xl border border-brand-border p-6 flex flex-col shadow-sm">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                <!-- Main Chart -->
+                <div class="xl:col-span-2 bg-tele-card rounded-2xl border border-tele-border shadow-card p-6 flex flex-col">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                         <div>
-                            <h2 class="text-lg font-bold text-white">Desempenho</h2>
-                            <p class="text-xs text-brand-muted mt-1">Acompanhe as métricas ao longo do tempo</p>
+                            <h2 class="text-lg font-bold text-white">Análise de Tráfego</h2>
+                            <p class="text-xs text-tele-muted">Comparativo de métricas no período selecionado</p>
                         </div>
                         
-                        <!-- Modern Pill Tabs -->
-                        <div class="flex bg-brand-bg p-1 rounded-xl border border-brand-border/50">
-                            <button class="bg-brand-card border border-brand-border/50 text-brand-primary text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition-all">Pageviews</button>
-                            <button class="text-brand-muted hover:text-white text-xs font-medium px-4 py-2 rounded-lg transition-all">Clicks</button>
-                            <button class="text-brand-muted hover:text-white text-xs font-medium px-4 py-2 rounded-lg transition-all">Entradas</button>
-                            <button class="text-brand-muted hover:text-white text-xs font-medium px-4 py-2 rounded-lg transition-all">Saídas</button>
+                        <!-- Modern Tabs -->
+                        <div class="flex bg-tele-bg p-1 rounded-xl border border-tele-border">
+                            <button class="px-4 py-1.5 bg-tele-card text-tele-primary text-xs font-semibold rounded-lg shadow-sm border border-tele-border/50 transition-all">Pageviews</button>
+                            <button class="px-4 py-1.5 text-tele-muted hover:text-white text-xs font-medium rounded-lg transition-all">Clicks</button>
+                            <button class="px-4 py-1.5 text-tele-muted hover:text-white text-xs font-medium rounded-lg transition-all">Entradas</button>
+                            <button class="px-4 py-1.5 text-tele-muted hover:text-white text-xs font-medium rounded-lg transition-all">Saídas</button>
                         </div>
                     </div>
 
-                    <!-- Chart Visual Area -->
-                    <div class="flex-1 relative min-h-[320px] w-full bg-brand-bg/30 rounded-xl border border-brand-border/30 p-4">
-                        <!-- Y Axis -->
-                        <div class="absolute left-4 top-4 bottom-10 flex flex-col justify-between text-[10px] text-brand-muted font-mono z-10">
-                            <span>100</span>
-                            <span>75</span>
-                            <span>50</span>
-                            <span>25</span>
-                            <span>0</span>
+                    <!-- Chart Visual -->
+                    <div class="flex-1 relative min-h-[320px] bg-gradient-to-b from-tele-bg/50 to-transparent rounded-xl border border-tele-border/30 p-4">
+                        <!-- Chart Grid -->
+                        <div class="h-full flex flex-col justify-between relative z-10">
+                            <!-- Y-Axis Lines -->
+                            <div class="w-full h-px bg-tele-border/30 dashed"></div>
+                            <div class="w-full h-px bg-tele-border/30 dashed"></div>
+                            <div class="w-full h-px bg-tele-border/30 dashed"></div>
+                            <div class="w-full h-px bg-tele-border/30 dashed"></div>
+                            <div class="w-full h-px bg-tele-border/50"></div> <!-- Baseline -->
                         </div>
 
-                        <!-- Grid -->
-                        <div class="absolute left-12 right-4 top-4 bottom-10 flex flex-col justify-between">
-                            <div class="w-full h-px bg-brand-border/30 border-t border-dashed border-brand-muted/20"></div>
-                            <div class="w-full h-px bg-brand-border/30 border-t border-dashed border-brand-muted/20"></div>
-                            <div class="w-full h-px bg-brand-border/30 border-t border-dashed border-brand-muted/20"></div>
-                            <div class="w-full h-px bg-brand-border/30 border-t border-dashed border-brand-muted/20"></div>
-                            <div class="w-full h-px bg-brand-border/50"></div>
+                        <!-- Data Line (The visual representation of 0) -->
+                        <div class="absolute bottom-4 left-4 right-4 h-[2px] bg-tele-primary shadow-[0_0_15px_rgba(56,189,248,0.6)] z-20">
+                            <!-- Points -->
+                            <div class="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-tele-bg border-2 border-tele-primary rounded-full"></div>
+                            <div class="absolute left-[16%] top-1/2 -translate-y-1/2 w-2 h-2 bg-tele-bg border-2 border-tele-primary rounded-full"></div>
+                            <div class="absolute left-[33%] top-1/2 -translate-y-1/2 w-2 h-2 bg-tele-bg border-2 border-tele-primary rounded-full"></div>
+                            <div class="absolute left-[50%] top-1/2 -translate-y-1/2 w-2 h-2 bg-tele-bg border-2 border-tele-primary rounded-full"></div>
+                            <div class="absolute left-[66%] top-1/2 -translate-y-1/2 w-2 h-2 bg-tele-bg border-2 border-tele-primary rounded-full"></div>
+                            <div class="absolute left-[83%] top-1/2 -translate-y-1/2 w-2 h-2 bg-tele-bg border-2 border-tele-primary rounded-full"></div>
+                            <div class="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-tele-bg border-2 border-tele-primary rounded-full"></div>
                         </div>
 
-                        <!-- The Line (Zero Data) -->
-                        <div class="absolute left-12 right-4 bottom-10 h-px bg-brand-primary shadow-[0_0_15px_rgba(6,182,212,0.6)] z-20 flex items-center">
-                            <!-- Data Points dots -->
-                            <div class="w-full flex justify-between px-[2px]">
-                                <div class="w-2 h-2 bg-brand-bg border-2 border-brand-primary rounded-full"></div>
-                                <div class="w-2 h-2 bg-brand-bg border-2 border-brand-primary rounded-full"></div>
-                                <div class="w-2 h-2 bg-brand-bg border-2 border-brand-primary rounded-full"></div>
-                                <div class="w-2 h-2 bg-brand-bg border-2 border-brand-primary rounded-full"></div>
-                                <div class="w-2 h-2 bg-brand-bg border-2 border-brand-primary rounded-full"></div>
-                                <div class="w-2 h-2 bg-brand-bg border-2 border-brand-primary rounded-full"></div>
-                                <div class="w-2 h-2 bg-brand-bg border-2 border-brand-primary rounded-full"></div>
-                            </div>
-                        </div>
-                        
-                        <!-- Gradient Fill under line (simulated) -->
-                        <div class="absolute left-12 right-4 bottom-10 h-16 bg-gradient-to-t from-brand-primary/10 to-transparent pointer-events-none"></div>
-
-                        <!-- X Axis -->
-                        <div class="absolute left-12 right-4 bottom-2 flex justify-between text-[10px] text-brand-muted font-medium uppercase tracking-wide">
-                            <span>04 Dez</span>
-                            <span>05 Dez</span>
-                            <span>06 Dez</span>
-                            <span>07 Dez</span>
-                            <span>08 Dez</span>
-                            <span>09 Dez</span>
-                            <span>10 Dez</span>
+                        <!-- X-Axis Labels -->
+                        <div class="absolute bottom-0 left-4 right-4 translate-y-6 flex justify-between text-[10px] text-tele-muted font-medium">
+                            <span>04/12</span>
+                            <span>05/12</span>
+                            <span>06/12</span>
+                            <span>07/12</span>
+                            <span>08/12</span>
+                            <span>09/12</span>
+                            <span>10/12</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Table Section -->
-                <div class="bg-brand-card rounded-2xl border border-brand-border p-0 flex flex-col shadow-sm overflow-hidden h-full">
-                    <div class="p-6 border-b border-brand-border">
+                <!-- Daily Table -->
+                <div class="bg-tele-card rounded-2xl border border-tele-border shadow-card p-0 flex flex-col h-full overflow-hidden">
+                    <div class="p-6 border-b border-tele-border/50">
                         <h2 class="text-lg font-bold text-white">Retenção Diária</h2>
-                        <p class="text-xs text-brand-muted mt-1">Análise detalhada por dia</p>
+                        <p class="text-xs text-tele-muted">Monitoramento dia-a-dia</p>
                     </div>
                     
-                    <div class="overflow-x-auto flex-1">
+                    <div class="flex-1 overflow-x-auto custom-scrollbar">
                         <table class="w-full text-sm text-left">
-                            <thead class="text-xs text-brand-muted uppercase bg-brand-bg/50">
+                            <thead class="text-xs text-tele-muted uppercase bg-tele-bg/50">
                                 <tr>
-                                    <th scope="col" class="px-6 py-4 font-semibold">Dia</th>
-                                    <th scope="col" class="px-6 py-4 font-semibold text-center">Entradas</th>
-                                    <th scope="col" class="px-6 py-4 font-semibold text-center">Saídas</th>
-                                    <th scope="col" class="px-6 py-4 font-semibold text-right">Retenção</th>
+                                    <th class="px-6 py-3 font-semibold">Dia</th>
+                                    <th class="px-6 py-3 font-semibold text-center">In/Out</th>
+                                    <th class="px-6 py-3 font-semibold text-right">Retenção</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-brand-border/50">
-                                <!-- Row 1 -->
-                                <tr class="bg-brand-card hover:bg-brand-hover/50 transition-colors">
-                                    <td class="px-6 py-4 font-medium text-white whitespace-nowrap">10 Dez</td>
-                                    <td class="px-6 py-4 text-center text-brand-muted">0</td>
-                                    <td class="px-6 py-4 text-center text-brand-muted">0</td>
-                                    <td class="px-6 py-4 text-right"><span class="bg-brand-danger/10 text-brand-danger px-2 py-1 rounded text-xs font-bold">0%</span></td>
+                            <tbody class="divide-y divide-tele-border/30">
+                                <!-- Loop Rows -->
+                                <tr class="hover:bg-tele-bg/50 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">10/12</td>
+                                    <td class="px-6 py-4 text-center">
+                                        <span class="text-tele-success text-xs block">+0</span>
+                                        <span class="text-tele-danger text-xs block">-0</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <span class="bg-tele-danger/10 text-tele-danger px-2 py-1 rounded text-xs font-bold">0%</span>
+                                    </td>
                                 </tr>
-                                <!-- Row 2 -->
-                                <tr class="bg-brand-card hover:bg-brand-hover/50 transition-colors">
-                                    <td class="px-6 py-4 font-medium text-white whitespace-nowrap">09 Dez</td>
-                                    <td class="px-6 py-4 text-center text-brand-muted">0</td>
-                                    <td class="px-6 py-4 text-center text-brand-muted">0</td>
-                                    <td class="px-6 py-4 text-right"><span class="bg-brand-danger/10 text-brand-danger px-2 py-1 rounded text-xs font-bold">0%</span></td>
+                                <tr class="hover:bg-tele-bg/50 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">09/12</td>
+                                    <td class="px-6 py-4 text-center">
+                                        <span class="text-tele-success text-xs block">+0</span>
+                                        <span class="text-tele-danger text-xs block">-0</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <span class="bg-tele-danger/10 text-tele-danger px-2 py-1 rounded text-xs font-bold">0%</span>
+                                    </td>
                                 </tr>
-                                <!-- Row 3 -->
-                                <tr class="bg-brand-card hover:bg-brand-hover/50 transition-colors">
-                                    <td class="px-6 py-4 font-medium text-white whitespace-nowrap">08 Dez</td>
-                                    <td class="px-6 py-4 text-center text-brand-muted">0</td>
-                                    <td class="px-6 py-4 text-center text-brand-muted">0</td>
-                                    <td class="px-6 py-4 text-right"><span class="bg-brand-danger/10 text-brand-danger px-2 py-1 rounded text-xs font-bold">0%</span></td>
+                                <tr class="hover:bg-tele-bg/50 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">08/12</td>
+                                    <td class="px-6 py-4 text-center">
+                                        <span class="text-tele-success text-xs block">+0</span>
+                                        <span class="text-tele-danger text-xs block">-0</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <span class="bg-tele-danger/10 text-tele-danger px-2 py-1 rounded text-xs font-bold">0%</span>
+                                    </td>
                                 </tr>
-                                <!-- Row 4 -->
-                                <tr class="bg-brand-card hover:bg-brand-hover/50 transition-colors">
-                                    <td class="px-6 py-4 font-medium text-white whitespace-nowrap">07 Dez</td>
-                                    <td class="px-6 py-4 text-center text-brand-muted">0</td>
-                                    <td class="px-6 py-4 text-center text-brand-muted">0</td>
-                                    <td class="px-6 py-4 text-right"><span class="bg-brand-danger/10 text-brand-danger px-2 py-1 rounded text-xs font-bold">0%</span></td>
+                                <tr class="hover:bg-tele-bg/50 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">07/12</td>
+                                    <td class="px-6 py-4 text-center">
+                                        <span class="text-tele-success text-xs block">+0</span>
+                                        <span class="text-tele-danger text-xs block">-0</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <span class="bg-tele-danger/10 text-tele-danger px-2 py-1 rounded text-xs font-bold">0%</span>
+                                    </td>
                                 </tr>
-                                <!-- Row 5 -->
-                                <tr class="bg-brand-card hover:bg-brand-hover/50 transition-colors">
-                                    <td class="px-6 py-4 font-medium text-white whitespace-nowrap">06 Dez</td>
-                                    <td class="px-6 py-4 text-center text-brand-muted">0</td>
-                                    <td class="px-6 py-4 text-center text-brand-muted">0</td>
-                                    <td class="px-6 py-4 text-right"><span class="bg-brand-danger/10 text-brand-danger px-2 py-1 rounded text-xs font-bold">0%</span></td>
+                                <tr class="hover:bg-tele-bg/50 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">06/12</td>
+                                    <td class="px-6 py-4 text-center">
+                                        <span class="text-tele-success text-xs block">+0</span>
+                                        <span class="text-tele-danger text-xs block">-0</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <span class="bg-tele-danger/10 text-tele-danger px-2 py-1 rounded text-xs font-bold">0%</span>
+                                    </td>
                                 </tr>
                             </tbody>
                         </table>
-                    </div>
-                    <!-- Small Footer in Table Card -->
-                    <div class="p-3 border-t border-brand-border bg-brand-bg/30 text-center">
-                        <button class="text-xs text-brand-primary font-medium hover:underline">Ver histórico completo</button>
                     </div>
                 </div>
             </div>

@@ -13,7 +13,8 @@ import {
     CreditCard,
     Code,
     LogIn,
-    FileText
+    FileText,
+    Tags
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -48,9 +49,13 @@ const menuItems = [
         icon: Filter,
     },
     {
-        title: "Logs CAPI",
         href: "/logs",
         icon: FileText,
+    },
+    {
+        title: "UTMs",
+        href: "/utms",
+        icon: Tags,
     },
     {
         title: "Mensagens",
