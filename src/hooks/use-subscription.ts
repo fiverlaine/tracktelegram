@@ -7,6 +7,7 @@ export function useSubscription() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [plan, setPlan] = useState<string | null>(null);
+    const [subscription, setSubscription] = useState<any>(null);
 
     useEffect(() => {
         async function checkSubscription() {
@@ -19,18 +20,20 @@ export function useSubscription() {
                 return;
             }
 
-            const { data: subscription } = await supabase
+            const { data: sub } = await supabase
                 .from("subscriptions")
-                .select("status, plan_name")
+                .select("*")
                 .eq("user_id", user.id)
                 .single();
 
             // Check if status is active or trial
-            if (subscription && (subscription.status === "active" || subscription.status === "trialing")) {
+            if (sub && (sub.status === "active" || sub.status === "trialing")) {
                 setIsSubscribed(true);
-                setPlan(subscription.plan_name);
+                setPlan(sub.plan_name);
+                setSubscription(sub);
             } else {
                 setIsSubscribed(false);
+                setSubscription(sub); // maintain subscription data even if inactive (e.g. canceled)
             }
             
             setIsLoading(false);
@@ -39,5 +42,5 @@ export function useSubscription() {
         checkSubscription();
     }, []);
 
-    return { isLoading, isSubscribed, plan };
+    return { isLoading, isSubscribed, plan, subscription };
 }
