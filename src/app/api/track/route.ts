@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
         const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
         );
 
         // Tentativa de encontrar o Funnel ID baseado no domain_id (se houver lógica para isso)
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
         });
 
         if (error) {
-            console.error("Erro ao salvar evento:", error);
+
             return NextResponse.json({ error: "Database error" }, { status: 500 });
         }
 

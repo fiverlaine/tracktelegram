@@ -8,7 +8,7 @@ import { sendCAPIEvent } from "@/lib/facebook-capi";
  */
 function getSupabaseClient() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl) {
         throw new Error("NEXT_PUBLIC_SUPABASE_URL não está configurada");
@@ -29,7 +29,7 @@ export async function POST(
         const { bot_id } = await params;
         const update = await request.json();
 
-        console.log(`[Webhook] Received for bot ${bot_id}:`, JSON.stringify(update, null, 2));
+
 
         // 1. Handle /start command (Deep Linking) - Fluxo Legacy
         if (update.message?.text?.startsWith("/start ")) {

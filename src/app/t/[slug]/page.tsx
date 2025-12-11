@@ -7,7 +7,7 @@ import { generateTelegramInvite } from "@/lib/telegram-service";
 // Supabase client para o Server Component
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 interface PageProps {
@@ -55,7 +55,7 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
     // --- MODO RÁPIDO (Server-Side Redirect) ---
     // Se já temos o Visitor ID (vindo da Landing Page), processamos tudo no servidor
     if (vid && funnel) {
-        console.log(`[SSR] Processando acesso rápido para VID: ${vid}`);
+
         
         // 2. Rastrear Clique (Assíncrono - fire & forget)
         const clickData = {
@@ -102,7 +102,6 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
 
         // 4. Redirecionar Imediatamente (Fora do try/catch)
         if (destinationUrl) {
-            console.log(`[SSR] Redirecionando para: ${destinationUrl}`);
             redirect(destinationUrl);
         }
     }

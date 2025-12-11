@@ -74,13 +74,7 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData }: Cli
                 setFunnel(data);
             }
 
-            // Debug: verificar dados do bot
-            console.log("Funnel data:", {
-                id: data.id,
-                name: data.name,
-                bot_id: data.bot_id,
-                telegram_bots: data.telegram_bots
-            });
+
 
             // Validar se o funil tem bot configurado
             if (!data.bot_id) {
@@ -207,13 +201,21 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData }: Cli
             region: geo?.region,
         };
 
-        // A. Internal Tracking - Salvar no Supabase
-        await supabase.from("events").insert({
-            funnel_id: funnelData.id,
-            visitor_id: vid,
-            event_type: "pageview",
-            metadata: userData
-        });
+        // A. Internal Tracking - Via API Server-Side (Mais seguro e performático)
+        try {
+            await fetch("/api/track", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    visitor_id: vid,
+                    event_type: "pageview",
+                    domain_id: funnelData.domain_id, // Se disponível
+                    metadata: userData
+                })
+            });
+        } catch (e) {
+            console.error("Erro ao registrar pageview via API:", e);
+        }
 
         // B. Facebook Browser Pixel (fallback client-side)
         if (funnelData.pixels?.pixel_id) {
@@ -268,45 +270,24 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData }: Cli
             region: geo?.region,
         };
 
-        // Salvar evento de click (AGUARDAR para garantir que seja salvo antes do redirect)
+        // 3. NOVO FLUXO: Gerar link de convite e registrar CLICK em uma única requisição
         try {
-            await supabase.from("events").insert({
-                funnel_id: funnel.id,
-                visitor_id: visitorId,
-                event_type: "click",
-                metadata: clickData
+            const response = await fetch("/api/invite", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    funnel_id: funnel.id,
+                    visitor_id: visitorId,
+                    metadata: clickData
+                })
             });
-            console.log("Click event salvo com sucesso");
-        } catch (err) {
-            console.error("Erro ao salvar click event:", err);
-        }
 
-        // 2. Facebook Event (client-side como backup) - REMOVIDO
-        // O evento Lead será enviado via CAPI no webhook quando o usuário entrar no canal
-        // Não disparamos eventos de pixel aqui para evitar duplicação
-
-        setRedirectStatus("Gerando acesso exclusivo...");
-
-        // 3. NOVO FLUXO: Gerar link de convite dinâmico e ir DIRETO para o canal
-        try {
-            const response = await fetch(
-                `/api/invite?funnel_id=${funnel.id}&visitor_id=${visitorId}`
-            );
             const data = await response.json();
 
             if (data.invite_link) {
                 setRedirectStatus("Redirecionando para o canal...");
                 
-                // Log para debug
-                console.log("Invite link gerado:", {
-                    link: data.invite_link,
-                    is_dynamic: data.is_dynamic
-                });
-
-                // Pequeno delay para garantir que o evento foi salvo
-                await new Promise(resolve => setTimeout(resolve, 300));
-                
-                // Redireciona DIRETO para o canal (sem bot intermediário)
+                // Redireciona DIRETO para o canal
                 window.location.href = data.invite_link;
                 return;
             }

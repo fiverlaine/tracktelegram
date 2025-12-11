@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       .single();
 
     if (profileError || !profile) {
-      console.log(`User with email ${email} not found. Skipping subscription update.`);
+
       return NextResponse.json({ message: 'User not found' }, { status: 200 });
     }
 

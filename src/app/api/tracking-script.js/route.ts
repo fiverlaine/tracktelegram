@@ -23,7 +23,7 @@ export async function GET(request: Request) {
             // Se tiver pixel, injetar código
             if (domain?.pixels?.pixel_id) {
                 const pixelId = domain.pixels.pixel_id;
-                console.log(`[Script] Injetando Pixel ${pixelId} para domínio ${domain.domain}`);
+
                 
                 pixelCode = `
 // --- Auto-Injected Facebook Pixel ---
@@ -44,7 +44,7 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
 `;
             }
         } catch (err) {
-            console.error("[Script] Erro ao buscar dados do domínio:", err);
+
         }
     }
 
@@ -52,7 +52,7 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
 (function() {
   ${pixelCode}
 
-  console.log("TrackGram Script Loaded v2.1");
+
 
   // 1. Helper Functions
   function generateUUID() {
@@ -207,7 +207,7 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       keepalive: true // Garante envio mesmo se navegar
-    }).catch(err => console.error("[TrackGram] Log error:", err));
+    }).catch(err => {});
   }
 
   // 1. Track PageView immediately
@@ -244,7 +244,7 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  console.log("TrackGram: connected. vid=" + vid);
+
 })();
 `;
 

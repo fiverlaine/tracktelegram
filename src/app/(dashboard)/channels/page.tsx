@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useRouter } from "next/navigation";
 import { getPlanLimits } from "@/config/subscription-plans";
+import { createChannel } from "@/app/actions/channels";
 
 interface TelegramBot {
     id: string;
@@ -339,22 +340,20 @@ export default function ChannelsPage() {
             return;
         }
 
-        const { error } = await supabase.from("telegram_bots").insert({
-            user_id: user.id,
-            name: formData.name,
-            bot_token: formData.bot_token,
-            channel_link: formData.channel_link,
-            username: username
-        });
-
-        if (error) {
-            console.error(error);
-            toast.error("Erro ao salvar bot: " + error.message);
-        } else {
+        try {
+            await createChannel({
+                name: formData.name,
+                bot_token: formData.bot_token,
+                channel_link: formData.channel_link,
+                username: username
+            });
             toast.success("Canal configurado com sucesso!");
             setOpen(false);
             setFormData({ name: "", bot_token: "", channel_link: "", username: "" });
             fetchBots();
+        } catch (error: any) {
+            console.error(error);
+            toast.error(error.message);
         }
         setSaving(false);
     }

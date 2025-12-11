@@ -6,7 +6,7 @@ import crypto from "crypto";
  */
 function getSupabaseClient() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
         return null;
@@ -62,12 +62,6 @@ async function logCAPIEvent(data: CAPILogData) {
             console.error("[CAPI Log] ❌ Supabase client não disponível - verifique variáveis de ambiente");
             return;
         }
-
-        console.log("[CAPI Log] Salvando log...", {
-            visitor_id: data.visitor_id?.substring(0, 8),
-            event_name: data.event_name,
-            status: data.status
-        });
 
         const { data: insertedData, error } = await supabase.from("capi_logs").insert({
             visitor_id: data.visitor_id,
@@ -191,8 +185,7 @@ export async function sendCAPIEvent(
     const apiVersion = "v18.0";
     const url = `https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${accessToken}`;
 
-    console.log(`[CAPI] Enviando evento ${eventName} para pixel ${pixelId}...`);
-    console.log(`[CAPI] Payload:`, JSON.stringify(eventPayload, null, 2));
+
 
     try {
         const response = await fetch(url, {

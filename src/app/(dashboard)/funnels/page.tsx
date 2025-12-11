@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useRouter } from "next/navigation";
 import { getPlanLimits } from "@/config/subscription-plans";
+import { createFunnel } from "@/app/actions/funnels";
 
 interface Funnel {
     id: string;
@@ -130,26 +131,20 @@ export default function FunnelsPage() {
             formData.slug = formData.name.toLowerCase().replace(/ /g, "-") + "-" + Math.random().toString(36).substring(7);
         }
 
-        const { error } = await supabase.from("funnels").insert({
-            user_id: user.id,
-            name: formData.name,
-            slug: formData.slug,
-            pixel_id: formData.pixel_id,
-            bot_id: formData.bot_id
-        });
-
-        if (error) {
-            console.error(error);
-            if (error.code === '23505') {
-                toast.error("Este slug já existe. Escolha outro.");
-            } else {
-                toast.error("Erro ao criar funil");
-            }
-        } else {
+        try {
+            await createFunnel({
+                name: formData.name,
+                slug: formData.slug,
+                pixel_id: formData.pixel_id,
+                bot_id: formData.bot_id
+            });
             toast.success("Funil criado com sucesso!");
             setOpen(false);
             setFormData({ name: "", slug: "", pixel_id: "", bot_id: "" });
             fetchFunnels();
+        } catch (error: any) {
+            console.error(error);
+            toast.error(error.message);
         }
         setSaving(false);
     }

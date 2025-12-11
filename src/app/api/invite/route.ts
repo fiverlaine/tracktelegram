@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
  */
 function getSupabaseClient() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl) {
         throw new Error("NEXT_PUBLIC_SUPABASE_URL não está configurada");
@@ -160,5 +160,128 @@ export async function GET(request: Request) {
             { error: "Erro interno do servidor" },
             { status: 500 }
         );
+    }
+}
+
+export async function POST(request: Request) {
+    try {
+        const supabase = getSupabaseClient();
+        const body = await request.json();
+        const { funnel_id, visitor_id, metadata } = body;
+
+        if (!funnel_id || !visitor_id) {
+            return NextResponse.json(
+                { error: "funnel_id e visitor_id são obrigatórios" },
+                { status: 400 }
+            );
+        }
+
+        // 1. Registrar evento de Click (Server-Side)
+        if (metadata) {
+            await supabase.from("events").insert({
+                funnel_id,
+                visitor_id,
+                event_type: "click",
+                metadata: {
+                    ...metadata,
+                    source: "server_api_invite"
+                }
+            });
+        }
+
+        // 2. Buscar dados do funil e gerar link (Reutilizando lógica similar ao GET)
+        const { data: funnel, error: funnelError } = await supabase
+            .from("funnels")
+            .select(`
+                id,
+                name,
+                telegram_bots (
+                    id,
+                    bot_token,
+                    chat_id,
+                    channel_link
+                )
+            `)
+            .eq("id", funnel_id)
+            .single();
+
+        if (funnelError || !funnel) {
+            return NextResponse.json({ error: "Funil não encontrado" }, { status: 404 });
+        }
+
+        const bot = funnel.telegram_bots as any;
+
+        if (!bot?.bot_token) {
+            return NextResponse.json({ error: "Bot não configurado" }, { status: 400 });
+        }
+
+        if (!bot?.chat_id) {
+            if (bot?.channel_link) {
+                return NextResponse.json({
+                    invite_link: bot.channel_link,
+                    is_dynamic: false,
+                    message: "Usando link estático (chat_id não configurado)"
+                });
+            }
+            return NextResponse.json({ error: "chat_id não configurado" }, { status: 400 });
+        }
+
+        // 3. Gerar Invite Link (Telegram API)
+        const inviteName = `v_${visitor_id.substring(0, 28)}`;
+
+        const telegramResponse = await fetch(
+            `https://api.telegram.org/bot${bot.bot_token}/createChatInviteLink`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    chat_id: bot.chat_id,
+                    name: inviteName,
+                    member_limit: 1,
+                    expire_date: Math.floor(Date.now() / 1000) + (24 * 60 * 60)
+                })
+            }
+        );
+
+        const telegramData = await telegramResponse.json();
+
+        if (!telegramData.ok) {
+            console.error("Erro Telegram API (POST invite):", telegramData);
+            if (bot?.channel_link) {
+                return NextResponse.json({
+                    invite_link: bot.channel_link,
+                    is_dynamic: false,
+                    error_detail: telegramData.description,
+                    message: "Fallback link estático"
+                });
+            }
+            return NextResponse.json({ error: `Erro Telegram: ${telegramData.description}` }, { status: 500 });
+        }
+
+        const inviteLink = telegramData.result.invite_link;
+
+        // 4. Salvar vínculo visitor <-> telegram
+        await supabase.from("visitor_telegram_links").upsert({
+            visitor_id: visitor_id,
+            funnel_id,
+            bot_id: bot.id,
+            telegram_user_id: 0,
+            metadata: {
+                invite_link: inviteLink,
+                invite_name: inviteName,
+                generated_at: new Date().toISOString(),
+                type: "dynamic_invite_post"
+            }
+        }, { onConflict: "visitor_id,telegram_user_id" });
+
+        return NextResponse.json({
+            invite_link: inviteLink,
+            is_dynamic: true,
+            expires_in: "24h"
+        });
+
+    } catch (error) {
+        console.error("Erro na API de invite (POST):", error);
+        return NextResponse.json({ error: "Erro interno" }, { status: 500 });
     }
 }
