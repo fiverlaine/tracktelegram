@@ -319,16 +319,29 @@ export default function DomainsPage() {
                                                                             )}
                                                                         </div>
                                                                         
-                                                                        <div className="text-sm text-gray-400">
-                                                                            <p className="mb-2">Para verificar que você é o dono deste domínio, adicione um registro <strong>TXT</strong> no seu DNS:</p>
-                                                                            <div className="bg-black/30 p-2 rounded border border-white/5 flex items-center justify-between font-mono text-xs">
-                                                                                <span>trackgram={domain.verification_token}</span>
-                                                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-500 hover:text-white" onClick={() => {
-                                                                                    navigator.clipboard.writeText(`trackgram=${domain.verification_token}`);
-                                                                                    toast.success("Token copiado!");
-                                                                                }}>
-                                                                                    <Copy className="h-3 w-3" />
-                                                                                </Button>
+                                                                        <div className="text-sm text-gray-400 space-y-3">
+                                                                            <p className="mb-2">Para verificar que você é o dono deste domínio, adicione a seguinte <strong>metatag</strong> no <code className="bg-white/10 px-1 py-0.5 rounded text-gray-300">&lt;head&gt;</code> do seu site:</p>
+                                                                            
+                                                                            <div className="bg-black/30 p-3 rounded border border-white/5 space-y-2">
+                                                                                <div className="flex items-center justify-between font-mono text-xs">
+                                                                                    <span className="text-gray-300 break-all">{`<meta name="trackgram-verification" content="${domain.verification_token}">`}</span>
+                                                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-500 hover:text-white flex-shrink-0 ml-2" onClick={() => {
+                                                                                        navigator.clipboard.writeText(`<meta name="trackgram-verification" content="${domain.verification_token}">`);
+                                                                                        toast.success("Metatag copiada!");
+                                                                                    }}>
+                                                                                        <Copy className="h-3 w-3" />
+                                                                                    </Button>
+                                                                                </div>
+                                                                            </div>
+                                                                            
+                                                                            <div className="bg-blue-500/5 border border-blue-500/20 p-3 rounded-lg text-xs">
+                                                                                <p className="font-semibold text-blue-400 mb-1">📝 Instruções:</p>
+                                                                                <ol className="list-decimal pl-4 space-y-1 text-gray-400">
+                                                                                    <li>Copie a metatag acima</li>
+                                                                                    <li>Cole no <code className="bg-white/10 px-1 py-0.5 rounded text-gray-300">&lt;head&gt;</code> de todas as páginas do seu site</li>
+                                                                                    <li>Salve e publique as alterações</li>
+                                                                                    <li>Clique em "Verificar Agora" após publicar</li>
+                                                                                </ol>
                                                                             </div>
                                                                         </div>
                                                                     </div>
