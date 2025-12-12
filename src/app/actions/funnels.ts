@@ -59,23 +59,44 @@ export async function createFunnel(data: CreateFunnelData) {
         }
     }
 
-    // 5. Insert Funnel
+    // 5. Generate Slug & Insert Funnel
     // Use the first pixel as the "primary" one for backward compatibility
     const primaryPixelId = data.pixel_ids.length > 0 ? data.pixel_ids[0] : null;
 
-    const { data: newFunnel, error: insertError } = await supabase.from("funnels").insert({
-        user_id: user.id,
-        name: data.name,
-        slug: data.slug,
-        pixel_id: primaryPixelId,
-        bot_id: data.bot_id
-    }).select().single();
+    let finalSlug = data.slug;
+    if (!finalSlug) {
+        finalSlug = Math.random().toString(36).substring(2, 10);
+    }
 
-    if (insertError) {
-        if (insertError.code === '23505') {
-            throw new Error("Este slug já existe. Escolha outro.");
+    let newFunnel = null;
+    let attempts = 0;
+    while (attempts < 3 && !newFunnel) {
+        attempts++;
+        const { data: inserted, error: insertError } = await supabase.from("funnels").insert({
+            user_id: user.id,
+            name: data.name,
+            slug: finalSlug,
+            pixel_id: primaryPixelId,
+            bot_id: data.bot_id
+        }).select().single();
+
+        if (insertError) {
+            if (insertError.code === '23505' && !data.slug) {
+                 // Collision on auto-generated slug -> Retry with new slug
+                 finalSlug = Math.random().toString(36).substring(2, 10);
+                 continue; 
+            }
+            if (insertError.code === '23505') {
+                 throw new Error("Este slug já existe. Escolha outro.");
+            }
+            throw new Error(`Erro ao salvar funil: ${insertError.message}`);
         }
-        throw new Error(`Erro ao salvar funil: ${insertError.message}`);
+        
+        newFunnel = inserted;
+    }
+    
+    if (!newFunnel) {
+        throw new Error("Erro ao gerar link único. Tente novamente.");
     }
 
     // 6. Insert Funnel Pixels (Many-to-Many)
@@ -87,8 +108,7 @@ export async function createFunnel(data: CreateFunnelData) {
         
         const { error: pixelError } = await supabase.from("funnel_pixels").insert(pixelInserts);
         if (pixelError) {
-            console.error("Erro ao vincular pixels extras:", pixelError);
-            // Non-fatal, but worth logging
+             console.error("Erro ao vincular pixels extras:", pixelError);
         }
     }
 

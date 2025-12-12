@@ -222,7 +222,7 @@ export async function POST(
                             id, 
                             name, 
                             pixel_id,
-                            pixels (id, pixel_id, access_token),
+                            pixels:pixels!funnels_pixel_id_fkey (id, pixel_id, access_token),
                             funnel_pixels (
                                 pixels (id, pixel_id, access_token)
                             )

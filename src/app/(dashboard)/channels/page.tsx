@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Loader2, Bot, CheckCircle2, AlertTriangle, ExternalLink, Zap, Copy, Check, Info, XCircle, RefreshCw, Save, Eye } from "lucide-react";
+import { Plus, Trash2, Loader2, Bot, CheckCircle2, AlertTriangle, ExternalLink, Zap, Copy, Check, Info, XCircle, RefreshCw, Save, Eye, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useRouter } from "next/navigation";
 import { getPlanLimits } from "@/config/subscription-plans";
-import { createChannel } from "@/app/actions/channels";
+import { createChannel, updateChannel } from "@/app/actions/channels";
 
 interface TelegramBot {
     id: string;
@@ -65,12 +65,24 @@ export default function ChannelsPage() {
     const [chatIdInput, setChatIdInput] = useState<Record<string, string>>({});
     const [savingChatId, setSavingChatId] = useState<string | null>(null);
     const [detailsOpen, setDetailsOpen] = useState<Record<string, boolean>>({});
+    const [editingId, setEditingId] = useState<string | null>(null);
 
     const { isSubscribed, isLoading: subLoading, plan: planName } = useSubscription();
     const router = useRouter();
     const planLimits = getPlanLimits(planName);
 
     const supabase = createClient();
+
+    const handleEdit = (bot: TelegramBot) => {
+        setEditingId(bot.id);
+        setFormData({
+            name: bot.name,
+            bot_token: bot.bot_token,
+            channel_link: bot.channel_link,
+            username: bot.username || ""
+        });
+        setOpen(true);
+    };
 
     const getWebhookBaseUrl = () => {
         // Prioritize Environment Variable which should be the public URL
@@ -201,7 +213,8 @@ export default function ChannelsPage() {
                             
                             const finalChatId = chatData.result.id || chatId;
                             
-                            if (!storedChatId && chatData.result.id) {
+                            // Always update chat_id if we found it via API to ensure sync
+                            if (chatData.result.id && chatData.result.id.toString() !== storedChatId) {
                                 await supabase
                                     .from("telegram_bots")
                                     .update({ chat_id: chatData.result.id.toString() })
@@ -308,6 +321,9 @@ export default function ChannelsPage() {
         setCheckingStatus(null);
     }
 
+
+    // ...
+
     async function handleSave() {
         setSaving(true);
         const { data: { user } } = await supabase.auth.getUser();
@@ -345,15 +361,27 @@ export default function ChannelsPage() {
         }
 
         try {
-            await createChannel({
-                name: formData.name,
-                bot_token: formData.bot_token,
-                channel_link: formData.channel_link,
-                username: username
-            });
-            toast.success("Canal configurado com sucesso!");
+            if (editingId) {
+                 await updateChannel(editingId, {
+                    name: formData.name,
+                    bot_token: formData.bot_token,
+                    channel_link: formData.channel_link,
+                    username: username
+                });
+                toast.success("Canal atualizado com sucesso!");
+            } else {
+                await createChannel({
+                    name: formData.name,
+                    bot_token: formData.bot_token,
+                    channel_link: formData.channel_link,
+                    username: username
+                });
+                toast.success("Canal configurado com sucesso!");
+            }
+            
             setOpen(false);
             setFormData({ name: "", bot_token: "", channel_link: "", username: "" });
+            setEditingId(null);
             fetchBots();
         } catch (error: any) {
             console.error(error);
@@ -563,6 +591,8 @@ export default function ChannelsPage() {
                             return;
                         }
 
+                        setEditingId(null);
+                        setFormData({ name: "", bot_token: "", channel_link: "", username: "" });
                         setOpen(true);
                      }} 
                      className="bg-white text-black hover:bg-gray-200 gap-2 font-bold"
@@ -866,6 +896,14 @@ export default function ChannelsPage() {
                                             </div>
                                         </DialogContent>
                                     </Dialog>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="hover:bg-white/10 hover:text-white text-gray-400"
+                                        onClick={() => handleEdit(bot)}
+                                    >
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
                                     <Button
                                         variant="ghost"
                                         size="icon"

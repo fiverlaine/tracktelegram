@@ -63,7 +63,7 @@ export async function POST(request: Request) {
             const { data: domain, error: domainError } = await supabase
                 .from("domains")
                 .select(`
-                    pixels (
+                    pixels:pixels!domains_pixel_id_fkey (
                         id,
                         pixel_id,
                         access_token

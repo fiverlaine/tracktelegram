@@ -18,7 +18,7 @@ export async function GET(request: Request) {
                 .from("domains")
                 .select(`
                     id,
-                    pixels(pixel_id),
+                    pixels:pixels!domains_pixel_id_fkey (pixel_id),
                     domain_pixels (
                         pixels (pixel_id)
                     )

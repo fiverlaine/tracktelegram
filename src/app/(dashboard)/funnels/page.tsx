@@ -75,7 +75,7 @@ export default function FunnelsPage() {
             .from("funnels")
             .select(`
             *,
-            pixels (name),
+            pixels:pixels!funnels_pixel_id_fkey (name),
             telegram_bots (name),
             funnel_pixels (
                 pixel_id,
@@ -273,17 +273,7 @@ export default function FunnelsPage() {
                                     className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
                                 />
                             </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="slug" className="text-gray-400">Slug Personalizado (Opcional)</Label>
-                                <Input
-                                    id="slug"
-                                    placeholder="promocao-especial"
-                                    value={formData.slug}
-                                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
-                                />
-                                <p className="text-[10px] text-gray-500">O link final será: {typeof window !== 'undefined' ? window.location.origin : '...'}/t/slug</p>
-                            </div>
+
                             
                             <div className="grid gap-2">
                                 <Label className="text-gray-400">Pixel do Facebook (Multi-seleção)</Label>

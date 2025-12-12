@@ -73,3 +73,30 @@ export async function createChannel(data: CreateChannelData) {
     revalidatePath("/channels");
     return { success: true };
 }
+
+export async function updateChannel(id: string, data: CreateChannelData) {
+    const supabase = await createClient();
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+        throw new Error("Usuário não autenticado");
+    }
+
+    const { error } = await supabase
+        .from("telegram_bots")
+        .update({
+            name: data.name,
+            bot_token: data.bot_token,
+            channel_link: data.channel_link,
+            username: data.username
+        })
+        .eq("id", id)
+        .eq("user_id", user.id);
+
+    if (error) {
+        throw new Error(`Erro ao atualizar canal: ${error.message}`);
+    }
+
+    revalidatePath("/channels");
+    return { success: true };
+}

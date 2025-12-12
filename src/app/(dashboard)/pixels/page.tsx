@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Loader2, BarChart2 } from "lucide-react";
+import { Plus, Trash2, Loader2, BarChart2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -27,6 +27,7 @@ export default function PixelsPage() {
     const [open, setOpen] = useState(false);
     const [formData, setFormData] = useState({ name: "", pixel_id: "", access_token: "" });
     const [saving, setSaving] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
 
     const { isSubscribed, isLoading: subLoading, plan: planName } = useSubscription();
     const router = useRouter();
@@ -55,29 +56,59 @@ export default function PixelsPage() {
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-            toast.error("Você precisa estar logado para criar um pixel.");
+            toast.error("Você precisa estar logado.");
             setSaving(false);
             return;
         }
 
-        const { error } = await supabase.from("pixels").insert({
-            user_id: user.id,
-            name: formData.name,
-            pixel_id: formData.pixel_id,
-            access_token: formData.access_token
-        });
+        try {
+            if (editingId) {
+                // Update
+                const { error } = await supabase
+                    .from("pixels")
+                    .update({
+                        name: formData.name,
+                        pixel_id: formData.pixel_id,
+                        access_token: formData.access_token
+                    })
+                    .eq("id", editingId);
 
-        if (error) {
-            console.error(error);
-            toast.error("Erro ao salvar pixel");
-        } else {
-            toast.success("Pixel salvo com sucesso");
+                if (error) throw error;
+                toast.success("Pixel atualizado!");
+            } else {
+                // Create
+                const { error } = await supabase.from("pixels").insert({
+                    user_id: user.id,
+                    name: formData.name,
+                    pixel_id: formData.pixel_id,
+                    access_token: formData.access_token
+                });
+
+                if (error) throw error;
+                toast.success("Pixel criado com sucesso!");
+            }
+
             setOpen(false);
             setFormData({ name: "", pixel_id: "", access_token: "" });
+            setEditingId(null);
             fetchPixels();
+
+        } catch (error: any) {
+            console.error(error);
+            toast.error("Erro ao salvar: " + error.message);
         }
         setSaving(false);
     }
+
+    const handleEdit = (pixel: Pixel) => {
+        setEditingId(pixel.id);
+        setFormData({
+            name: pixel.name,
+            pixel_id: pixel.pixel_id,
+            access_token: pixel.access_token
+        });
+        setOpen(true);
+    };
 
     async function handleDelete(id: string) {
         if (!confirm("Tem certeza que deseja remover este pixel? Funis que usam este pixel serão desvinculados.")) {
@@ -140,6 +171,8 @@ export default function PixelsPage() {
                             return;
                         }
 
+                        setEditingId(null);
+                        setFormData({ name: "", pixel_id: "", access_token: "" });
                         setOpen(true);
                     }}
                     className="bg-white text-black hover:bg-gray-200 gap-2 font-bold"
@@ -233,14 +266,24 @@ export default function PixelsPage() {
                                         {pixel.access_token.substring(0, 10)}...
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="hover:bg-red-500/10 hover:text-red-400 text-gray-500"
-                                            onClick={() => handleDelete(pixel.id)}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                        <div className="flex justify-end gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="hover:bg-white/10 hover:text-white text-gray-400"
+                                                onClick={() => handleEdit(pixel)}
+                                            >
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="hover:bg-red-500/10 hover:text-red-400 text-gray-500"
+                                                onClick={() => handleDelete(pixel.id)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))
