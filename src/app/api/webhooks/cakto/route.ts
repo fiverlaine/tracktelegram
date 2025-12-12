@@ -87,14 +87,20 @@ export async function POST(request: Request) {
 
     let finalPlanName = rawPlanName;
 
-    // Fix: If Cakto sends "TrackGram" (product name) instead of the specific plan name, try to map by price
-    if (rawPlanName === 'TrackGram' || rawPlanName === 'TrackGram Assinatura') {
+    // Fix: Map exact plan names from Cakto Dashboard
+    if (rawPlanName === 'Enterprise') {
+        finalPlanName = 'Enterprise';
+    } else if (rawPlanName === 'ProScale') {
+        finalPlanName = 'Pro Scale';
+    } else if (rawPlanName === 'Oferta Principal') {
+        finalPlanName = 'Starter (Teste)';
+    } else if (rawPlanName === 'TrackGram' || rawPlanName === 'TrackGram Assinatura') {
+        // Fallback for legacy/generic product names
         if (amount >= 290) {
             finalPlanName = 'Enterprise';
         } else if (amount >= 190) {
             finalPlanName = 'Pro Scale';
         } else {
-            // Default low tier
             finalPlanName = 'Starter (Teste)';
         }
     }

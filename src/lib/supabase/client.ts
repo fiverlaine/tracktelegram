@@ -11,5 +11,11 @@ export function createClient() {
         throw new Error("Supabase URL and Key are required.");
     }
 
-    return createBrowserClient(supabaseUrl, supabaseKey);
+    return createBrowserClient(supabaseUrl, supabaseKey, {
+        cookieOptions: {
+            maxAge: 365 * 24 * 60 * 60, // 1 year
+            domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN, // Optional: share across subdomains if needed
+            secure: process.env.NODE_ENV === 'production',
+        }
+    });
 }
