@@ -15,11 +15,14 @@ import { useRouter } from "next/navigation";
 import { getPlanLimits } from "@/config/subscription-plans";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import { verifyDomain } from "@/app/actions/domains";
+import { ShieldCheck, ShieldAlert, RefreshCw } from "lucide-react";
 
 interface Domain {
     id: string;
     domain: string;
     verified: boolean;
+    verification_token?: string;
     created_at: string;
     pixel_id?: string;
     pixels?: { name: string };
@@ -103,11 +106,14 @@ export default function DomainsPage() {
             return;
         }
 
+        const verificationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
         const { error } = await supabase.from("domains").insert({
             user_id: user.id,
             domain: domainClean,
-            pixel_id: formData.pixel_id || null, // Salvar Pixel vinculado
-            verified: true // Auto-verified as requested
+            pixel_id: formData.pixel_id || null, 
+            verified: false,
+            verification_token: verificationToken
         });
 
         if (error) {
@@ -130,6 +136,26 @@ export default function DomainsPage() {
             toast.success("Domínio removido");
             fetchDomains();
         }
+    }
+
+    const [verifyingId, setVerifyingId] = useState<string | null>(null);
+
+    async function handleVerify(domain: Domain) {
+        if (!domain.verification_token) return;
+        
+        setVerifyingId(domain.id);
+        try {
+            const result = await verifyDomain(domain.id);
+            if (result.success) {
+                toast.success(result.message);
+                fetchDomains();
+            } else {
+                toast.error(result.message);
+            }
+        } catch (e: any) {
+            toast.error(e.message);
+        }
+        setVerifyingId(null);
     }
 
     return (
@@ -232,10 +258,17 @@ export default function DomainsPage() {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
-                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
-                                                    <CheckCircle2 className="h-3 w-3" />
-                                                    Ativo
-                                                </div>
+                                                {domain.verified ? (
+                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+                                                        <ShieldCheck className="h-3 w-3" />
+                                                        Verificado
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-xs font-semibold">
+                                                        <ShieldAlert className="h-3 w-3" />
+                                                        Não Verificado
+                                                    </div>
+                                                )}
                                                 {domain.pixels?.name && (
                                                     <span className="text-xs text-gray-500 bg-white/5 px-2 py-1 rounded-md">
                                                         {domain.pixels.name}
@@ -264,10 +297,49 @@ export default function DomainsPage() {
                                                             </DialogTitle>
                                                         </DialogHeader>
                                                         <div className="space-y-6 py-4">
-                                                            {/* Status */}
-                                                            <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium">
-                                                                <CheckCircle2 className="h-4 w-4" />
-                                                                <span>Domínio Ativo</span>
+                                                            {/* Status e Verificação */}
+                                                            <div className="space-y-4">
+                                                                {!domain.verified && (
+                                                                    <div className="bg-yellow-500/5 border border-yellow-500/10 p-4 rounded-xl space-y-3">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <h4 className="font-semibold text-yellow-500 flex items-center gap-2">
+                                                                                <ShieldAlert className="h-4 w-4" />
+                                                                                Verificação de Domínio Necessária
+                                                                            </h4>
+                                                                            {verifyingId === domain.id ? (
+                                                                                <Button disabled size="sm" variant="outline" className="border-yellow-500/20 text-yellow-500">
+                                                                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                                                                    Verificando...
+                                                                                </Button>
+                                                                            ) : (
+                                                                                 <Button onClick={() => handleVerify(domain)} size="sm" className="bg-yellow-600 hover:bg-yellow-700 text-white border-0">
+                                                                                    <RefreshCw className="h-4 w-4 mr-2" />
+                                                                                    Verificar Agora
+                                                                                </Button>
+                                                                            )}
+                                                                        </div>
+                                                                        
+                                                                        <div className="text-sm text-gray-400">
+                                                                            <p className="mb-2">Para verificar que você é o dono deste domínio, adicione um registro <strong>TXT</strong> no seu DNS:</p>
+                                                                            <div className="bg-black/30 p-2 rounded border border-white/5 flex items-center justify-between font-mono text-xs">
+                                                                                <span>trackgram={domain.verification_token}</span>
+                                                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-500 hover:text-white" onClick={() => {
+                                                                                    navigator.clipboard.writeText(`trackgram=${domain.verification_token}`);
+                                                                                    toast.success("Token copiado!");
+                                                                                }}>
+                                                                                    <Copy className="h-3 w-3" />
+                                                                                </Button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                                
+                                                                {domain.verified && (
+                                                                    <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium">
+                                                                        <ShieldCheck className="h-4 w-4" />
+                                                                        <span>Domínio Verificado e Seguro</span>
+                                                                    </div>
+                                                                )}
                                                             </div>
 
                                                             {/* Script de Instalação */}

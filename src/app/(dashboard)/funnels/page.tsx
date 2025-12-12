@@ -209,6 +209,7 @@ export default function FunnelsPage() {
         await supabase.from("events").delete().eq("funnel_id", id);
         await supabase.from("visitor_telegram_links").delete().eq("funnel_id", id);
         await supabase.from("funnel_pixels").delete().eq("funnel_id", id);
+        await supabase.from("capi_logs").delete().eq("funnel_id", id);
 
         const { error } = await supabase.from("funnels").delete().eq("id", id);
 
