@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { sendCAPIEvent } from "@/lib/facebook-capi";
 
 export async function OPTIONS() {
     return new NextResponse(null, {
@@ -25,12 +26,6 @@ export async function POST(request: Request) {
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         );
 
-        // Tentativa de encontrar o Funnel ID baseado no domain_id (se houver lógica para isso)
-        // Por enquanto, vamos inserir sem funnel_id se não for explícito, 
-        // mas o Dashboard atual conta tudo da tabela events, então vai funcionar.
-        // Se quisermos ser mais precisos, poderíamos tentar cruzar domain -> pixel -> funnel?
-        // Mas a relação não é direta 1:1 necessariamente.
-        
         // Deduplicação: Verificar se já existe evento recente (5 min)
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
         
@@ -49,20 +44,75 @@ export async function POST(request: Request) {
             });
         }
 
+        // 1. Buscar Pixel vinculado ao dominio
+        let pixelData = null;
+        if (domain_id) {
+            const { data: domain, error: domainError } = await supabase
+                .from("domains")
+                .select(`
+                    pixel_id,
+                    pixels (
+                        id,
+                        pixel_id,
+                        access_token
+                    )
+                `)
+                .eq("id", domain_id)
+                .single();
+
+            if (domain?.pixels) {
+                // Supabase types can be tricky with relations, handle both array and object
+                const pixelsRel = domain.pixels as any;
+                pixelData = Array.isArray(pixelsRel) ? pixelsRel[0] : pixelsRel;
+            }
+        }
+
         // Inserir evento
         const { error } = await supabase.from("events").insert({
             visitor_id,
             event_type,
+            funnel_id: null, // Pageview generico nao tem funil ainda
             metadata: {
                 ...metadata,
-                domain_id, // Guardar referência do domínio
+                domain_id,
                 source: "external_script"
             }
         });
 
         if (error) {
-
             return NextResponse.json({ error: "Database error" }, { status: 500 });
+        }
+
+        // 2. Disparar CAPI (PageView)
+        if (event_type === 'pageview' && pixelData?.access_token && pixelData?.pixel_id) {
+            // Fire & Forget para não travar a response
+            (async () => {
+                try {
+                    await sendCAPIEvent(
+                        pixelData.access_token,
+                        pixelData.pixel_id,
+                        "PageView",
+                        {
+                            fbc: metadata?.fbc,
+                            fbp: metadata?.fbp,
+                            user_agent: metadata?.user_agent,
+                            ip_address: metadata?.ip_address,
+                            external_id: visitor_id,
+                            country: metadata?.country, 
+                            st: metadata?.region,
+                            ct: metadata?.city
+                        },
+                        {
+                            content_name: metadata?.title || "Landing Page"
+                        },
+                        {
+                            visitor_id: visitor_id
+                        }
+                    );
+                } catch (e) {
+                    console.error("[Track API] Erro no CAPI:", e);
+                }
+            })();
         }
 
         return NextResponse.json({ success: true }, {

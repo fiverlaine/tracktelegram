@@ -198,6 +198,7 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
         user_agent: navigator.userAgent,
         fbc: fbc,
         fbp: fbp,
+        fbclid: fbclid,
         ...extraMetadata
       }
     };
