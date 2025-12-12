@@ -21,6 +21,18 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
+        // --- FILTRO DE TRÁFEGO PAGO ---
+        // Só processar eventos que tenham origem confirmada do Facebook (fbclid na URL ou cookie fbc)
+        // Isso evita "sujar" o banco com tráfego orgânico/direto que não queremos rastrear neste sistema.
+        const hasAdOrigin = metadata?.fbclid || metadata?.fbc;
+        
+        if (!hasAdOrigin) {
+            return NextResponse.json({ success: true, skipped: true, reason: "organic_traffic_ignored" }, {
+                headers: { "Access-Control-Allow-Origin": "*" }
+            });
+        }
+        // --------------------------------
+
         const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.SUPABASE_SERVICE_ROLE_KEY!
