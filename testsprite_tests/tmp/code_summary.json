@@ -1,0 +1,60 @@
+{
+  "tech_stack": [
+    "TypeScript",
+    "Next.js",
+    "React",
+    "Tailwind CSS",
+    "Supabase",
+    "Shadcn UI"
+  ],
+  "features": [
+    {
+      "name": "Dashboard",
+      "description": "User dashboard for analytics and management",
+      "files": [
+        "src/app/(dashboard)/layout.tsx",
+        "src/app/(dashboard)/page.tsx"
+      ]
+    },
+    {
+      "name": "Authentication",
+      "description": "User authentication and login",
+      "files": [
+        "src/app/auth/callback/route.ts",
+        "src/app/login/page.tsx"
+      ]
+    },
+    {
+      "name": "Tracking & Redirects",
+      "description": "Short code redirection and tracking logic",
+      "files": [
+        "src/app/t/[code]/page.tsx",
+        "src/app/t/route.ts"
+      ]
+    },
+    {
+      "name": "API & Webhooks",
+      "description": "Backend API routes and webhook handlers",
+      "files": [
+        "src/app/api/webhooks/cakto/route.ts",
+        "src/app/api/webhooks/stripe/route.ts"
+      ]
+    },
+    {
+      "name": "Shared Components",
+      "description": "Reusable UI components",
+      "files": [
+        "src/components/ui/button.tsx",
+        "src/components/ui/card.tsx"
+      ]
+    },
+    {
+      "name": "Server Actions",
+      "description": "Server-side logic and database interactions",
+      "files": [
+        "src/actions/auth.ts",
+        "src/actions/dashboard.ts"
+      ]
+    }
+  ]
+}

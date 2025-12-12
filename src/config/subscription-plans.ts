@@ -93,5 +93,21 @@ export const plans: Plan[] = [
 
 export function getPlanLimits(planName: string | null) {
     if (!planName) return null;
-    return plans.find(p => p.name === planName)?.limits || null;
+    
+    // 1. Try exact match by name
+    let plan = plans.find(p => p.name === planName);
+    if (plan) return plan.limits;
+
+    // 2. Try match by ID (case insensitive)
+    plan = plans.find(p => p.id.toLowerCase() === planName.toLowerCase());
+    if (plan) return plan.limits;
+
+    // 3. Try partial matches for common cases (fallback)
+    const lowerName = planName.toLowerCase();
+    
+    if (lowerName.includes('starter')) return plans.find(p => p.id === 'starter')?.limits || null;
+    if (lowerName.includes('pro')) return plans.find(p => p.id === 'pro')?.limits || null;
+    if (lowerName.includes('enterprise')) return plans.find(p => p.id === 'enterprise')?.limits || null;
+
+    return null;
 }

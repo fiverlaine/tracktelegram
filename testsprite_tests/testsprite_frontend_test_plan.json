@@ -1,0 +1,481 @@
+[
+  {
+    "id": "TC001",
+    "title": "User Authentication with Email and Password",
+    "description": "Verify that a user can successfully login using the email and password and gain access to the dashboard.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page"
+      },
+      {
+        "type": "action",
+        "description": "Enter a valid email address"
+      },
+      {
+        "type": "action",
+        "description": "Enter a valid password"
+      },
+      {
+        "type": "action",
+        "description": "Click the 'Entrar' (Login) button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user is authenticated and redirected to the dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify session persists and remains valid"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "User Authentication with Invalid Email",
+    "description": "Ensure the system handles login attempts with an invalid or unregistered email gracefully and does not send magic link.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page"
+      },
+      {
+        "type": "action",
+        "description": "Enter an invalid or unregistered email address and request a magic link"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no magic link is sent"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an appropriate error or info message is displayed to the user"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Dashboard Real-Time Metrics Accuracy",
+    "description": "Verify that the dashboard correctly displays real-time metrics for pageviews, clicks, joins, leaves, and retention analytics with ability to filter and export data.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login and navigate to the dashboard"
+      },
+      {
+        "type": "action",
+        "description": "Generate pageviews, clicks, join and leave events through test tracking funnels"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all event counts update accurately and in real-time on the dashboard"
+      },
+      {
+        "type": "action",
+        "description": "Apply date and other filters on metrics"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify filters adjust displayed metrics accordingly"
+      },
+      {
+        "type": "action",
+        "description": "Export analytics data"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify exported data matches displayed metrics"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Facebook Pixel Creation with Valid Token",
+    "description": "Validate successful creation of Facebook pixels with valid tokens and association with user profile.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to Facebook pixel management interface"
+      },
+      {
+        "type": "action",
+        "description": "Enter valid pixel ID and a valid access token"
+      },
+      {
+        "type": "action",
+        "description": "Submit to create the pixel"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify pixel is created successfully and appears in user's pixel list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify token validation occurs and invalid tokens are rejected"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Facebook Pixel Update and Deletion",
+    "description": "Ensure that updating pixel details (including tokens) and deleting pixels work correctly, including validation and user association.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Select an existing pixel to update"
+      },
+      {
+        "type": "action",
+        "description": "Modify pixel details and update token"
+      },
+      {
+        "type": "action",
+        "description": "Submit update"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify pixel details update successfully when valid"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify token validation and error is shown for invalid tokens"
+      },
+      {
+        "type": "action",
+        "description": "Delete the pixel"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify pixel is removed from user's pixel list"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Telegram Bot/Channel Token Validation and Webhook Setup",
+    "description": "Verify Telegram bot token validation with Telegram API, automatic chat ID detection, and webhook configuration succeed without errors.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to Telegram bot/channel linking interface"
+      },
+      {
+        "type": "action",
+        "description": "Input a valid Telegram bot token"
+      },
+      {
+        "type": "action",
+        "description": "Submit to connect the bot"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify successful token validation via Telegram API"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify chat ID is automatically detected"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify webhook setup completes without errors and status is shown"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Telegram Bot/Channel Token Validation Failure Handling",
+    "description": "Ensure that invalid Telegram bot tokens are detected, and meaningful error messages are presented to the user preventing bot linking.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to Telegram bot/channel linking interface"
+      },
+      {
+        "type": "action",
+        "description": "Enter an invalid or expired bot token"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to submit the bot token"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify error message is displayed indicating invalid token"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no webhook is configured and bot is not linked"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Funnel Creation Linking Pixels and Telegram Bots",
+    "description": "Verify creation of tracking funnels that correctly link Facebook pixels and Telegram bots, generating unique slug URLs and invite links.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in and navigate to funnel creation interface"
+      },
+      {
+        "type": "action",
+        "description": "Select a valid Facebook pixel and Telegram bot to link"
+      },
+      {
+        "type": "action",
+        "description": "Create the funnel"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify funnel is created and saved successfully"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify unique tracking slug URLs and Telegram invite links are generated"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Tracking URL Click Flow with Parameter Capture and Redirect",
+    "description": "Test that clicking a tracking URL captures fbclid, fbc, fbp, user agent and IP, registers pageviews and clicks, generates a unique Telegram invite link, then redirects to Telegram channel within 3 seconds.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Click a valid funnel tracking URL"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify tracking parameters fbclid, fbc, fbp, user agent, and IP are captured and logged"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify pageview and click events are registered appropriately"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a unique Telegram invite link is generated"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify redirect to Telegram channel happens within 3 seconds"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Telegram Webhook Event Processing for Join and Leave",
+    "description": "Confirm that webhook handlers receive chat_member update events from Telegram, record join and leave actions properly, associate visitor identifiers, and send correct conversion events to Facebook CAPI.",
+    "category": "integration",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Simulate Telegram chat_member join event webhook"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify join event is recorded and stored"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify visitor identifiers are associated properly"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify Facebook CAPI Lead event is triggered with correct user data"
+      },
+      {
+        "type": "action",
+        "description": "Simulate Telegram chat_member leave event webhook"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify leave event is recorded and stored"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Subscription Plans Display and Checkout Flow",
+    "description": "Verify that subscription plans are displayed correctly, checkout flow processes payments via gateway properly, and plan status updates accordingly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to subscription management page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all available subscription plans are displayed with correct details"
+      },
+      {
+        "type": "action",
+        "description": "Select a subscription plan and proceed to checkout"
+      },
+      {
+        "type": "action",
+        "description": "Complete payment via integrated payment gateway"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify payment is processed successfully"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user's subscription plan status is updated accordingly"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Subscription Usage Limits Enforcement and Plan Upgrade/Downgrade",
+    "description": "Verify that subscription usage limits are applied and enforced properly and users can upgrade or downgrade plans with status update and usage tracking.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Simulate usage that reaches the current subscription's limit"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify usage limits are enforced and further usage is restricted or warned"
+      },
+      {
+        "type": "action",
+        "description": "Perform plan upgrade and confirm upgrades through checkout"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify plan is upgraded and increased limits are applied"
+      },
+      {
+        "type": "action",
+        "description": "Perform plan downgrade request"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify plan downgrade is reflected in user account and limits are adjusted"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "API Performance and Availability under Load",
+    "description": "Validate system uptime compliance with 99.9% availability and API response latency under 500ms under normal and peak load conditions.",
+    "category": "performance",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Execute continuous API requests simulating normal load"
+      },
+      {
+        "type": "assertion",
+        "description": "Measure and verify average API latency is under 500ms"
+      },
+      {
+        "type": "action",
+        "description": "Simulate peak load with high concurrency API requests"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify system maintains responsiveness with latency within 500ms and no downtime"
+      },
+      {
+        "type": "action",
+        "description": "Monitor system uptime metrics"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify uptime meets or exceeds 99.9% threshold"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Security and Data Privacy Compliance",
+    "description": "Verify that TrackGram meets GDPR and LGPD compliance standards including data isolation per user and secure handling of personal data.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access user data and audit data isolation controls"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify users can only access their own data"
+      },
+      {
+        "type": "action",
+        "description": "Inspect data storage and transmission for encryption and privacy controls"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify data is encrypted in transit and at rest"
+      },
+      {
+        "type": "action",
+        "description": "Perform data access, deletion and export requests per GDPR/LGPD requirements"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user requests are handled correctly within regulatory timeframes"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Route Protection and Session Expiry Enforcement",
+    "description": "Ensure that routes requiring authentication are protected and inaccessible without valid sessions, and sessions expire after 7 days forcing re-login.",
+    "category": "security",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Attempt to access dashboard or management routes without authentication"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user is redirected to login page or denied access"
+      },
+      {
+        "type": "action",
+        "description": "Login successfully and maintain a session"
+      },
+      {
+        "type": "action",
+        "description": "Simulate passing of 7 days session duration"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to access protected routes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify session is expired and user is prompted to log in again"
+      }
+    ]
+  }
+]

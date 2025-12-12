@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { plans } from "@/config/subscription-plans";
 
 export function useSubscription() {
     const [isLoading, setIsLoading] = useState(true);
@@ -26,14 +27,29 @@ export function useSubscription() {
                 .eq("user_id", user.id)
                 .single();
 
-            // Check if status is active or trial
-            if (sub && (sub.status === "active" || sub.status === "trialing")) {
-                setIsSubscribed(true);
-                setPlan(sub.plan_name);
+            // Perform normalization if we have a subscription
+            if (sub && (sub.status === "active" || sub.status === "trialing" || sub.status !== "canceled")) {
+                setIsSubscribed(sub.status === "active" || sub.status === "trialing");
+                
+                // Normalize plan name to match configuration
+                let normalizedPlanName = sub.plan_name;
+                const lowerName = (sub.plan_name || "").toLowerCase();
+
+                const matchedPlan = plans.find(p => p.name === sub.plan_name) || 
+                                  plans.find(p => p.id === sub.plan_name) ||
+                                  plans.find(p => lowerName.includes('starter') && p.id === 'starter') ||
+                                  plans.find(p => lowerName.includes('pro') && p.id === 'pro') ||
+                                  plans.find(p => lowerName.includes('enterprise') && p.id === 'enterprise');
+
+                if (matchedPlan) {
+                    normalizedPlanName = matchedPlan.name;
+                }
+
+                setPlan(normalizedPlanName);
                 setSubscription(sub);
             } else {
                 setIsSubscribed(false);
-                setSubscription(sub); // maintain subscription data even if inactive (e.g. canceled)
+                setSubscription(sub);
             }
             
             setIsLoading(false);

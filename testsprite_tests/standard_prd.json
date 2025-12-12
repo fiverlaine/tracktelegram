@@ -1,0 +1,105 @@
+{
+  "meta": {
+    "project": "TrackGram",
+    "date": "2025-12-10",
+    "prepared_by": "Equipe TrackGram"
+  },
+  "product_overview": "TrackGram is a SaaS platform designed to provide precise tracking and conversion attribution for advertisement campaigns directing traffic to Telegram channels and groups. It eliminates data blind spots by enabling advertisers to understand exactly how many leads convert from ad clicks to channel entries, offering real-time analytics and Facebook CAPI integration for campaign optimization.",
+  "core_goals": [
+    "Enable advertisers to accurately track conversions from ads to Telegram channel entries with high precision and minimal setup time.",
+    "Provide real-time analytics dashboards showing pageviews, clicks, join and leave events enabling users to optimize their campaigns.",
+    "Integrate natively with Facebook Conversions API (CAPI) to improve ad attribution and facilitate campaign optimization.",
+    "Deliver a user-friendly onboarding and management experience including authentication, pixel management, bot/channel linking, funnel creation, and subscription plans.",
+    "Ensure high system availability, performance and security compliance including GDPR/LGPD adherence and data isolation per user."
+  ],
+  "key_features": [
+    "User authentication via email magic link with session persistence and route protection.",
+    "Dashboard presenting real-time metrics including pageviews, clicks, entries, exits and retention analytics with filtering and export capabilities.",
+    "Full CRUD for Facebook pixels with token validation and management interface.",
+    "Telegram bot/channel integration with bot token validation, webhook setup, automatic chat ID detection and status monitoring.",
+    "Creation and management of tracking funnels that link pixels and Telegram bots generating unique slug URLs and invite links.",
+    "Tracking system capturing fbclid, fbc, fbp, user agent and IP to register pageviews, clicks, and generate unique invite links redirecting users to Telegram channels instantly.",
+    "Webhook handlers processing Telegram chat_member events to record join/leave actions, associate visitor identifiers, and send conversion events to Facebook CAPI.",
+    "Subscription management with multiple plans, checkout flow, webhook payment processing, applying usage limits and enabling plan upgrades/downgrades."
+  ],
+  "user_flow_summary": [
+    "User signs up or logs in via magic link to access the dashboard.",
+    "User configures Facebook pixels by creating, updating or deleting pixel entries with access tokens for CAPI.",
+    "User connects Telegram bots/channels by providing bot tokens, validation is done through Telegram API and webhook is configured for event tracking.",
+    "User creates funnels linking pixels and Telegram bots producing unique tracking URLs and invite links for campaigns.",
+    "Leads click on tracking URLs, system captures tracking parameters, registers pageviews and clicks, generates unique Telegram invite links and immediately redirects leads to Telegram channels.",
+    "Telegram sends webhook events on user chat_member updates, system captures join/leave events, records them and sends attribution data to Facebook CAPI.",
+    "Users view real-time metrics on the dashboard including pageviews, clicks, entries, exits, retention and export data for analysis.",
+    "Users manage subscriptions selecting plans, completing payments through integrated gateway, and viewing plan status and usage."
+  ],
+  "validation_criteria": [
+    "User authentication works reliably with magic link email delivery and session duration of 7 days.",
+    "Dashboard metrics update accurately in real-time reflecting correct counts for pageviews, clicks, joins and leaves.",
+    "Facebook pixel CRUD operations perform correctly with validation of tokens and correct association to user profiles.",
+    "Telegram bot connections validate tokens successfully, webhook setup completes without errors, and chat IDs are detected automatically.",
+    "Tracking URLs generate unique slugs and invite links; redirect lead clicks to Telegram channel within 3 seconds or less.",
+    "Webhook events from Telegram are processed to record joins and leaves and trigger Facebook CAPI Lead events with correct user data.",
+    "Subscription plans are displayed correctly; payments processed via gateway update user plans and enforce usage limits.",
+    "System meets non-functional requirements with uptime of 99.9%, API latency under 500ms, and compliance with security standards including LGPD"
+  ],
+  "code_summary": {
+    "tech_stack": [
+      "TypeScript",
+      "Next.js",
+      "React",
+      "Tailwind CSS",
+      "Supabase",
+      "Shadcn UI"
+    ],
+    "features": [
+      {
+        "name": "Dashboard",
+        "description": "User dashboard for analytics and management",
+        "files": [
+          "src/app/(dashboard)/layout.tsx",
+          "src/app/(dashboard)/page.tsx"
+        ]
+      },
+      {
+        "name": "Authentication",
+        "description": "User authentication and login",
+        "files": [
+          "src/app/auth/callback/route.ts",
+          "src/app/login/page.tsx"
+        ]
+      },
+      {
+        "name": "Tracking & Redirects",
+        "description": "Short code redirection and tracking logic",
+        "files": [
+          "src/app/t/[code]/page.tsx",
+          "src/app/t/route.ts"
+        ]
+      },
+      {
+        "name": "API & Webhooks",
+        "description": "Backend API routes and webhook handlers",
+        "files": [
+          "src/app/api/webhooks/cakto/route.ts",
+          "src/app/api/webhooks/stripe/route.ts"
+        ]
+      },
+      {
+        "name": "Shared Components",
+        "description": "Reusable UI components",
+        "files": [
+          "src/components/ui/button.tsx",
+          "src/components/ui/card.tsx"
+        ]
+      },
+      {
+        "name": "Server Actions",
+        "description": "Server-side logic and database interactions",
+        "files": [
+          "src/actions/auth.ts",
+          "src/actions/dashboard.ts"
+        ]
+      }
+    ]
+  }
+}

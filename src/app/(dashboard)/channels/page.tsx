@@ -73,10 +73,14 @@ export default function ChannelsPage() {
     const supabase = createClient();
 
     const getWebhookBaseUrl = () => {
+        // Prioritize Environment Variable which should be the public URL
+        if (process.env.NEXT_PUBLIC_APP_URL) {
+            return process.env.NEXT_PUBLIC_APP_URL;
+        }
         if (typeof window !== 'undefined') {
             return window.location.origin;
         }
-        return process.env.NEXT_PUBLIC_APP_URL || 'https://tracktelegram.vercel.app';
+        return 'https://tracktelegram.vercel.app';
     };
     
     const WEBHOOK_BASE_URL = getWebhookBaseUrl();
@@ -409,20 +413,9 @@ export default function ChannelsPage() {
 
         try {
             const webhookUrl = `${WEBHOOK_BASE_URL}/api/webhook/telegram/${bot.id}`;
+            const { setTelegramWebhook } = await import("@/app/actions/telegram"); // Dynamic import or top-level import
             
-            const params = new URLSearchParams({
-                url: webhookUrl,
-                allowed_updates: JSON.stringify([
-                    "message",
-                    "chat_member",
-                    "chat_join_request",
-                    "my_chat_member"
-                ]),
-                drop_pending_updates: "true"
-            });
-
-            const res = await fetch(`https://api.telegram.org/bot${bot.bot_token}/setWebhook?${params}`);
-            const data = await res.json();
+            const data = await setTelegramWebhook(bot.bot_token, webhookUrl);
 
             if (data.ok) {
                 toast.success("Rastreamento Ativado! Webhook configurado.");
@@ -430,7 +423,8 @@ export default function ChannelsPage() {
             } else {
                 toast.error(`Erro Telegram: ${data.description}`);
             }
-        } catch (e) {
+        } catch (e: any) {
+            console.error(e);
             toast.error("Erro de conexão com Telegram.");
         }
         setActivating(null);
@@ -440,8 +434,8 @@ export default function ChannelsPage() {
         setActivating(bot.id);
 
         try {
-            const res = await fetch(`https://api.telegram.org/bot${bot.bot_token}/deleteWebhook`);
-            const data = await res.json();
+            const { deleteTelegramWebhook } = await import("@/app/actions/telegram");
+            const data = await deleteTelegramWebhook(bot.bot_token);
 
             if (data.ok) {
                 toast.success("Webhook desativado.");
