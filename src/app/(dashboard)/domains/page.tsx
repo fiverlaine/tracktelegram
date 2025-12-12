@@ -58,7 +58,7 @@ export default function DomainsPage() {
         setLoading(true);
         const { data, error } = await supabase
             .from("domains")
-            .select("*, pixels(name)")
+            .select("*, pixels:pixels!domains_pixel_id_fkey(name)")
             .order("created_at", { ascending: false });
 
         if (error) {

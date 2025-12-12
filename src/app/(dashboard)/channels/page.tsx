@@ -55,7 +55,7 @@ export default function ChannelsPage() {
     const [bots, setBots] = useState<TelegramBot[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
-    const [formData, setFormData] = useState({ name: "", bot_token: "", channel_link: "", username: "" });
+    const [formData, setFormData] = useState({ name: "", bot_token: "", channel_link: "", username: "", chat_id: "" });
     const [saving, setSaving] = useState(false);
     const [activating, setActivating] = useState<string | null>(null);
     const [deleting, setDeleting] = useState<string | null>(null);
@@ -79,7 +79,8 @@ export default function ChannelsPage() {
             name: bot.name,
             bot_token: bot.bot_token,
             channel_link: bot.channel_link,
-            username: bot.username || ""
+            username: bot.username || "",
+            chat_id: bot.chat_id || ""
         });
         setOpen(true);
     };
@@ -366,7 +367,8 @@ export default function ChannelsPage() {
                     name: formData.name,
                     bot_token: formData.bot_token,
                     channel_link: formData.channel_link,
-                    username: username
+                    username: username,
+                    chat_id: formData.chat_id
                 });
                 toast.success("Canal atualizado com sucesso!");
             } else {
@@ -374,13 +376,14 @@ export default function ChannelsPage() {
                     name: formData.name,
                     bot_token: formData.bot_token,
                     channel_link: formData.channel_link,
-                    username: username
+                    username: username,
+                    chat_id: formData.chat_id
                 });
                 toast.success("Canal configurado com sucesso!");
             }
             
             setOpen(false);
-            setFormData({ name: "", bot_token: "", channel_link: "", username: "" });
+            setFormData({ name: "", bot_token: "", channel_link: "", username: "", chat_id: "" });
             setEditingId(null);
             fetchBots();
         } catch (error: any) {
@@ -592,7 +595,7 @@ export default function ChannelsPage() {
                         }
 
                         setEditingId(null);
-                        setFormData({ name: "", bot_token: "", channel_link: "", username: "" });
+                        setFormData({ name: "", bot_token: "", channel_link: "", username: "", chat_id: "" });
                         setOpen(true);
                      }} 
                      className="bg-white text-black hover:bg-gray-200 gap-2 font-bold"
@@ -634,7 +637,7 @@ export default function ChannelsPage() {
                                     placeholder="123456:ABC-DEF..."
                                     value={formData.bot_token}
                                     onChange={(e) => setFormData({ ...formData, bot_token: e.target.value })}
-                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
+                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700 font-mono"
                                 />
                             </div>
                             <div className="grid gap-2">
@@ -646,8 +649,18 @@ export default function ChannelsPage() {
                                     onChange={(e) => setFormData({ ...formData, channel_link: e.target.value })}
                                     className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
                                 />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="chat_id" className="text-gray-400">ID do Canal/Grupo (Opcional)</Label>
+                                <Input
+                                    id="chat_id"
+                                    placeholder="-1001234567890"
+                                    value={formData.chat_id}
+                                    onChange={(e) => setFormData({ ...formData, chat_id: e.target.value })}
+                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700 font-mono"
+                                />
                                 <p className="text-[10px] text-gray-500">
-                                    Link de convite do seu canal/grupo. O usuário receberá este link após iniciar o bot.
+                                    Insira o ID se já souber (ex: -100...), ou deixe vazio para detectar depois.
                                 </p>
                             </div>
                         </div>

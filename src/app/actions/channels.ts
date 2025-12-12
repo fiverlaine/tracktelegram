@@ -9,6 +9,7 @@ interface CreateChannelData {
     bot_token: string;
     channel_link: string;
     username: string;
+    chat_id?: string;
 }
 
 export async function createChannel(data: CreateChannelData) {
@@ -63,7 +64,8 @@ export async function createChannel(data: CreateChannelData) {
         name: data.name,
         bot_token: data.bot_token,
         channel_link: data.channel_link,
-        username: data.username
+        username: data.username,
+        chat_id: data.chat_id
     });
 
     if (insertError) {
@@ -88,7 +90,8 @@ export async function updateChannel(id: string, data: CreateChannelData) {
             name: data.name,
             bot_token: data.bot_token,
             channel_link: data.channel_link,
-            username: data.username
+            username: data.username,
+            chat_id: data.chat_id
         })
         .eq("id", id)
         .eq("user_id", user.id);
