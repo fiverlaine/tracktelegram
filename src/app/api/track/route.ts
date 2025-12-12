@@ -56,28 +56,49 @@ export async function POST(request: Request) {
             });
         }
 
-        // 1. Buscar Pixel vinculado ao dominio
-        let pixelData = null;
+        // 1. Buscar Pixels vinculados ao dominio (Multi-Pixel Support)
+        let pixelsToFire: any[] = [];
+
         if (domain_id) {
             const { data: domain, error: domainError } = await supabase
                 .from("domains")
                 .select(`
-                    pixel_id,
                     pixels (
                         id,
                         pixel_id,
                         access_token
+                    ),
+                    domain_pixels (
+                        pixels (
+                            id,
+                            pixel_id,
+                            access_token
+                        )
                     )
                 `)
                 .eq("id", domain_id)
                 .single();
 
-            if (domain?.pixels) {
-                // Supabase types can be tricky with relations, handle both array and object
-                const pixelsRel = domain.pixels as any;
-                pixelData = Array.isArray(pixelsRel) ? pixelsRel[0] : pixelsRel;
+            if (domain) {
+                // 1. Legacy/Primary Pixel
+                if (domain.pixels) {
+                    const legacyPixel = Array.isArray(domain.pixels) ? domain.pixels[0] : domain.pixels;
+                    if (legacyPixel) pixelsToFire.push(legacyPixel);
+                }
+
+                // 2. Multi-pixels from join table
+                if (domain.domain_pixels && Array.isArray(domain.domain_pixels)) {
+                    domain.domain_pixels.forEach((dp: any) => {
+                        if (dp.pixels) {
+                            pixelsToFire.push(dp.pixels);
+                        }
+                    });
+                }
             }
         }
+
+        // Deduplicate pixels by pixel_id
+        const uniquePixels = Array.from(new Map(pixelsToFire.map(p => [p.pixel_id, p])).values());
 
         // Inserir evento
         const { error } = await supabase.from("events").insert({
@@ -95,12 +116,14 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Database error" }, { status: 500 });
         }
 
-        // 2. Disparar CAPI (PageView)
-        if (event_type === 'pageview' && pixelData?.access_token && pixelData?.pixel_id) {
+        // 2. Disparar CAPI (PageView) para TODOS os pixels encontrados
+        if (event_type === 'pageview' && uniquePixels.length > 0) {
             // Fire & Forget para não travar a response
             (async () => {
-                try {
-                    await sendCAPIEvent(
+                const capiPromises = uniquePixels.map(pixelData => {
+                     if (!pixelData.access_token || !pixelData.pixel_id) return Promise.resolve();
+                     
+                     return sendCAPIEvent(
                         pixelData.access_token,
                         pixelData.pixel_id,
                         "PageView",
@@ -120,10 +143,10 @@ export async function POST(request: Request) {
                         {
                             visitor_id: visitor_id
                         }
-                    );
-                } catch (e) {
-                    console.error("[Track API] Erro no CAPI:", e);
-                }
+                    ).catch(e => console.error(`[Track API] Erro CAPI (Pixel ${pixelData.pixel_id}):`, e));
+                });
+
+                await Promise.all(capiPromises);
             })();
         }
 

@@ -13,16 +13,42 @@ export async function GET(request: Request) {
                 process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
             );
             
-            // Buscar domínio e pixel associado
+            // Buscar domínio e pixels associados (Multi-Pixel)
             const { data: domain } = await supabase
                 .from("domains")
-                .select("*, pixels(pixel_id)")
+                .select(`
+                    id,
+                    pixels(pixel_id),
+                    domain_pixels (
+                        pixels (pixel_id)
+                    )
+                `)
                 .eq("id", id)
                 .single();
 
-            // Se tiver pixel, injetar código
-            if (domain?.pixels?.pixel_id) {
-                const pixelId = domain.pixels.pixel_id;
+            // Collect Pixel IDs
+            const pixelIds = new Set<string>();
+            
+            // Legacy/Primary
+            const legacyPixel = domain?.pixels as any;
+            if (legacyPixel?.pixel_id) {
+                pixelIds.add(legacyPixel.pixel_id);
+            }
+
+            // Multi-pixels
+            if (domain?.domain_pixels && Array.isArray(domain.domain_pixels)) {
+                domain.domain_pixels.forEach((dp: any) => {
+                    if (dp.pixels?.pixel_id) {
+                        pixelIds.add(dp.pixels.pixel_id);
+                    }
+                });
+            }
+
+            // Se tiver pixels, injetar código
+            if (pixelIds.size > 0) {
+                const initCodes = Array.from(pixelIds)
+                    .map(pid => `fbq('init', '${pid}');`)
+                    .join('\n');
 
                 
                 pixelCode = `
@@ -35,7 +61,7 @@ n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '${pixelId}');
+${initCodes}
 if (!sessionStorage.getItem('fb_pv_fired')) {
   fbq('track', 'PageView');
   sessionStorage.setItem('fb_pv_fired', 'true');

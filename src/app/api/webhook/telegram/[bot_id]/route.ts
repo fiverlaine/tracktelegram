@@ -215,32 +215,47 @@ export async function POST(
 
                 // Processar se encontrou o visitor_id
                 if (visitorId && funnelId) {
-                    // Buscar dados do funil
+                    // Buscar dados do funil e pixels associados (Multi-Pixel)
                     const { data: funnelData, error: funnelError } = await supabase
                         .from("funnels")
-                        .select("id, name, pixel_id")
+                        .select(`
+                            id, 
+                            name, 
+                            pixel_id,
+                            pixels (id, pixel_id, access_token),
+                            funnel_pixels (
+                                pixels (id, pixel_id, access_token)
+                            )
+                        `)
                         .eq("id", funnelId)
                         .single();
 
-                    console.log(`[Webhook] Funil encontrado:`, funnelData, funnelError);
+                    console.log(`[Webhook] Funil encontrado:`, funnelData ? funnelData.id : 'null', funnelError);
 
-                    // Buscar dados do pixel separadamente
-                    let pixelData = null;
-                    if (funnelData?.pixel_id) {
-                        const { data: pixel, error: pixelError } = await supabase
-                            .from("pixels")
-                            .select("id, pixel_id, access_token")
-                            .eq("id", funnelData.pixel_id)
-                            .single();
+                    // Collect Pixels
+                    let pixelsToFire: any[] = [];
+                    if (funnelData) {
+                        // Legacy/Primary
+                        const legacyPixel = funnelData.pixels as any;
+                        if (legacyPixel?.pixel_id) {
+                            pixelsToFire.push(legacyPixel);
+                        }
                         
-                        pixelData = pixel;
-                        console.log(`[Webhook] Pixel encontrado:`, { 
-                            pixel_id: pixel?.pixel_id, 
-                            has_token: !!pixel?.access_token 
-                        }, pixelError);
+                        // Multi-pixels
+                        if (funnelData.funnel_pixels && Array.isArray(funnelData.funnel_pixels)) {
+                            funnelData.funnel_pixels.forEach((fp: any) => {
+                                if (fp.pixels) {
+                                    pixelsToFire.push(fp.pixels);
+                                }
+                            });
+                        }
                     }
 
-                    // Buscar metadata do visitante (fbc, fbp, user_agent)
+                    // Deduplicate
+                    const uniquePixels = Array.from(new Map(pixelsToFire.map(p => [p.pixel_id, p])).values());
+                    console.log(`[Webhook] Total pixels para disparar: ${uniquePixels.length}`);
+
+                    // Buscar metadata do visitante... (mantem igual)
                     const { data: eventData, error: eventError } = await supabase
                         .from("events")
                         .select("metadata")
@@ -270,11 +285,9 @@ export async function POST(
                     console.log(`[Webhook] Evento JOIN registrado para visitor_id: ${visitorId}`);
 
                     // Enviar para Facebook CAPI
-                    // Buscar metadata do click (mesmo que eventData tenha falhado, tentar buscar novamente)
                     let metadata: any = eventData?.metadata || null;
                     
                     if (!metadata) {
-                        // Fallback: buscar diretamente pelo visitor_id
                         console.log(`[Webhook] eventData nulo, buscando metadata diretamente...`);
                         const { data: clickData } = await supabase
                             .from("events")
@@ -286,55 +299,46 @@ export async function POST(
                             .single();
                         
                         metadata = clickData?.metadata || null;
-                        console.log(`[Webhook] Metadata via fallback:`, metadata ? 'encontrado' : 'não encontrado');
                     }
 
-                    if (pixelData?.access_token && pixelData?.pixel_id) {
-                        try {
-                            console.log(`[Webhook] Preparando envio CAPI...`);
-                            console.log(`[Webhook] Pixel ID: ${pixelData.pixel_id}`);
-                            console.log(`[Webhook] FBC: ${metadata?.fbc || 'N/A'}`);
-                            console.log(`[Webhook] FBP: ${metadata?.fbp || 'N/A'}`);
-                            console.log(`[Webhook] User Agent: ${metadata?.user_agent ? 'presente' : 'N/A'}`);
-                            
-                            const capiResult = await sendCAPIEvent(
-                                pixelData.access_token,
-                                pixelData.pixel_id,
-                                "Lead",
-                                {
-                                    fbc: metadata?.fbc || undefined,
-                                    fbp: metadata?.fbp || undefined,
-                                    user_agent: metadata?.user_agent || undefined,
-                                    ip_address: metadata?.ip_address || undefined,
-                                    external_id: visitorId,
-                                    // Geolocation (mapped from Vercel headers)
-                                    ct: metadata?.city || undefined,
-                                    st: metadata?.region || undefined, // x-vercel-ip-country-region is the ISO state code
-                                    country: metadata?.country || undefined
-                                },
-                                {
-                                    content_name: funnelData?.name || "Lead"
-                                },
-                                {
-                                    visitor_id: visitorId,
-                                    funnel_id: funnelId
-                                }
-                            );
-                            
-                            if (capiResult) {
-                                console.log(`[Webhook] ✅ CAPI Lead enviado com sucesso!`);
-                            } else {
-                                console.log(`[Webhook] ⚠️ CAPI retornou null - verifique os logs`);
-                            }
-                        } catch (capiError) {
-                            console.error(`[Webhook] ❌ Erro ao enviar CAPI:`, capiError);
-                        }
+                    if (uniquePixels.length > 0) {
+                        console.log(`[Webhook] Preparando envio CAPI para ${uniquePixels.length} pixels...`);
+                        
+                        const capiPromises = uniquePixels.map(async (pixelData) => {
+                             if (!pixelData?.access_token || !pixelData?.pixel_id) return;
+                             
+                             try {
+                                return await sendCAPIEvent(
+                                    pixelData.access_token,
+                                    pixelData.pixel_id,
+                                    "Lead",
+                                    {
+                                        fbc: metadata?.fbc || undefined,
+                                        fbp: metadata?.fbp || undefined,
+                                        user_agent: metadata?.user_agent || undefined,
+                                        ip_address: metadata?.ip_address || undefined,
+                                        external_id: visitorId,
+                                        ct: metadata?.city || undefined,
+                                        st: metadata?.region || undefined, 
+                                        country: metadata?.country || undefined
+                                    },
+                                    {
+                                        content_name: funnelData?.name || "Lead"
+                                    },
+                                    {
+                                        visitor_id: visitorId,
+                                        funnel_id: funnelId!
+                                    }
+                                );
+                             } catch (err) {
+                                 console.error(`[Webhook] Erro envio CAPI Pixel ${pixelData.pixel_id}:`, err);
+                             }
+                        });
+
+                        await Promise.all(capiPromises);
+                        console.log(`[Webhook] ✅ Processamento CAPI concluído.`);
                     } else {
-                        console.log(`[Webhook] ⚠️ Não foi possível enviar CAPI:`);
-                        console.log(`[Webhook] - pixelData: ${pixelData ? 'existe' : 'null'}`);
-                        console.log(`[Webhook] - pixel_id: ${pixelData?.pixel_id || 'N/A'}`);
-                        console.log(`[Webhook] - has_token: ${!!pixelData?.access_token}`);
-                        console.log(`[Webhook] - metadata: ${metadata ? 'existe' : 'null'}`);
+                        console.log(`[Webhook] ⚠️ Nenhum pixel configurado para este funil.`);
                     }
                 } else {
                     console.log(`[Webhook] Não foi possível encontrar visitor_id para telegram_user_id: ${telegramUserId}`);
