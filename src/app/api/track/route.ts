@@ -118,36 +118,35 @@ export async function POST(request: Request) {
 
         // 2. Disparar CAPI (PageView) para TODOS os pixels encontrados
         if (event_type === 'pageview' && uniquePixels.length > 0) {
-            // Fire & Forget para não travar a response
-            (async () => {
-                const capiPromises = uniquePixels.map(pixelData => {
-                     if (!pixelData.access_token || !pixelData.pixel_id) return Promise.resolve();
-                     
-                     return sendCAPIEvent(
-                        pixelData.access_token,
-                        pixelData.pixel_id,
-                        "PageView",
-                        {
-                            fbc: metadata?.fbc,
-                            fbp: metadata?.fbp,
-                            user_agent: metadata?.user_agent,
-                            ip_address: metadata?.ip_address,
-                            external_id: visitor_id,
-                            country: metadata?.country, 
-                            st: metadata?.region,
-                            ct: metadata?.city
-                        },
-                        {
-                            content_name: metadata?.title || "Landing Page"
-                        },
-                        {
-                            visitor_id: visitor_id
-                        }
-                    ).catch(e => console.error(`[Track API] Erro CAPI (Pixel ${pixelData.pixel_id}):`, e));
-                });
+            // Aguarda o envio para garantir que a Vercel/Serverless não mate o processo antes de terminar
+            const capiPromises = uniquePixels.map(pixelData => {
+                 if (!pixelData.access_token || !pixelData.pixel_id) return Promise.resolve();
+                 
+                 return sendCAPIEvent(
+                    pixelData.access_token,
+                    pixelData.pixel_id,
+                    "PageView",
+                    {
+                        fbc: metadata?.fbc,
+                        fbp: metadata?.fbp,
+                        user_agent: metadata?.user_agent,
+                        ip_address: metadata?.ip_address,
+                        external_id: visitor_id,
+                        country: metadata?.country, 
+                        st: metadata?.region,
+                        ct: metadata?.city
+                    },
+                    {
+                        content_name: metadata?.title || "Landing Page"
+                    },
+                    {
+                        visitor_id: visitor_id
+                    }
+                ).catch(e => console.error(`[Track API] Erro CAPI (Pixel ${pixelData.pixel_id}):`, e));
+            });
 
-                await Promise.all(capiPromises);
-            })();
+            // Usamos allSettled para que um erro em um pixel não trave os outros
+            await Promise.allSettled(capiPromises);
         }
 
         return NextResponse.json({ success: true }, {
