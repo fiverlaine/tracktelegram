@@ -145,53 +145,45 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     <div className="space-y-6">
-                                        {/* Configuração de Ativação */}
+                                        {/* Configuração Unificada */}
                                         <div className="flex items-center justify-between p-4 bg-black/20 rounded-lg border border-white/5">
                                             <div className="space-y-0.5">
-                                                <Label className="text-white text-base">Ativar Mensagens</Label>
-                                                <p className="text-xs text-gray-400">Envia mensagem de boas-vindas automaticamente.</p>
+                                                <Label className="text-white text-base">Ativar Mensagens de Boas-vindas</Label>
+                                                <p className="text-xs text-gray-400">
+                                                    Ao ativar, o link do funil passará a exigir <strong>aprovação para entrar</strong>.
+                                                    O bot aprovará automaticamente e enviará a mensagem no privado.
+                                                </p>
                                             </div>
                                             <Switch
                                                 checked={settings.is_active}
-                                                onCheckedChange={(checked) => setSettings({ ...settings, is_active: checked })}
+                                                onCheckedChange={(checked) => {
+                                                    setSettings({
+                                                        ...settings,
+                                                        is_active: checked,
+                                                        use_join_request: checked // Força o uso de join request se ativar
+                                                    });
+                                                }}
                                             />
                                         </div>
 
-                                        {/* Configuração de Pedir para Entrar */}
-                                        <div className="flex items-center justify-between p-4 bg-black/20 rounded-lg border border-white/5">
-                                            <div className="space-y-0.5">
-                                                <Label className="text-white text-base">Modo "Pedir para Entrar"</Label>
-                                                <p className="text-xs text-gray-400">Exige aprovação para entrar no grupo. Necessário para enviar mensagens privadas.</p>
-                                            </div>
-                                            <Switch
-                                                checked={settings.use_join_request || false}
-                                                onCheckedChange={(checked) => setSettings({ ...settings, use_join_request: checked })}
-                                            />
-                                        </div>
-
-                                        {/* Aviso Condicional */}
-                                        {settings.is_active && !settings.use_join_request && (
-                                            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-start gap-3">
-                                                <div className="text-yellow-500 mt-0.5">⚠️</div>
-                                                <div className="text-sm text-yellow-200/80">
-                                                    <p className="font-medium text-yellow-500 mb-1">Atenção Necessária</p>
-                                                    Para que o bot consiga enviar mensagens privadas de boas-vindas, é altamente recomendável ativar o modo <strong>"Pedir para Entrar"</strong> acima. Caso contrário, o Telegram pode bloquear o envio se o usuário não tiver iniciado uma conversa com o bot antes.
+                                        {/* Conteúdo do Editor (Só mostra se estiver ativo) */}
+                                        {settings.is_active && (
+                                            <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                                                <div className="space-y-2">
+                                                    <Label className="text-gray-300">Mensagem de Texto</Label>
+                                                    <Textarea
+                                                        value={settings.message_text}
+                                                        onChange={(e) => setSettings({ ...settings, message_text: e.target.value })}
+                                                        className="bg-black/20 border-white/10 text-white min-h-[150px]"
+                                                        placeholder="Digite sua mensagem aqui..."
+                                                    />
+                                                    <p className="text-xs text-gray-500">
+                                                        Variáveis disponíveis: <span className="text-violet-400">{`{first_name}`}</span>, <span className="text-violet-400">{`{username}`}</span>
+                                                    </p>
                                                 </div>
                                             </div>
                                         )}
 
-                                        <div className="space-y-2">
-                                            <Label className="text-gray-300">Mensagem de Texto</Label>
-                                            <Textarea
-                                                value={settings.message_text}
-                                                onChange={(e) => setSettings({ ...settings, message_text: e.target.value })}
-                                                className="bg-black/20 border-white/10 text-white min-h-[150px]"
-                                                placeholder="Digite sua mensagem aqui..."
-                                            />
-                                            <p className="text-xs text-gray-500">
-                                                Variáveis disponíveis: <span className="text-violet-400">{`{first_name}`}</span>, <span className="text-violet-400">{`{username}`}</span>
-                                            </p>
-                                        </div>
                                     </div>
 
                                     <div className="space-y-4">

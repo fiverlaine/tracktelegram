@@ -222,6 +222,7 @@ export async function POST(
                             id, 
                             name, 
                             pixel_id,
+                            use_join_request,
                             pixels:pixels!funnels_pixel_id_fkey (id, pixel_id, access_token),
                             funnel_pixels (
                                 pixels (id, pixel_id, access_token)
@@ -342,68 +343,71 @@ export async function POST(
                     }
 
                     // --- NOVA LÓGICA: Enviar Mensagem de Boas-vindas ---
-                    try {
-                        console.log(`[Webhook] Verificando configurações de boas-vindas para funil ${funnelId}...`);
+                    // Se use_join_request for true, a mensagem já foi enviada no evento chat_join_request
+                    if (!funnelData?.use_join_request) {
+                        try {
+                            console.log(`[Webhook] Verificando configurações de boas-vindas para funil ${funnelId}...`);
 
-                        const { data: welcomeSettings } = await supabase
-                            .from("funnel_welcome_settings")
-                            .select("*")
-                            .eq("funnel_id", funnelId)
-                            .eq("is_active", true)
-                            .single();
-
-                        if (welcomeSettings) {
-                            console.log(`[Webhook] Configuração de boas-vindas encontrada. Enviando...`);
-
-                            // Buscar token do bot (se já não tiver buscado antes)
-                            const { data: botData } = await supabase
-                                .from("telegram_bots")
-                                .select("bot_token")
-                                .eq("id", bot_id)
+                            const { data: welcomeSettings } = await supabase
+                                .from("funnel_welcome_settings")
+                                .select("*")
+                                .eq("funnel_id", funnelId)
+                                .eq("is_active", true)
                                 .single();
 
-                            if (botData?.bot_token) {
-                                // Preparar mensagem
-                                let messageText = welcomeSettings.message_text || "";
-                                const firstName = chatMember.new_chat_member?.user?.first_name || "Visitante";
-                                const username = chatMember.new_chat_member?.user?.username ? `@${chatMember.new_chat_member.user.username}` : "";
+                            if (welcomeSettings) {
+                                console.log(`[Webhook] Configuração de boas-vindas encontrada. Enviando...`);
 
-                                messageText = messageText.replace(/{first_name}/g, firstName).replace(/{username}/g, username);
+                                // Buscar token do bot (se já não tiver buscado antes)
+                                const { data: botData } = await supabase
+                                    .from("telegram_bots")
+                                    .select("bot_token")
+                                    .eq("id", bot_id)
+                                    .single();
 
-                                // Preparar botões
-                                const inlineKeyboard = welcomeSettings.buttons_config?.map((btn: any) => ([
-                                    { text: btn.label, url: btn.url }
-                                ])) || [];
+                                if (botData?.bot_token) {
+                                    // Preparar mensagem
+                                    let messageText = welcomeSettings.message_text || "";
+                                    const firstName = chatMember.new_chat_member?.user?.first_name || "Visitante";
+                                    const username = chatMember.new_chat_member?.user?.username ? `@${chatMember.new_chat_member.user.username}` : "";
 
-                                // Enviar Mensagem
-                                const response = await fetch(`https://api.telegram.org/bot${botData.bot_token}/sendMessage`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        chat_id: telegramUserId, // Envia no privado
-                                        text: messageText,
-                                        reply_markup: inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined
-                                    })
-                                });
+                                    messageText = messageText.replace(/{first_name}/g, firstName).replace(/{username}/g, username);
 
-                                const result = await response.json();
-                                console.log(`[Webhook] Resultado envio mensagem:`, result);
+                                    // Preparar botões
+                                    const inlineKeyboard = welcomeSettings.buttons_config?.map((btn: any) => ([
+                                        { text: btn.label, url: btn.url }
+                                    ])) || [];
 
-                                // Logar envio
-                                await supabase.from("telegram_message_logs").insert({
-                                    funnel_id: funnelId,
-                                    telegram_chat_id: telegramUserId.toString(),
-                                    telegram_user_name: username || firstName,
-                                    direction: 'outbound',
-                                    message_content: messageText,
-                                    status: result.ok ? 'sent' : 'failed'
-                                });
+                                    // Enviar Mensagem
+                                    const response = await fetch(`https://api.telegram.org/bot${botData.bot_token}/sendMessage`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            chat_id: telegramUserId, // Envia no privado
+                                            text: messageText,
+                                            reply_markup: inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined
+                                        })
+                                    });
+
+                                    const result = await response.json();
+                                    console.log(`[Webhook] Resultado envio mensagem:`, result);
+
+                                    // Logar envio
+                                    await supabase.from("telegram_message_logs").insert({
+                                        funnel_id: funnelId,
+                                        telegram_chat_id: telegramUserId.toString(),
+                                        telegram_user_name: username || firstName,
+                                        direction: 'outbound',
+                                        message_content: messageText,
+                                        status: result.ok ? 'sent' : 'failed'
+                                    });
+                                }
+                            } else {
+                                console.log(`[Webhook] Nenhuma configuração de boas-vindas ativa encontrada.`);
                             }
-                        } else {
-                            console.log(`[Webhook] Nenhuma configuração de boas-vindas ativa encontrada.`);
+                        } catch (err) {
+                            console.error("[Webhook] Erro ao processar boas-vindas:", err);
                         }
-                    } catch (err) {
-                        console.error("[Webhook] Erro ao processar boas-vindas:", err);
                     }
                     // ---------------------------------------------------
                 } else {
