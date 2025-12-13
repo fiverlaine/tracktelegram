@@ -18,13 +18,13 @@ interface PageProps {
 export default async function TrackingPage({ params, searchParams }: PageProps) {
     const { slug } = await params;
     const search = await searchParams;
-    
+
     // Capturar dados do Request
     const headersList = await headers();
     const forwardedFor = headersList.get("x-forwarded-for");
     const ip = forwardedFor ? forwardedFor.split(",")[0] : "0.0.0.0";
     const userAgent = headersList.get("user-agent") || "";
-    
+
     // Geo Headers (Vercel)
     const city = headersList.get("x-vercel-ip-city") ? decodeURIComponent(headersList.get("x-vercel-ip-city")!) : undefined;
     const country = headersList.get("x-vercel-ip-country");
@@ -39,8 +39,8 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
         .from("funnels")
         .select(`
             *,
-            pixels(*),
-            telegram_bots(
+            pixels:pixels!funnels_pixel_id_fkey(*),
+            telegram_bots:telegram_bots!funnels_bot_id_fkey(
                 id,
                 name,
                 username,
@@ -56,7 +56,7 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
     // Se já temos o Visitor ID (vindo da Landing Page), processamos tudo no servidor
     if (vid && funnel) {
 
-        
+
         // 2. Rastrear Clique (Assíncrono - fire & forget)
         const clickData = {
             timestamp: new Date().toISOString(),
@@ -75,7 +75,7 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
         };
 
         let destinationUrl: string | null = null;
-        
+
         try {
             // Registrar clique
             await supabase.from("events").insert({
@@ -110,9 +110,9 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
     // Se o usuário acessou direto sem 'vid', usamos o client-tracking para gerar o ID
     // Passamos o funnel pré-carregado para evitar fetch no cliente (que falharia com RLS restrito)
     return (
-        <ClientTracking 
-            slug={slug} 
-            ip={ip} 
+        <ClientTracking
+            slug={slug}
+            ip={ip}
             geo={{
                 city,
                 country: country || undefined,
