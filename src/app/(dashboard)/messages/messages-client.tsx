@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getWelcomeSettings, saveWelcomeSettings, getMessageLogs, WelcomeSettings } from "@/app/actions/messages";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 
 interface MessagesClientProps {
@@ -29,7 +29,6 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
     });
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
-    const { toast } = useToast();
 
     // Carregar configurações quando mudar o funil
     useEffect(() => {
@@ -65,15 +64,12 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
         setLoading(true);
         try {
             await saveWelcomeSettings({ ...settings, funnel_id: selectedFunnelId });
-            toast({
-                title: "Sucesso",
+            toast.success("Sucesso", {
                 description: "Configurações de boas-vindas salvas com sucesso.",
             });
         } catch (error) {
-            toast({
-                title: "Erro",
+            toast.error("Erro", {
                 description: "Não foi possível salvar as configurações.",
-                variant: "destructive"
             });
         } finally {
             setLoading(false);
