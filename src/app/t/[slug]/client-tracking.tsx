@@ -47,7 +47,7 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData }: Cli
 
             // 3. Fetch Funnel Details (ONLY if not provided)
             if (!data) {
-                 const { data: fetchedData, error } = await supabase
+                const { data: fetchedData, error } = await supabase
                     .from("funnels")
                     .select(`
                         *,
@@ -56,9 +56,7 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData }: Cli
                             id,
                             name,
                             username,
-                            channel_link,
-                            bot_token,
-                            chat_id
+                            channel_link
                         )
                     `)
                     .eq("slug", slug)
@@ -286,7 +284,7 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData }: Cli
 
             if (data.invite_link) {
                 setRedirectStatus("Redirecionando para o canal...");
-                
+
                 // Redireciona DIRETO para o canal
                 window.location.href = data.invite_link;
                 return;
