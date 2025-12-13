@@ -126,7 +126,7 @@ export async function POST(
                 if (inviteName && inviteName.startsWith("v_")) {
                     // O invite_name é "v_{visitor_id}" onde visitor_id foi truncado em 28 chars
                     const partialVisitorId = inviteName.substring(2); // Remove "v_"
-                    
+
                     console.log(`[Webhook] Buscando por visitor_id que começa com: ${partialVisitorId}`);
 
                     // Primeiro: Buscar por visitor_id que começa com o prefixo (sem filtrar telegram_user_id)
@@ -141,7 +141,7 @@ export async function POST(
                     if (linkData) {
                         visitorId = linkData.visitor_id;
                         funnelId = linkData.funnel_id;
-                        
+
                         console.log(`[Webhook] Encontrado visitor_id: ${visitorId}, funnel_id: ${funnelId}`);
 
                         // Atualizar o registro com o telegram_user_id real
@@ -185,7 +185,7 @@ export async function POST(
                 if (!visitorId) {
                     // Buscar o click mais recente dos últimos 5 minutos que não tem join
                     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-                    
+
                     const { data: recentClick } = await supabase
                         .from("events")
                         .select("visitor_id, funnel_id")
@@ -240,7 +240,7 @@ export async function POST(
                         if (legacyPixel?.pixel_id) {
                             pixelsToFire.push(legacyPixel);
                         }
-                        
+
                         // Multi-pixels
                         if (funnelData.funnel_pixels && Array.isArray(funnelData.funnel_pixels)) {
                             funnelData.funnel_pixels.forEach((fp: any) => {
@@ -286,7 +286,7 @@ export async function POST(
 
                     // Enviar para Facebook CAPI
                     let metadata: any = eventData?.metadata || null;
-                    
+
                     if (!metadata) {
                         console.log(`[Webhook] eventData nulo, buscando metadata diretamente...`);
                         const { data: clickData } = await supabase
@@ -297,17 +297,17 @@ export async function POST(
                             .order("created_at", { ascending: false })
                             .limit(1)
                             .single();
-                        
+
                         metadata = clickData?.metadata || null;
                     }
 
                     if (uniquePixels.length > 0) {
                         console.log(`[Webhook] Preparando envio CAPI para ${uniquePixels.length} pixels...`);
-                        
+
                         const capiPromises = uniquePixels.map(async (pixelData) => {
-                             if (!pixelData?.access_token || !pixelData?.pixel_id) return;
-                             
-                             try {
+                            if (!pixelData?.access_token || !pixelData?.pixel_id) return;
+
+                            try {
                                 return await sendCAPIEvent(
                                     pixelData.access_token,
                                     pixelData.pixel_id,
@@ -319,7 +319,7 @@ export async function POST(
                                         ip_address: metadata?.ip_address || undefined,
                                         external_id: visitorId,
                                         ct: metadata?.city || undefined,
-                                        st: metadata?.region || undefined, 
+                                        st: metadata?.region || undefined,
                                         country: metadata?.country || undefined
                                     },
                                     {
@@ -330,9 +330,9 @@ export async function POST(
                                         funnel_id: funnelId!
                                     }
                                 );
-                             } catch (err) {
-                                 console.error(`[Webhook] Erro envio CAPI Pixel ${pixelData.pixel_id}:`, err);
-                             }
+                            } catch (err) {
+                                console.error(`[Webhook] Erro envio CAPI Pixel ${pixelData.pixel_id}:`, err);
+                            }
                         });
 
                         await Promise.all(capiPromises);
@@ -340,9 +340,75 @@ export async function POST(
                     } else {
                         console.log(`[Webhook] ⚠️ Nenhum pixel configurado para este funil.`);
                     }
+
+                    // --- NOVA LÓGICA: Enviar Mensagem de Boas-vindas ---
+                    try {
+                        console.log(`[Webhook] Verificando configurações de boas-vindas para funil ${funnelId}...`);
+
+                        const { data: welcomeSettings } = await supabase
+                            .from("funnel_welcome_settings")
+                            .select("*")
+                            .eq("funnel_id", funnelId)
+                            .eq("is_active", true)
+                            .single();
+
+                        if (welcomeSettings) {
+                            console.log(`[Webhook] Configuração de boas-vindas encontrada. Enviando...`);
+
+                            // Buscar token do bot (se já não tiver buscado antes)
+                            const { data: botData } = await supabase
+                                .from("telegram_bots")
+                                .select("bot_token")
+                                .eq("id", bot_id)
+                                .single();
+
+                            if (botData?.bot_token) {
+                                // Preparar mensagem
+                                let messageText = welcomeSettings.message_text || "";
+                                const firstName = chatMember.new_chat_member?.user?.first_name || "Visitante";
+                                const username = chatMember.new_chat_member?.user?.username ? `@${chatMember.new_chat_member.user.username}` : "";
+
+                                messageText = messageText.replace(/{first_name}/g, firstName).replace(/{username}/g, username);
+
+                                // Preparar botões
+                                const inlineKeyboard = welcomeSettings.buttons_config?.map((btn: any) => ([
+                                    { text: btn.label, url: btn.url }
+                                ])) || [];
+
+                                // Enviar Mensagem
+                                const response = await fetch(`https://api.telegram.org/bot${botData.bot_token}/sendMessage`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        chat_id: telegramUserId, // Envia no privado
+                                        text: messageText,
+                                        reply_markup: inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined
+                                    })
+                                });
+
+                                const result = await response.json();
+                                console.log(`[Webhook] Resultado envio mensagem:`, result);
+
+                                // Logar envio
+                                await supabase.from("telegram_message_logs").insert({
+                                    funnel_id: funnelId,
+                                    telegram_chat_id: telegramUserId.toString(),
+                                    telegram_user_name: username || firstName,
+                                    direction: 'outbound',
+                                    message_content: messageText,
+                                    status: result.ok ? 'sent' : 'failed'
+                                });
+                            }
+                        } else {
+                            console.log(`[Webhook] Nenhuma configuração de boas-vindas ativa encontrada.`);
+                        }
+                    } catch (err) {
+                        console.error("[Webhook] Erro ao processar boas-vindas:", err);
+                    }
+                    // ---------------------------------------------------
                 } else {
                     console.log(`[Webhook] Não foi possível encontrar visitor_id para telegram_user_id: ${telegramUserId}`);
-                    
+
                     // Registrar join sem vínculo (para métricas gerais)
                     await supabase.from("events").insert({
                         funnel_id: null,
