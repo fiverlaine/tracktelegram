@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, Plus, Trash2, MessageSquare, Send, Smartphone, Eye, CheckCircle2, Clock } from "lucide-react";
+import { Save, Plus, Trash2, MessageSquare, Send, Smartphone, Eye, CheckCircle2, Clock, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { getWelcomeSettings, saveWelcomeSettings, getMessageLogs, WelcomeSettings } from "@/app/actions/messages";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -29,6 +37,8 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
     });
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
     // Carregar configurações quando mudar o funil
     useEffect(() => {
@@ -61,7 +71,7 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
     }, [selectedFunnelId]);
 
     const handleSave = async () => {
-        setLoading(true);
+        setSaving(true);
         try {
             await saveWelcomeSettings({ ...settings, funnel_id: selectedFunnelId });
             toast.success("Sucesso", {
@@ -73,7 +83,7 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                 description: error.message || "Não foi possível salvar as configurações.",
             });
         } finally {
-            setLoading(false);
+            setSaving(false);
         }
     };
 
@@ -151,100 +161,123 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                                                 <Label className="text-white text-base">Ativar Mensagens de Boas-vindas</Label>
                                                 <p className="text-xs text-gray-400">
                                                     Ao ativar, o link do funil passará a exigir <strong>aprovação para entrar</strong>.
-                                                    O bot aprovará automaticamente e enviará a mensagem no privado.
                                                 </p>
                                             </div>
                                             <Switch
                                                 checked={settings.is_active}
                                                 onCheckedChange={(checked) => {
-                                                    setSettings({
-                                                        ...settings,
-                                                        is_active: checked,
-                                                        use_join_request: checked // Força o uso de join request se ativar
-                                                    });
+                                                    if (checked) {
+                                                        // Abrir confirmação antes de ativar
+                                                        setShowConfirmDialog(true);
+                                                    } else {
+                                                        // Desativar direto
+                                                        setSettings({
+                                                            ...settings,
+                                                            is_active: false,
+                                                            use_join_request: false
+                                                        });
+                                                    }
                                                 }}
                                             />
                                         </div>
 
-                                        {/* Conteúdo do Editor (Só mostra se estiver ativo) */}
-                                        {settings.is_active && (
-                                            <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
-                                                <div className="space-y-2">
-                                                    <Label className="text-gray-300">Mensagem de Texto</Label>
-                                                    <Textarea
-                                                        value={settings.message_text}
-                                                        onChange={(e) => setSettings({ ...settings, message_text: e.target.value })}
-                                                        className="bg-black/20 border-white/10 text-white min-h-[150px]"
-                                                        placeholder="Digite sua mensagem aqui..."
-                                                    />
-                                                    <p className="text-xs text-gray-500">
-                                                        Variáveis disponíveis: <span className="text-violet-400">{`{first_name}`}</span>, <span className="text-violet-400">{`{username}`}</span>
-                                                    </p>
-                                                </div>
+                                        {/* Aviso Explícito */}
+                                        <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-start gap-3">
+                                            <div className="text-yellow-500 mt-0.5">⚠️</div>
+                                            <div className="text-sm text-yellow-200/80">
+                                                <p className="font-medium text-yellow-500 mb-1">Importante</p>
+                                                Para garantir que o bot consiga enviar a mensagem privada, ao ativar este recurso, <strong>todos os links de convite deste funil passarão a ser do tipo "Pedir para Entrar"</strong>. O bot aprovará a entrada automaticamente e enviará a mensagem em seguida.
                                             </div>
-                                        )}
-
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <Label className="text-gray-300">Botões (Inline Keyboard)</Label>
-                                            <Button variant="outline" size="sm" onClick={addButton} className="border-dashed border-white/20 hover:bg-white/5 text-gray-300">
-                                                <Plus className="h-4 w-4 mr-2" /> Adicionar Botão
-                                            </Button>
                                         </div>
 
-                                        <div className="space-y-3">
-                                            {settings.buttons_config.map((btn, idx) => (
-                                                <div key={idx} className="flex gap-3 items-start animate-in fade-in slide-in-from-left-2">
-                                                    <div className="grid grid-cols-2 gap-3 flex-1">
-                                                        <Input
-                                                            value={btn.label}
-                                                            onChange={(e) => updateButton(idx, 'label', e.target.value)}
-                                                            placeholder="Texto do Botão"
-                                                            className="bg-black/20 border-white/10 text-white"
-                                                        />
-                                                        <Input
-                                                            value={btn.url}
-                                                            onChange={(e) => updateButton(idx, 'url', e.target.value)}
-                                                            placeholder="https://..."
-                                                            className="bg-black/20 border-white/10 text-white"
-                                                        />
-                                                    </div>
+                                        {/* Conteúdo do Editor (Bloqueado se inativo) */}
+                                        <div className={`space-y-6 transition-opacity duration-300 ${!settings.is_active ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
+                                            <div className="space-y-2">
+                                                <Label className="text-gray-300">Mensagem de Texto</Label>
+                                                <Textarea
+                                                    value={settings.message_text}
+                                                    onChange={(e) => setSettings({ ...settings, message_text: e.target.value })}
+                                                    className="bg-black/20 border-white/10 text-white min-h-[150px]"
+                                                    placeholder="Digite sua mensagem aqui..."
+                                                    disabled={!settings.is_active}
+                                                />
+                                                <p className="text-xs text-gray-500">
+                                                    Variáveis disponíveis: <span className="text-violet-400">{`{first_name}`}</span>, <span className="text-violet-400">{`{username}`}</span>
+                                                </p>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-gray-300">Botões (Inline Keyboard)</Label>
                                                     <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => removeButton(idx)}
-                                                        className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={addButton}
+                                                        className="border-dashed border-white/20 hover:bg-white/5 text-gray-300"
+                                                        disabled={!settings.is_active}
                                                     >
-                                                        <Trash2 className="h-4 w-4" />
+                                                        <Plus className="h-4 w-4 mr-2" /> Adicionar Botão
                                                     </Button>
                                                 </div>
-                                            ))}
-                                            {settings.buttons_config.length === 0 && (
-                                                <div className="text-center py-8 border border-dashed border-white/10 rounded-lg text-gray-500 text-sm">
-                                                    Nenhum botão configurado.
+
+                                                <div className="space-y-3">
+                                                    {settings.buttons_config.map((btn, index) => (
+                                                        <div key={index} className="flex gap-3 items-start animate-in fade-in slide-in-from-left-2">
+                                                            <div className="flex-1 space-y-2">
+                                                                <Input
+                                                                    placeholder="Texto do Botão"
+                                                                    value={btn.label}
+                                                                    onChange={(e) => updateButton(index, 'label', e.target.value)}
+                                                                    className="bg-black/20 border-white/10 text-white h-9"
+                                                                    disabled={!settings.is_active}
+                                                                />
+                                                            </div>
+                                                            <div className="flex-[2] space-y-2">
+                                                                <Input
+                                                                    placeholder="URL (https://...)"
+                                                                    value={btn.url}
+                                                                    onChange={(e) => updateButton(index, 'url', e.target.value)}
+                                                                    className="bg-black/20 border-white/10 text-white h-9"
+                                                                    disabled={!settings.is_active}
+                                                                />
+                                                            </div>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => removeButton(index)}
+                                                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-9 w-9"
+                                                                disabled={!settings.is_active}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    ))}
+                                                    {settings.buttons_config.length === 0 && (
+                                                        <div className="text-center py-8 border border-dashed border-white/10 rounded-lg text-gray-500 text-sm">
+                                                            Nenhum botão configurado
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div className="pt-4 border-t border-white/5 flex justify-end">
+                                    <div className="flex justify-end pt-4 border-t border-white/5">
                                         <Button
                                             onClick={handleSave}
-                                            disabled={loading}
+                                            disabled={saving || !settings.is_active}
                                             className="bg-violet-600 hover:bg-violet-700 text-white min-w-[120px]"
                                         >
-                                            {loading ? (
-                                                <span className="flex items-center gap-2">
-                                                    <span className="animate-spin h-4 w-4 border-2 border-white/20 border-t-white rounded-full" />
+                                            {saving ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                                     Salvando...
-                                                </span>
+                                                </>
                                             ) : (
-                                                <span className="flex items-center gap-2">
-                                                    <Save className="h-4 w-4" />
+                                                <>
+                                                    <Save className="mr-2 h-4 w-4" />
                                                     Salvar Alterações
-                                                </span>
+                                                </>
                                             )}
                                         </Button>
                                     </div>
