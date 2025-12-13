@@ -75,7 +75,7 @@ export default function DomainsPage() {
 
     const handleNewDomain = () => {
         if (subLoading) return;
-        
+
         if (!isSubscribed) {
             toast.error("Assine um plano para adicionar domínios.");
             router.push("/subscription");
@@ -111,7 +111,7 @@ export default function DomainsPage() {
         const { error } = await supabase.from("domains").insert({
             user_id: user.id,
             domain: domainClean,
-            pixel_id: formData.pixel_id || null, 
+            pixel_id: formData.pixel_id || null,
             verified: false,
             verification_token: verificationToken
         });
@@ -142,12 +142,19 @@ export default function DomainsPage() {
 
     async function handleVerify(domain: Domain) {
         if (!domain.verification_token) return;
-        
+
         setVerifyingId(domain.id);
         try {
             const result = await verifyDomain(domain.id);
             if (result.success) {
                 toast.success(result.message);
+
+                // Update local state immediately
+                setDomains(prev => prev.map(d =>
+                    d.id === domain.id ? { ...d, verified: true } : d
+                ));
+
+                // Refresh full list in background
                 fetchDomains();
             } else {
                 toast.error(result.message);
@@ -161,18 +168,18 @@ export default function DomainsPage() {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <PageHeader title="Meus Domínios" description="Gerencie os domínios onde o script de rastreamento será instalado.">
-                 <div className="flex items-center gap-4">
-                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs text-gray-400">
-                    <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-gray-500"} animate-pulse`} />
-                    {!isSubscribed 
-                        ? "0 / 0 domínios"
-                        : planLimits?.domains === 9999 
-                            ? "Ilimitado" 
-                            : `${domains.length} / ${planLimits?.domains || 0} domínios`}
+                <div className="flex items-center gap-4">
+                    <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs text-gray-400">
+                        <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-gray-500"} animate-pulse`} />
+                        {!isSubscribed
+                            ? "0 / 0 domínios"
+                            : planLimits?.domains === 9999
+                                ? "Ilimitado"
+                                : `${domains.length} / ${planLimits?.domains || 0} domínios`}
+                    </div>
                 </div>
-                </div>
-                <Button 
-                    onClick={handleNewDomain} 
+                <Button
+                    onClick={handleNewDomain}
                     className="bg-white text-black hover:bg-gray-200 gap-2 font-bold"
                 >
                     <Plus className="h-4 w-4" />
@@ -228,7 +235,7 @@ export default function DomainsPage() {
                     </DialogContent>
                 </Dialog>
             </PageHeader>
-            
+
             {/* Rest of the component (domain list) */}
             <div className="space-y-4">
                 {loading ? (
@@ -312,16 +319,16 @@ export default function DomainsPage() {
                                                                                     Verificando...
                                                                                 </Button>
                                                                             ) : (
-                                                                                 <Button onClick={() => handleVerify(domain)} size="sm" className="bg-yellow-600 hover:bg-yellow-700 text-white border-0">
+                                                                                <Button onClick={() => handleVerify(domain)} size="sm" className="bg-yellow-600 hover:bg-yellow-700 text-white border-0">
                                                                                     <RefreshCw className="h-4 w-4 mr-2" />
                                                                                     Verificar Agora
                                                                                 </Button>
                                                                             )}
                                                                         </div>
-                                                                        
+
                                                                         <div className="text-sm text-gray-400 space-y-3">
                                                                             <p className="mb-2">Para verificar que você é o dono deste domínio, adicione a seguinte <strong>metatag</strong> no <code className="bg-white/10 px-1 py-0.5 rounded text-gray-300">&lt;head&gt;</code> do seu site:</p>
-                                                                            
+
                                                                             <div className="bg-black/30 p-3 rounded border border-white/5 space-y-2">
                                                                                 <div className="flex items-center justify-between font-mono text-xs">
                                                                                     <span className="text-gray-300 break-all">{`<meta name="trackgram-verification" content="${domain.verification_token}">`}</span>
@@ -333,7 +340,7 @@ export default function DomainsPage() {
                                                                                     </Button>
                                                                                 </div>
                                                                             </div>
-                                                                            
+
                                                                             <div className="bg-blue-500/5 border border-blue-500/20 p-3 rounded-lg text-xs">
                                                                                 <p className="font-semibold text-blue-400 mb-1">📝 Instruções:</p>
                                                                                 <ol className="list-decimal pl-4 space-y-1 text-gray-400">
@@ -346,7 +353,7 @@ export default function DomainsPage() {
                                                                         </div>
                                                                     </div>
                                                                 )}
-                                                                
+
                                                                 {domain.verified && (
                                                                     <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium">
                                                                         <ShieldCheck className="h-4 w-4" />
@@ -363,10 +370,10 @@ export default function DomainsPage() {
                                                                         Copie o script abaixo e cole no <code className="bg-white/10 px-1 py-0.5 rounded text-gray-300">&lt;head&gt;</code> de todas as páginas do seu site <strong>{domain.domain}</strong>.
                                                                     </p>
                                                                 </div>
-                                                                
+
                                                                 <div className="bg-black/50 border border-white/10 p-4 rounded-xl font-mono text-xs overflow-x-auto relative group text-gray-300">
                                                                     <pre className="whitespace-pre-wrap">
-{`<script>
+                                                                        {`<script>
   (function(w,d,s,l,i){
     w[l]=w[l]||[];
     w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
