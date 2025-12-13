@@ -67,9 +67,10 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
             toast.success("Sucesso", {
                 description: "Configurações de boas-vindas salvas com sucesso.",
             });
-        } catch (error) {
-            toast.error("Erro", {
-                description: "Não foi possível salvar as configurações.",
+        } catch (error: any) {
+            console.error(error);
+            toast.error("Erro ao salvar", {
+                description: error.message || "Não foi possível salvar as configurações.",
             });
         } finally {
             setLoading(false);

@@ -30,6 +30,7 @@ export async function getWelcomeSettings(funnelId: string) {
 
 export async function saveWelcomeSettings(settings: WelcomeSettings) {
     const supabase = await createClient();
+    console.log("Saving settings for funnel:", settings.funnel_id, settings);
 
     const { error } = await supabase
         .from("funnel_welcome_settings")
@@ -40,11 +41,11 @@ export async function saveWelcomeSettings(settings: WelcomeSettings) {
             buttons_config: settings.buttons_config,
             image_url: settings.image_url,
             updated_at: new Date().toISOString()
-        });
+        }, { onConflict: 'funnel_id' });
 
     if (error) {
         console.error("Error saving welcome settings:", error);
-        throw new Error("Failed to save settings");
+        throw new Error("Failed to save settings: " + error.message);
     }
 
     revalidatePath("/messages");
