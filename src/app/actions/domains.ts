@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -168,6 +169,10 @@ export async function verifyDomain(domainId: string) {
             }
 
             console.log(`[Domain Verification] ✅ Domínio ${domain.domain} verificado com sucesso!`);
+
+            // Force UI refresh
+            revalidatePath('/domains');
+
             return { success: true, message: "Domínio verificado com sucesso!" };
         } else {
             console.log(`[Domain Verification] ❌ Metatag de verificação não encontrada`);
