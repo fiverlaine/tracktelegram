@@ -37,7 +37,7 @@ export default function DomainsPage() {
     const [pixels, setPixels] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
-    const [formData, setFormData] = useState({ domain: "", pixel_id: "" });
+    const [formData, setFormData] = useState({ domain: "", pixel_ids: [] as string[] });
     const [saving, setSaving] = useState(false);
     const [detailsOpen, setDetailsOpen] = useState<Record<string, boolean>>({});
 
@@ -52,6 +52,17 @@ export default function DomainsPage() {
         fetchPixels();
     }, []);
 
+    const togglePixelSelection = (pixelId: string) => {
+        setFormData(prev => {
+            const exists = prev.pixel_ids.includes(pixelId);
+            if (exists) {
+                return { ...prev, pixel_ids: prev.pixel_ids.filter(id => id !== pixelId) };
+            } else {
+                return { ...prev, pixel_ids: [...prev.pixel_ids, pixelId] };
+            }
+        });
+    };
+
     async function fetchPixels() {
         const { data } = await supabase.from("pixels").select("id, name");
         if (data) setPixels(data);
@@ -61,7 +72,13 @@ export default function DomainsPage() {
         setLoading(true);
         const { data, error } = await supabase
             .from("domains")
-            .select("*, pixels:pixels!domains_pixel_id_fkey(name)")
+            .select(`
+                *,
+                domain_pixels (
+                    pixel_id,
+                    pixels (name)
+                )
+            `)
             .order("created_at", { ascending: false });
 
         if (error) {
@@ -108,23 +125,40 @@ export default function DomainsPage() {
 
         const verificationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
-        const { error } = await supabase.from("domains").insert({
+        // 1. Insert Domain
+        const { data: domainData, error: domainError } = await supabase.from("domains").insert({
             user_id: user.id,
             domain: domainClean,
-            pixel_id: formData.pixel_id || null,
             verified: false,
             verification_token: verificationToken
-        });
+        }).select().single();
 
-        if (error) {
-            console.error(error);
+        if (domainError) {
+            console.error(domainError);
             toast.error("Erro ao adicionar domínio");
-        } else {
-            toast.success("Domínio adicionado!");
-            setFormData({ domain: "", pixel_id: "" });
-            setOpen(false);
-            fetchDomains();
+            setSaving(false);
+            return;
         }
+
+        // 2. Insert Pixels (if any)
+        if (formData.pixel_ids.length > 0 && domainData) {
+            const pixelInserts = formData.pixel_ids.map(pid => ({
+                domain_id: domainData.id,
+                pixel_id: pid
+            }));
+
+            const { error: pixelsError } = await supabase.from("domain_pixels").insert(pixelInserts);
+
+            if (pixelsError) {
+                console.error("Erro ao vincular pixels:", pixelsError);
+                toast.error("Domínio criado, mas houve erro ao vincular alguns pixels.");
+            }
+        }
+
+        toast.success("Domínio adicionado!");
+        setFormData({ domain: "", pixel_ids: [] });
+        setOpen(false);
+        fetchDomains();
         setSaving(false);
     }
 
@@ -208,21 +242,58 @@ export default function DomainsPage() {
                             <div className="grid gap-2">
                                 <Label className="text-gray-400">Pixel (Opcional)</Label>
                                 <p className="text-[10px] text-gray-500 mb-1">
-                                    Se selecionado, o script instalará automaticamente o Pixel neste domínio.
+                                    Selecione um ou mais Pixels para instalar automaticamente neste domínio.
                                 </p>
-                                <Select
-                                    value={formData.pixel_id}
-                                    onValueChange={(val) => setFormData({ ...formData, pixel_id: val })}
-                                >
-                                    <SelectTrigger className="bg-black/40 border-white/10 text-white">
-                                        <SelectValue placeholder="Selecione um Pixel" />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-[#0a0a0a] border-white/10 text-white">
-                                        {pixels.map(p => (
-                                            <SelectItem key={p.id} value={p.id} className="focus:bg-white/10 focus:text-white cursor-pointer">{p.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" className="w-full justify-between bg-black/40 border-white/10 text-white hover:bg-white/5">
+                                            {formData.pixel_ids.length > 0
+                                                ? `${formData.pixel_ids.length} pixel(s) selecionado(s)`
+                                                : "Selecione Pixels"}
+                                            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[400px] p-0 bg-[#0a0a0a] border-white/10">
+                                        <div className="p-2 space-y-1 max-h-[200px] overflow-y-auto">
+                                            {pixels.length === 0 ? (
+                                                <div className="p-2 text-sm text-gray-500 text-center">Nenhum pixel cadastrado.</div>
+                                            ) : (
+                                                pixels.map(pixel => {
+                                                    const isSelected = formData.pixel_ids.includes(pixel.id);
+                                                    return (
+                                                        <div
+                                                            key={pixel.id}
+                                                            onClick={() => togglePixelSelection(pixel.id)}
+                                                            className={`
+                                                                flex items-center gap-2 px-3 py-2 text-sm rounded-md cursor-pointer transition-colors
+                                                                ${isSelected ? "bg-violet-600/20 text-violet-300" : "text-gray-300 hover:bg-white/5"}
+                                                            `}
+                                                        >
+                                                            <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? "bg-violet-600 border-violet-600" : "border-gray-600"}`}>
+                                                                {isSelected && <Check className="h-3 w-3 text-white" />}
+                                                            </div>
+                                                            {pixel.name}
+                                                        </div>
+                                                    )
+                                                })
+                                            )}
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                    {formData.pixel_ids.map(pid => {
+                                        const px = pixels.find(p => p.id === pid);
+                                        return px ? (
+                                            <Badge key={pid} variant="secondary" className="text-[10px] bg-violet-900/40 text-violet-300 border-violet-700/50">
+                                                {px.name}
+                                                <X
+                                                    className="ml-1 h-3 w-3 cursor-pointer hover:text-white"
+                                                    onClick={() => togglePixelSelection(pid)}
+                                                />
+                                            </Badge>
+                                        ) : null
+                                    })}
+                                </div>
                             </div>
                         </div>
                         <div className="flex justify-end gap-2">
@@ -276,11 +347,19 @@ export default function DomainsPage() {
                                                         Não Verificado
                                                     </div>
                                                 )}
-                                                {domain.pixels?.name && (
+                                                {domain.domain_pixels && domain.domain_pixels.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                                        {domain.domain_pixels.map(dp => (
+                                                            <span key={dp.pixel_id} className="text-[10px] text-gray-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
+                                                                {dp.pixels?.name}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : domain.pixels?.name ? (
                                                     <span className="text-xs text-gray-500 bg-white/5 px-2 py-1 rounded-md">
                                                         {domain.pixels.name}
                                                     </span>
-                                                )}
+                                                ) : null}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-right">

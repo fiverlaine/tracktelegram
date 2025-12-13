@@ -38,7 +38,7 @@ export default function FunnelsPage() {
     const [bots, setBots] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
-    
+
     const { isSubscribed, isLoading: subLoading, plan: planName } = useSubscription();
     const router = useRouter();
     const planLimits = getPlanLimits(planName);
@@ -54,6 +54,8 @@ export default function FunnelsPage() {
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [deleting, setDeleting] = useState<string | null>(null);
 
+    const [hasVerifiedDomain, setHasVerifiedDomain] = useState(false);
+
     const supabase = createClient();
 
     useEffect(() => {
@@ -67,6 +69,11 @@ export default function FunnelsPage() {
 
         const { data: botsData } = await supabase.from("telegram_bots").select("id, name");
         if (botsData) setBots(botsData);
+
+        const { data: domainsData } = await supabase.from("domains").select("id, verified").eq("verified", true).limit(1);
+        if (domainsData && domainsData.length > 0) {
+            setHasVerifiedDomain(true);
+        }
     }
 
     async function fetchFunnels() {
@@ -94,10 +101,21 @@ export default function FunnelsPage() {
 
     const handleNewFunnel = () => {
         if (subLoading) return;
-        
+
         if (!isSubscribed) {
             toast.error("Assine um plano para criar funis e liberar todos os recursos.");
             router.push("/subscription");
+            return;
+        }
+
+        if (!hasVerifiedDomain) {
+            toast.error("Domínio verificado necessário", {
+                description: "Você precisa ter pelo menos um domínio verificado para criar funis.",
+                action: {
+                    label: "Ir para Domínios",
+                    onClick: () => router.push("/domains")
+                }
+            });
             return;
         }
 
@@ -179,7 +197,7 @@ export default function FunnelsPage() {
                 });
                 toast.success("Funil criado com sucesso!");
             }
-            
+
             setOpen(false);
             setFormData({ name: "", slug: "", pixel_ids: [], bot_id: "" });
             fetchFunnels();
@@ -204,7 +222,7 @@ export default function FunnelsPage() {
         }
 
         setDeleting(id);
-        
+
         // As FKs devem ter ON DELETE CASCADE idealmente, mas vamos deletar manual pra garantir
         await supabase.from("events").delete().eq("funnel_id", id);
         await supabase.from("visitor_telegram_links").delete().eq("funnel_id", id);
@@ -237,19 +255,19 @@ export default function FunnelsPage() {
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <PageHeader title="Funis de Rastreamento" description="Crie links de rastreamento para suas campanhas e monitore a conversão.">
-                 <div className="flex items-center gap-4">
-                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs text-gray-400">
-                    <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-gray-500"} animate-pulse`} />
-                    {!isSubscribed 
-                        ? "0 / 0 funis"
-                        : planLimits?.funnels === 9999 || planLimits?.funnels === 'unlimited'
-                            ? "Ilimitado" 
-                            : `${funnels.length} / ${planLimits?.funnels || 0} funis`}
+            <PageHeader title="Funis de Rastreamento" description="Crie links de rastreamento para suas campanhas e monitore a conversão.">
+                <div className="flex items-center gap-4">
+                    <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs text-gray-400">
+                        <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-gray-500"} animate-pulse`} />
+                        {!isSubscribed
+                            ? "0 / 0 funis"
+                            : planLimits?.funnels === 9999 || planLimits?.funnels === 'unlimited'
+                                ? "Ilimitado"
+                                : `${funnels.length} / ${planLimits?.funnels || 0} funis`}
+                    </div>
                 </div>
-                </div>
-                <Button 
-                    onClick={handleNewFunnel} 
+                <Button
+                    onClick={handleNewFunnel}
                     className="bg-white text-black hover:bg-gray-200 gap-2 font-bold"
                 >
                     <Plus className="h-4 w-4" />
@@ -275,14 +293,14 @@ export default function FunnelsPage() {
                                 />
                             </div>
 
-                            
+
                             <div className="grid gap-2">
                                 <Label className="text-gray-400">Pixel do Facebook (Multi-seleção)</Label>
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <Button variant="outline" className="w-full justify-between bg-black/40 border-white/10 text-white hover:bg-white/5">
-                                            {formData.pixel_ids.length > 0 
-                                                ? `${formData.pixel_ids.length} pixel(s) selecionado(s)` 
+                                            {formData.pixel_ids.length > 0
+                                                ? `${formData.pixel_ids.length} pixel(s) selecionado(s)`
                                                 : "Selecione Pixels"}
                                             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
@@ -295,8 +313,8 @@ export default function FunnelsPage() {
                                                 pixels.map(pixel => {
                                                     const isSelected = formData.pixel_ids.includes(pixel.id);
                                                     return (
-                                                        <div 
-                                                            key={pixel.id} 
+                                                        <div
+                                                            key={pixel.id}
                                                             onClick={() => togglePixelSelection(pixel.id)}
                                                             className={`
                                                                 flex items-center gap-2 px-3 py-2 text-sm rounded-md cursor-pointer transition-colors
@@ -320,9 +338,9 @@ export default function FunnelsPage() {
                                         return px ? (
                                             <Badge key={pid} variant="secondary" className="text-[10px] bg-violet-900/40 text-violet-300 border-violet-700/50">
                                                 {px.name}
-                                                <X 
+                                                <X
                                                     className="ml-1 h-3 w-3 cursor-pointer hover:text-white"
-                                                    onClick={() => togglePixelSelection(pid)} 
+                                                    onClick={() => togglePixelSelection(pid)}
                                                 />
                                             </Badge>
                                         ) : null
@@ -387,77 +405,78 @@ export default function FunnelsPage() {
                                 const pixelDisplay = linkedPixels && linkedPixels.length > 0
                                     ? linkedPixels.join(", ") // Mostra todos se tiver
                                     : funnel.pixels?.name || '-'; // Fallback
-                                
+
                                 return (
-                                <tr key={funnel.id} className="hover:bg-white/5 transition-colors group text-gray-300">
-                                    <td className="px-6 py-4 font-medium text-white flex items-center gap-3">
-                                        <div className="p-2 rounded-lg bg-pink-500/10 text-pink-400 hidden sm:block">
-                                            <LinkIcon className="h-4 w-4" />
-                                        </div>
-                                        {funnel.name}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2 bg-black/40 p-2 rounded-lg border border-white/5 text-xs font-mono max-w-[300px] overflow-hidden group/link">
-                                            <span className="truncate text-gray-400 group-hover/link:text-gray-300 transition-colors">
-                                                {typeof window !== 'undefined' ? `${window.location.origin}/t/${funnel.slug}` : `/t/${funnel.slug}`}
-                                            </span>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-6 w-6 shrink-0 text-gray-500 hover:text-white hover:bg-white/10"
-                                                onClick={() => handleCopyLink(funnel.slug)}
-                                            >
-                                                {copiedId === funnel.slug ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                                            </Button>
-                                            <a 
-                                                href={`/t/${funnel.slug}`} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className="h-6 w-6 flex items-center justify-center rounded-md text-gray-500 hover:text-white hover:bg-white/10"
-                                            >
-                                                <ExternalLink className="h-3 w-3" />
-                                            </a>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-xs text-gray-500">
-                                        <div className="flex flex-col gap-1">
-                                            <span className="flex items-center gap-2">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                                                Pixel: <span className="text-gray-300 truncate max-w-[150px]" title={pixelDisplay}>{pixelDisplay}</span>
-                                            </span>
-                                            <span className="flex items-center gap-2">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                                Bot: <span className="text-gray-300">{funnel.telegram_bots?.name || '-'}</span>
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex justify-end gap-1">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-gray-500 hover:text-white hover:bg-white/10"
-                                                onClick={() => handleEditFunnel(funnel)}
-                                            >
-                                                <Pencil className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-gray-500 hover:text-red-400 hover:bg-red-500/10"
-                                                onClick={() => handleDelete(funnel.id, funnel.name)}
-                                                disabled={deleting === funnel.id}
-                                            >
-                                                {deleting === funnel.id ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <Trash2 className="h-4 w-4" />
-                                                )}
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )})
+                                    <tr key={funnel.id} className="hover:bg-white/5 transition-colors group text-gray-300">
+                                        <td className="px-6 py-4 font-medium text-white flex items-center gap-3">
+                                            <div className="p-2 rounded-lg bg-pink-500/10 text-pink-400 hidden sm:block">
+                                                <LinkIcon className="h-4 w-4" />
+                                            </div>
+                                            {funnel.name}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2 bg-black/40 p-2 rounded-lg border border-white/5 text-xs font-mono max-w-[300px] overflow-hidden group/link">
+                                                <span className="truncate text-gray-400 group-hover/link:text-gray-300 transition-colors">
+                                                    {typeof window !== 'undefined' ? `${window.location.origin}/t/${funnel.slug}` : `/t/${funnel.slug}`}
+                                                </span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6 shrink-0 text-gray-500 hover:text-white hover:bg-white/10"
+                                                    onClick={() => handleCopyLink(funnel.slug)}
+                                                >
+                                                    {copiedId === funnel.slug ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                                                </Button>
+                                                <a
+                                                    href={`/t/${funnel.slug}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="h-6 w-6 flex items-center justify-center rounded-md text-gray-500 hover:text-white hover:bg-white/10"
+                                                >
+                                                    <ExternalLink className="h-3 w-3" />
+                                                </a>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-xs text-gray-500">
+                                            <div className="flex flex-col gap-1">
+                                                <span className="flex items-center gap-2">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                                    Pixel: <span className="text-gray-300 truncate max-w-[150px]" title={pixelDisplay}>{pixelDisplay}</span>
+                                                </span>
+                                                <span className="flex items-center gap-2">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                    Bot: <span className="text-gray-300">{funnel.telegram_bots?.name || '-'}</span>
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex justify-end gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-gray-500 hover:text-white hover:bg-white/10"
+                                                    onClick={() => handleEditFunnel(funnel)}
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-gray-500 hover:text-red-400 hover:bg-red-500/10"
+                                                    onClick={() => handleDelete(funnel.id, funnel.name)}
+                                                    disabled={deleting === funnel.id}
+                                                >
+                                                    {deleting === funnel.id ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="h-4 w-4" />
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )
+                            })
                         )}
                     </tbody>
                 </table>
