@@ -17,13 +17,14 @@ export function getSupabaseClient() {
 interface GenerateInviteParams {
     funnelId: string;
     visitorId: string;
-    bot?: any; // Se já tiver buscado o bot, passa aqui para economizar query
+    bot?: any;
+    createsJoinRequest?: boolean;
 }
 
 /**
  * Core Logic: Gerar link de convite único do Telegram
  */
-export async function generateTelegramInvite({ funnelId, visitorId, bot }: GenerateInviteParams) {
+export async function generateTelegramInvite({ funnelId, visitorId, bot, createsJoinRequest = false }: GenerateInviteParams) {
     const supabase = getSupabaseClient();
     let telegramBot = bot;
 
@@ -69,18 +70,26 @@ export async function generateTelegramInvite({ funnelId, visitorId, bot }: Gener
     // 3. Gerar Invite Link na API do Telegram
     try {
         const inviteName = `v_${visitorId.substring(0, 28)}`;
-        
+
+        const payload: any = {
+            chat_id: telegramBot.chat_id,
+            name: inviteName,
+            expire_date: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24h
+        };
+
+        if (createsJoinRequest) {
+            payload.creates_join_request = true;
+            // member_limit não pode ser usado com creates_join_request
+        } else {
+            payload.member_limit = 1;
+        }
+
         const telegramResponse = await fetch(
             `https://api.telegram.org/bot${telegramBot.bot_token}/createChatInviteLink`,
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    chat_id: telegramBot.chat_id,
-                    name: inviteName,
-                    member_limit: 1,
-                    expire_date: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24h
-                })
+                body: JSON.stringify(payload)
             }
         );
 
@@ -125,9 +134,9 @@ export async function generateTelegramInvite({ funnelId, visitorId, bot }: Gener
         console.error("Erro ao gerar link:", err);
         // Último recurso: usar link estático se disponível
         if (telegramBot?.channel_link) {
-            return { 
-                invite_link: telegramBot.channel_link, 
-                is_dynamic: false 
+            return {
+                invite_link: telegramBot.channel_link,
+                is_dynamic: false
             };
         }
         throw err;

@@ -9,30 +9,50 @@ export interface WelcomeSettings {
     message_text: string;
     buttons_config: { label: string; url: string }[];
     image_url?: string;
+    use_join_request?: boolean; // Novo campo vindo de funnels
 }
 
 export async function getWelcomeSettings(funnelId: string) {
     const supabase = await createClient();
 
-    const { data, error } = await supabase
+    // Buscar configurações de boas-vindas
+    const { data: settingsData, error: settingsError } = await supabase
         .from("funnel_welcome_settings")
         .select("*")
         .eq("funnel_id", funnelId)
         .single();
 
-    if (error && error.code !== "PGRST116") { // Ignore not found
-        console.error("Error fetching welcome settings:", error);
+    // Buscar configuração do funil (use_join_request)
+    const { data: funnelData, error: funnelError } = await supabase
+        .from("funnels")
+        .select("use_join_request")
+        .eq("id", funnelId)
+        .single();
+
+    if (settingsError && settingsError.code !== "PGRST116") {
+        console.error("Error fetching welcome settings:", settingsError);
         return null;
     }
 
-    return data;
+    // Combinar os dados
+    return {
+        ...(settingsData || {
+            funnel_id: funnelId,
+            is_active: false,
+            message_text: "Olá {first_name}! Seja bem-vindo ao nosso canal exclusivo.",
+            buttons_config: [],
+            image_url: ""
+        }),
+        use_join_request: funnelData?.use_join_request || false
+    };
 }
 
 export async function saveWelcomeSettings(settings: WelcomeSettings) {
     const supabase = await createClient();
     console.log("Saving settings for funnel:", settings.funnel_id, settings);
 
-    const { error } = await supabase
+    // 1. Salvar configurações de boas-vindas
+    const { error: settingsError } = await supabase
         .from("funnel_welcome_settings")
         .upsert({
             funnel_id: settings.funnel_id,
@@ -43,9 +63,22 @@ export async function saveWelcomeSettings(settings: WelcomeSettings) {
             updated_at: new Date().toISOString()
         }, { onConflict: 'funnel_id' });
 
-    if (error) {
-        console.error("Error saving welcome settings:", error);
-        throw new Error("Failed to save settings: " + error.message);
+    if (settingsError) {
+        console.error("Error saving welcome settings:", settingsError);
+        throw new Error("Failed to save settings: " + settingsError.message);
+    }
+
+    // 2. Salvar configuração do funil (use_join_request)
+    if (settings.use_join_request !== undefined) {
+        const { error: funnelError } = await supabase
+            .from("funnels")
+            .update({ use_join_request: settings.use_join_request })
+            .eq("id", settings.funnel_id);
+
+        if (funnelError) {
+            console.error("Error updating funnel join request setting:", funnelError);
+            // Não vamos lançar erro aqui para não invalidar o salvamento anterior, mas logamos
+        }
     }
 
     revalidatePath("/messages");

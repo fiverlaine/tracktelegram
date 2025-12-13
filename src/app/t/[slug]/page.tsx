@@ -89,7 +89,8 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
             const result = await generateTelegramInvite({
                 funnelId: funnel.id,
                 visitorId: vid,
-                bot: funnel.telegram_bots
+                bot: funnel.telegram_bots,
+                createsJoinRequest: funnel.use_join_request // Passar configuração
             });
 
             if (result?.invite_link) {

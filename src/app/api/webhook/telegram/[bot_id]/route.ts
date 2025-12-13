@@ -470,14 +470,27 @@ export async function POST(
 
             // Auto-aprovar se tiver invite_link válido
             if (inviteName && inviteName.startsWith("v_")) {
-                // Buscar bot_token para aprovar
+                const partialVisitorId = inviteName.substring(2);
+
+                // Buscar bot_token e dados do funil
                 const { data: botData } = await supabase
                     .from("telegram_bots")
                     .select("bot_token, chat_id")
                     .eq("id", bot_id)
                     .single();
 
+                // Tentar descobrir o Funnel ID pelo visitor_id parcial
+                const { data: linkData } = await supabase
+                    .from("visitor_telegram_links")
+                    .select("funnel_id, visitor_id")
+                    .like("visitor_id", `${partialVisitorId}%`)
+                    .limit(1)
+                    .single();
+
+                const funnelId = linkData?.funnel_id;
+
                 if (botData?.bot_token && botData?.chat_id) {
+                    // 1. Aprovar Entrada
                     await fetch(`https://api.telegram.org/bot${botData.bot_token}/approveChatJoinRequest`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -487,6 +500,55 @@ export async function POST(
                         })
                     });
                     console.log(`[Webhook] Auto-aprovado user ${telegramUserId}`);
+
+                    // 2. Enviar Mensagem de Boas-vindas (se tiver funil)
+                    if (funnelId) {
+                        try {
+                            const { data: welcomeSettings } = await supabase
+                                .from("funnel_welcome_settings")
+                                .select("*")
+                                .eq("funnel_id", funnelId)
+                                .eq("is_active", true)
+                                .single();
+
+                            if (welcomeSettings) {
+                                let messageText = welcomeSettings.message_text || "";
+                                const firstName = request.from?.first_name || "Visitante";
+                                const username = request.from?.username ? `@${request.from.username}` : "";
+
+                                messageText = messageText.replace(/{first_name}/g, firstName).replace(/{username}/g, username);
+
+                                const inlineKeyboard = welcomeSettings.buttons_config?.map((btn: any) => ([
+                                    { text: btn.label, url: btn.url }
+                                ])) || [];
+
+                                const response = await fetch(`https://api.telegram.org/bot${botData.bot_token}/sendMessage`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        chat_id: telegramUserId,
+                                        text: messageText,
+                                        reply_markup: inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined
+                                    })
+                                });
+
+                                const result = await response.json();
+
+                                // Logar envio
+                                await supabase.from("telegram_message_logs").insert({
+                                    funnel_id: funnelId,
+                                    telegram_chat_id: telegramUserId.toString(),
+                                    telegram_user_name: username || firstName,
+                                    direction: 'outbound',
+                                    message_content: messageText,
+                                    status: result.ok ? 'sent' : 'failed'
+                                });
+                                console.log(`[Webhook] Mensagem de boas-vindas enviada após aprovação.`);
+                            }
+                        } catch (err) {
+                            console.error("[Webhook] Erro ao enviar boas-vindas na aprovação:", err);
+                        }
+                    }
                 }
             }
         }
