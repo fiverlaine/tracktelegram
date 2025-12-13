@@ -14,105 +14,125 @@ async function verifyMetaTag(domain: string, verificationToken: string): Promise
             .replace(/^www\./, '')
             .replace(/\/$/, '')
             .trim();
-        
+
         // Try with https first, fallback to http
         let html: string | null = null;
         let lastError: Error | null = null;
-        
+
         const urls = [
             `https://${cleanDomain}`,
             `https://${cleanDomain}/`,
             `http://${cleanDomain}`,
             `http://${cleanDomain}/`,
         ];
-        
+
         for (const url of urls) {
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
-                
+
+                console.log(`[MetaTag Verification] Tentando acessar: ${url}`);
+
                 const response = await fetch(url, {
                     method: 'GET',
                     headers: {
-                        'User-Agent': 'TrackGram-Verification-Bot/1.0',
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                        // Use a real browser User-Agent to avoid blocking
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
                     },
                     signal: controller.signal,
                     redirect: 'follow',
                 });
-                
+
                 clearTimeout(timeoutId);
-                
+
+                console.log(`[MetaTag Verification] Status: ${response.status} ${response.statusText}`);
+
                 if (response.ok) {
                     html = await response.text();
+                    console.log(`[MetaTag Verification] HTML recebido (${html.length} chars)`);
                     break; // Success, exit loop
+                } else {
+                    console.warn(`[MetaTag Verification] Falha ao acessar ${url}: ${response.status}`);
                 }
             } catch (error: any) {
+                console.error(`[MetaTag Verification] Erro ao acessar ${url}:`, error.message);
                 lastError = error;
                 // Continue to next URL
                 continue;
             }
         }
-        
+
         if (!html) {
-            throw lastError || new Error("Não foi possível acessar o domínio");
+            throw lastError || new Error("Não foi possível acessar o domínio (todas as tentativas falharam)");
         }
-        
-        // Look for the verification meta tag with multiple pattern variations
-        // Pattern 1: <meta name="trackgram-verification" content="TOKEN">
-        // Pattern 2: <meta content="TOKEN" name="trackgram-verification">
-        // Pattern 3: <meta name='trackgram-verification' content='TOKEN'>
-        // Pattern 4: With extra spaces or attributes
-        
-        const patterns = [
-            /<meta\s+name=["']trackgram-verification["']\s+content=["']([^"']+)["']/i,
-            /<meta\s+content=["']([^"']+)["']\s+name=["']trackgram-verification["']/i,
-            /<meta\s+name=['"]trackgram-verification['"]\s+content=['"]([^'"]+)['"]/i,
-            /<meta\s+content=['"]([^'"]+)['"]\s+name=['"]trackgram-verification['"]/i,
-        ];
-        
-        for (const pattern of patterns) {
-            const match = html.match(pattern);
-            if (match && match[1]) {
-                const foundToken = match[1].trim();
-                console.log(`[MetaTag Verification] Token encontrado: ${foundToken}, esperado: ${verificationToken}`);
-                
-                // Compare tokens (case-sensitive for security)
-                if (foundToken === verificationToken) {
-                    return true;
+
+        // Normalize HTML to simplify regex (remove newlines inside tags)
+        const normalizedHtml = html.replace(/\n/g, ' ');
+
+        // Look for the verification meta tag with a more robust regex
+        // This regex looks for <meta ... > and checks if it contains both name="trackgram-verification" and content="TOKEN"
+        // in any order, allowing for other attributes.
+
+        const metaTagRegex = /<meta[^>]+>/gi;
+        const metaTags = normalizedHtml.match(metaTagRegex) || [];
+
+        console.log(`[MetaTag Verification] Encontradas ${metaTags.length} meta tags.`);
+
+        for (const tag of metaTags) {
+            // Check if this tag is our verification tag
+            if (tag.toLowerCase().includes('name="trackgram-verification"') ||
+                tag.toLowerCase().includes("name='trackgram-verification'")) {
+
+                console.log(`[MetaTag Verification] Tag candidata encontrada: ${tag}`);
+
+                // Extract content
+                const contentMatch = tag.match(/content=["']([^"']+)["']/i);
+                if (contentMatch && contentMatch[1]) {
+                    const foundToken = contentMatch[1].trim();
+                    console.log(`[MetaTag Verification] Token extraído: ${foundToken}`);
+
+                    if (foundToken === verificationToken) {
+                        return true;
+                    }
                 }
             }
         }
-        
+
         // If no match found, log for debugging
-        console.log(`[MetaTag Verification] Metatag não encontrada no HTML. Procurando por padrões...`);
-        
+        console.log(`[MetaTag Verification] Metatag não encontrada. HTML Preview (primeiros 500 chars):`);
+        console.log(html.substring(0, 500));
+
         // Check if the HTML contains the token anywhere (for debugging)
         if (html.includes(verificationToken)) {
             console.log(`[MetaTag Verification] ⚠️ Token encontrado no HTML mas não em formato de metatag válida`);
+            // Optional: Return true here if we want to be very lenient, but safer to stick to meta tag
         }
-        
+
         return false;
     } catch (error: any) {
-        console.error("[MetaTag Verification] Erro:", error);
-        
+        console.error("[MetaTag Verification] Erro Fatal:", error);
+
         // Handle timeout
         if (error.name === 'AbortError' || error.name === 'TimeoutError') {
             throw new Error("Timeout ao acessar o domínio. Verifique se o site está acessível.");
         }
-        
+
         // Handle network errors
         if (error.message?.includes('fetch failed') || error.message?.includes('ECONNREFUSED')) {
             throw new Error("Não foi possível conectar ao domínio. Verifique se o site está online e acessível.");
         }
-        
+
         throw new Error(`Erro ao verificar metatag: ${error.message || "Erro desconhecido"}`);
     }
 }
 
 export async function verifyDomain(domainId: string) {
     const supabase = await createClient();
-    
+
     // 1. Get Domain Info
     const { data: domain, error } = await supabase
         .from("domains")
@@ -131,37 +151,37 @@ export async function verifyDomain(domainId: string) {
     try {
         console.log(`[Domain Verification] Verificando metatag para ${domain.domain}...`);
         console.log(`[Domain Verification] Token esperado: ${domain.verification_token}`);
-        
+
         // Verify meta tag via HTTP request
         const isVerified = await verifyMetaTag(domain.domain, domain.verification_token);
-        
+
         if (isVerified) {
             // Update domain as verified
             const { error: updateError } = await supabase
                 .from("domains")
                 .update({ verified: true })
                 .eq("id", domainId);
-            
+
             if (updateError) {
                 console.error("[Domain Verification] Erro ao atualizar domínio:", updateError);
                 return { success: false, message: "Erro ao atualizar status de verificação." };
             }
-            
+
             console.log(`[Domain Verification] ✅ Domínio ${domain.domain} verificado com sucesso!`);
             return { success: true, message: "Domínio verificado com sucesso!" };
         } else {
             console.log(`[Domain Verification] ❌ Metatag de verificação não encontrada`);
-            return { 
-                success: false, 
-                message: `Metatag de verificação não encontrada. Verifique se você adicionou a metatag corretamente no <head> do seu site e se o site está acessível publicamente.` 
+            return {
+                success: false,
+                message: `Metatag de verificação não encontrada. Verifique se você adicionou a metatag corretamente no <head> do seu site e se o site está acessível publicamente.`
             };
         }
 
     } catch (e: any) {
         console.error("[Domain Verification] Erro na verificação:", e);
-        return { 
-            success: false, 
-            message: `Erro na verificação: ${e.message || "Erro desconhecido"}` 
+        return {
+            success: false,
+            message: `Erro na verificação: ${e.message || "Erro desconhecido"}`
         };
     }
 }
