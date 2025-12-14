@@ -40,7 +40,8 @@ export async function GET(request: Request) {
             );
         }
 
-        // 1. Buscar dados do funil (bot_token e chat_id)
+
+        // 1. Buscar dados do funil e suas configurações de boas-vindas
         const { data: funnel, error: funnelError } = await supabase
             .from("funnels")
             .select(`
@@ -51,6 +52,9 @@ export async function GET(request: Request) {
                     bot_token,
                     chat_id,
                     channel_link
+                ),
+                funnel_welcome_settings (
+                    is_active
                 )
             `)
             .eq("id", funnelId)
@@ -65,6 +69,8 @@ export async function GET(request: Request) {
         }
 
         const bot = funnel.telegram_bots as any;
+        const welcomeSettings = funnel.funnel_welcome_settings?.[0]; // Supabase returns array for relations
+        const shouldUseJoinRequest = welcomeSettings?.is_active || false;
 
         if (!bot?.bot_token) {
             return NextResponse.json(
@@ -93,17 +99,26 @@ export async function GET(request: Request) {
         // Formato: "v_{primeiros 28 chars do visitor_id}"
         const inviteName = `v_${visitorId.substring(0, 28)}`;
 
+        const telegramPayload: any = {
+            chat_id: bot.chat_id,
+            name: inviteName,
+            expire_date: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // Expira em 24h
+        };
+
+        // Regra: Se "Pedir para Entrar" (join request) estiver ativo, NÃO pode ter member_limit
+        // Se NÃO estiver ativo, usamos member_limit: 1 para ser link único de entrada direta
+        if (shouldUseJoinRequest) {
+            telegramPayload.creates_join_request = true;
+        } else {
+            telegramPayload.member_limit = 1;
+        }
+
         const telegramResponse = await fetch(
             `https://api.telegram.org/bot${bot.bot_token}/createChatInviteLink`,
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    chat_id: bot.chat_id,
-                    name: inviteName,
-                    member_limit: 1, // Link de uso único
-                    expire_date: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // Expira em 24h
-                })
+                body: JSON.stringify(telegramPayload)
             }
         );
 
@@ -141,7 +156,8 @@ export async function GET(request: Request) {
                 invite_link: inviteLink,
                 invite_name: inviteName,
                 generated_at: new Date().toISOString(),
-                type: "dynamic_invite"
+                type: "dynamic_invite",
+                requires_approval: shouldUseJoinRequest
             }
         }, { 
             onConflict: "visitor_id,telegram_user_id",
@@ -151,7 +167,8 @@ export async function GET(request: Request) {
         return NextResponse.json({
             invite_link: inviteLink,
             is_dynamic: true,
-            expires_in: "24h"
+            expires_in: "24h",
+            requires_approval: shouldUseJoinRequest
         });
 
     } catch (error) {
@@ -189,6 +206,7 @@ export async function POST(request: Request) {
             });
         }
 
+
         // 2. Buscar dados do funil e gerar link (Reutilizando lógica similar ao GET)
         const { data: funnel, error: funnelError } = await supabase
             .from("funnels")
@@ -200,6 +218,9 @@ export async function POST(request: Request) {
                     bot_token,
                     chat_id,
                     channel_link
+                ),
+                funnel_welcome_settings (
+                    is_active
                 )
             `)
             .eq("id", funnel_id)
@@ -210,6 +231,8 @@ export async function POST(request: Request) {
         }
 
         const bot = funnel.telegram_bots as any;
+        const welcomeSettings = funnel.funnel_welcome_settings?.[0]; // Supabase returns array for relations
+        const shouldUseJoinRequest = welcomeSettings?.is_active || false;
 
         if (!bot?.bot_token) {
             return NextResponse.json({ error: "Bot não configurado" }, { status: 400 });
@@ -229,17 +252,24 @@ export async function POST(request: Request) {
         // 3. Gerar Invite Link (Telegram API)
         const inviteName = `v_${visitor_id.substring(0, 28)}`;
 
+        const telegramPayload: any = {
+            chat_id: bot.chat_id,
+            name: inviteName,
+            expire_date: Math.floor(Date.now() / 1000) + (24 * 60 * 60)
+        };
+
+        if (shouldUseJoinRequest) {
+            telegramPayload.creates_join_request = true;
+        } else {
+            telegramPayload.member_limit = 1;
+        }
+
         const telegramResponse = await fetch(
             `https://api.telegram.org/bot${bot.bot_token}/createChatInviteLink`,
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    chat_id: bot.chat_id,
-                    name: inviteName,
-                    member_limit: 1,
-                    expire_date: Math.floor(Date.now() / 1000) + (24 * 60 * 60)
-                })
+                body: JSON.stringify(telegramPayload)
             }
         );
 
@@ -270,14 +300,16 @@ export async function POST(request: Request) {
                 invite_link: inviteLink,
                 invite_name: inviteName,
                 generated_at: new Date().toISOString(),
-                type: "dynamic_invite_post"
+                type: "dynamic_invite_post",
+                requires_approval: shouldUseJoinRequest
             }
         }, { onConflict: "visitor_id,telegram_user_id" });
 
         return NextResponse.json({
             invite_link: inviteLink,
             is_dynamic: true,
-            expires_in: "24h"
+            expires_in: "24h",
+            requires_approval: shouldUseJoinRequest
         });
 
     } catch (error) {
