@@ -40,12 +40,11 @@ export async function POST(
             const isPrivate = update.message.chat.type === "private";
 
 
+
             // Só salvar mensagens privadas (DM com o bot)
             if (isPrivate) {
-                console.log(`[Webhook] Mensagem recebida de ${telegramUserId}: ${messageText}`);
-
                 // 1. Tentar descobrir o Funnel ID pelo vínculo existente (User -> Visitor -> Funnel)
-                let { data: linkData } = await supabase
+                const { data: linkData } = await supabase
                     .from("visitor_telegram_links")
                     .select("funnel_id")
                     .eq("telegram_user_id", telegramUserId)
@@ -53,22 +52,11 @@ export async function POST(
                     .limit(1)
                     .single();
 
-                let funnelId = linkData?.funnel_id;
+                const funnelId = linkData?.funnel_id;
 
-                // 2. Se não achou vínculo, tentar pegar qualquer funil associado a este Bot (Fallback)
-                if (!funnelId) {
-                    const { data: funnelData } = await supabase
-                        .from("funnels")
-                        .select("id")
-                        .eq("bot_id", bot_id)
-                        .limit(1)
-                        .single();
-                    
-                    funnelId = funnelData?.id;
-                }
-
-                // Salvar log da mensagem recebida
+                // 2. Salvar log APENAS se o usuário estiver vinculado a um funil (Trackeado)
                 if (funnelId) {
+                    console.log(`[Webhook] Mensagem recebida de ${telegramUserId} (Trackeado): ${messageText}`);
                     await supabase.from("telegram_message_logs").insert({
                         funnel_id: funnelId,
                         telegram_chat_id: telegramUserId.toString(),
@@ -78,7 +66,7 @@ export async function POST(
                         status: 'received'
                     });
                 } else {
-                    console.warn(`[Webhook] Mensagem recebida mas nenhum funil encontrado para Bot ${bot_id}`);
+                    console.log(`[Webhook] Mensagem ignorada de ${telegramUserId} (Não trackeado)`);
                 }
             }
         }

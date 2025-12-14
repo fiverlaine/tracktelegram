@@ -90,9 +90,12 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
         load();
     }, [selectedFunnelId]);
 
+
     // Carregar mensagens quando selecionar um chat
     useEffect(() => {
         if (!selectedFunnelId || !selectedChatId) return;
+
+        const supabase = createClient();
 
         async function loadMessages() {
             const msgs = await getConversationMessages(selectedFunnelId, selectedChatId!);
@@ -105,11 +108,32 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
             }, 100);
         }
 
+        // 1. Carga Inicial
         loadMessages();
         
-        // Polling simples para novas mensagens (a cada 5s)
-        const interval = setInterval(loadMessages, 5000);
-        return () => clearInterval(interval);
+        // 2. Realtime Subscription (Supabase)
+        const channel = supabase
+            .channel('chat-updates')
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'telegram_message_logs',
+                    filter: `funnel_id=eq.${selectedFunnelId}` // Otimização: filtrar pelo funil
+                },
+                (payload) => {
+                    // Se a mensagem for deste chat, recarrega
+                    if (payload.new.telegram_chat_id === selectedChatId) {
+                        loadMessages();
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
 
     }, [selectedFunnelId, selectedChatId]);
 
