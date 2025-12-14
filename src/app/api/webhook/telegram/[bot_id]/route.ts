@@ -31,6 +31,41 @@ export async function POST(
 
 
 
+
+        // 0. Handle Generic Text Messages (Inbound)
+        if (update.message?.text && !update.message.text.startsWith("/")) {
+            const telegramUserId = update.message.from.id;
+            const telegramUsername = update.message.from.username;
+            const messageText = update.message.text;
+            const isPrivate = update.message.chat.type === "private";
+
+            // Só salvar mensagens privadas (DM com o bot)
+            if (isPrivate) {
+                console.log(`[Webhook] Mensagem recebida de ${telegramUserId}: ${messageText}`);
+
+                // Tentar descobrir o Funnel ID pelo vínculo existente
+                const { data: linkData } = await supabase
+                    .from("visitor_telegram_links")
+                    .select("funnel_id")
+                    .eq("telegram_user_id", telegramUserId)
+                    .order("linked_at", { ascending: false })
+                    .limit(1)
+                    .single();
+
+                const funnelId = linkData?.funnel_id;
+
+                // Salvar log da mensagem recebida
+                await supabase.from("telegram_message_logs").insert({
+                    funnel_id: funnelId, // Pode ser null se não tiver vínculo ainda
+                    telegram_chat_id: telegramUserId.toString(),
+                    telegram_user_name: telegramUsername || update.message.from.first_name,
+                    direction: 'inbound',
+                    message_content: messageText,
+                    status: 'received'
+                });
+            }
+        }
+
         // 1. Handle /start command (Deep Linking) - Fluxo Legacy
         if (update.message?.text?.startsWith("/start ")) {
             const args = update.message.text.split(" ");

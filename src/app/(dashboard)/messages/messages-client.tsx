@@ -18,7 +18,17 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { getWelcomeSettings, saveWelcomeSettings, getMessageLogs, WelcomeSettings } from "@/app/actions/messages";
+
+import {
+    getWelcomeSettings,
+    saveWelcomeSettings,
+    getMessageLogs,
+    getChatList,
+    getConversationMessages,
+    sendReplyMessage,
+    WelcomeSettings,
+    ChatPreview
+} from "@/app/actions/messages";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 
@@ -40,7 +50,14 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
     const [saving, setSaving] = useState(false);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-    // Carregar configurações quando mudar o funil
+    // CHAT STATE
+    const [chatList, setChatList] = useState<ChatPreview[]>([]);
+    const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+    const [chatMessages, setChatMessages] = useState<any[]>([]);
+    const [replyText, setReplyText] = useState("");
+    const [sendingReply, setSendingReply] = useState(false);
+
+    // Carregar configurações e lista de chats quando mudar o funil
     useEffect(() => {
         if (!selectedFunnelId) return;
 
@@ -50,7 +67,6 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
             if (data) {
                 setSettings(data);
             } else {
-                // Resetar para padrão se não existir
                 setSettings({
                     funnel_id: selectedFunnelId,
                     is_active: false,
@@ -60,15 +76,76 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                 });
             }
 
-            // Carregar logs
+            // Carregar logs antigos (para aba Logs se ainda existir)
             const logsData = await getMessageLogs(selectedFunnelId);
             setLogs(logsData || []);
+
+            // Carregar Lista de Chats
+            const chats = await getChatList(selectedFunnelId);
+            setChatList(chats);
 
             setLoading(false);
         }
 
         load();
     }, [selectedFunnelId]);
+
+    // Carregar mensagens quando selecionar um chat
+    useEffect(() => {
+        if (!selectedFunnelId || !selectedChatId) return;
+
+        async function loadMessages() {
+            const msgs = await getConversationMessages(selectedFunnelId, selectedChatId!);
+            setChatMessages(msgs || []);
+            
+            // Scroll to bottom
+            setTimeout(() => {
+                const element = document.getElementById("scroll-anchor");
+                element?.scrollIntoView({ behavior: "smooth" });
+            }, 100);
+        }
+
+        loadMessages();
+        
+        // Polling simples para novas mensagens (a cada 5s)
+        const interval = setInterval(loadMessages, 5000);
+        return () => clearInterval(interval);
+
+    }, [selectedFunnelId, selectedChatId]);
+
+    const handleSelectChat = (chatId: string) => {
+        setSelectedChatId(chatId);
+    };
+
+    const handleSendReply = async () => {
+        if (!replyText.trim() || !selectedChatId) return;
+        setSendingReply(true);
+        try {
+            await sendReplyMessage(selectedFunnelId, selectedChatId, replyText);
+            setReplyText("");
+            
+            // Recarregar mensagens imediatamente
+            const msgs = await getConversationMessages(selectedFunnelId, selectedChatId);
+            setChatMessages(msgs || []);
+            
+            // Atualizar lista de chats (para mostrar last message)
+            const chats = await getChatList(selectedFunnelId);
+            setChatList(chats);
+
+            // Scroll to bottom
+            setTimeout(() => {
+                const element = document.getElementById("scroll-anchor");
+                element?.scrollIntoView({ behavior: "smooth" });
+            }, 100);
+
+            toast.success("Mensagem enviada");
+        } catch (error: any) {
+            console.error(error);
+            toast.error("Erro ao enviar mensagem", { description: error.message });
+        } finally {
+            setSendingReply(false);
+        }
+    };
 
     const handleSave = async () => {
         setSaving(true);
@@ -107,6 +184,7 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
     };
 
     return (
+
         <div className="space-y-6">
             {/* Seletor de Funil */}
             <div className="flex items-center justify-between bg-[#0a0a0a]/40 p-4 rounded-xl border border-white/5">
@@ -116,7 +194,7 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                     </div>
                     <div>
                         <h3 className="text-sm font-medium text-white">Funil Selecionado</h3>
-                        <p className="text-xs text-gray-400">Configure as mensagens para este funil</p>
+                        <p className="text-xs text-gray-400">Gerencie mensagens e conversas</p>
                     </div>
                 </div>
                 <Select value={selectedFunnelId} onValueChange={setSelectedFunnelId}>
@@ -133,16 +211,15 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                 </Select>
             </div>
 
-            <Tabs defaultValue="config" className="w-full">
-                <TabsList className="bg-black/20 border border-white/5 p-1">
-                    <TabsTrigger value="config" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">Configuração</TabsTrigger>
-                    <TabsTrigger value="logs" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">Histórico de Envios</TabsTrigger>
+            <Tabs defaultValue="chat" className="w-full">
+                <TabsList className="bg-black/20 border border-white/5 p-1 w-full flex justify-start">
+                    <TabsTrigger value="config" className="flex-1 max-w-[200px] data-[state=active]:bg-violet-600 data-[state=active]:text-white">Configuração</TabsTrigger>
+                    <TabsTrigger value="chat" className="flex-1 max-w-[200px] data-[state=active]:bg-violet-600 data-[state=active]:text-white">Chat Ao Vivo</TabsTrigger>
                 </TabsList>
 
-                {/* ABA CONFIGURAÇÃO */}
+                {/* ABA CONFIGURAÇÃO (Mantida Igual) */}
                 <TabsContent value="config" className="mt-6">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {/* Coluna Esquerda: Editor */}
                         <div className="lg:col-span-2 space-y-6">
                             <Card className="bg-[#0a0a0a]/40 border-white/5 backdrop-blur-sm">
                                 <CardHeader>
@@ -155,7 +232,6 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     <div className="space-y-6">
-                                        {/* Configuração Unificada */}
                                         <div className="flex items-center justify-between p-4 bg-black/20 rounded-lg border border-white/5">
                                             <div className="space-y-0.5">
                                                 <Label className="text-white text-base">Ativar Mensagens de Boas-vindas</Label>
@@ -167,10 +243,8 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                                                 checked={settings.is_active}
                                                 onCheckedChange={(checked) => {
                                                     if (checked) {
-                                                        // Abrir confirmação antes de ativar
                                                         setShowConfirmDialog(true);
                                                     } else {
-                                                        // Desativar direto
                                                         setSettings({
                                                             ...settings,
                                                             is_active: false,
@@ -181,7 +255,6 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                                             />
                                         </div>
 
-                                        {/* Aviso Explícito */}
                                         <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-start gap-3">
                                             <div className="text-yellow-500 mt-0.5">⚠️</div>
                                             <div className="text-sm text-yellow-200/80">
@@ -190,7 +263,6 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                                             </div>
                                         </div>
 
-                                        {/* Conteúdo do Editor (Bloqueado se inativo) */}
                                         <div className={`space-y-6 transition-opacity duration-300 ${!settings.is_active ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
                                             <div className="space-y-2">
                                                 <Label className="text-gray-300">Mensagem de Texto</Label>
@@ -265,7 +337,7 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                                     <div className="flex justify-end pt-4 border-t border-white/5">
                                         <Button
                                             onClick={handleSave}
-                                            disabled={saving || !settings.is_active}
+                                            disabled={saving}
                                             className="bg-violet-600 hover:bg-violet-700 text-white min-w-[120px]"
                                         >
                                             {saving ? (
@@ -284,41 +356,27 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                                 </CardContent>
                             </Card>
                         </div>
-
-                        {/* Coluna Direita: Preview */}
                         <div className="lg:col-span-1">
                             <div className="sticky top-6">
                                 <div className="bg-black border-[8px] border-gray-800 rounded-[3rem] overflow-hidden shadow-2xl max-w-[320px] mx-auto relative h-[600px]">
-                                    {/* Notch */}
                                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-gray-800 rounded-b-xl z-20"></div>
-
-                                    {/* Screen Content */}
                                     <div className="bg-[#0e1621] h-full w-full flex flex-col pt-10 pb-4 overflow-hidden relative">
-                                        {/* Header Telegram */}
                                         <div className="bg-[#17212b] px-4 py-2 flex items-center gap-3 shadow-sm z-10">
-                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-xs font-bold text-white">
-                                                BOT
-                                            </div>
+                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-xs font-bold text-white">BOT</div>
                                             <div>
                                                 <div className="text-white text-sm font-bold">Seu Bot</div>
                                                 <div className="text-[#6c7883] text-xs">bot</div>
                                             </div>
                                         </div>
-
-                                        {/* Chat Area */}
                                         <div className="flex-1 p-3 overflow-y-auto space-y-3 bg-[url('https://w.wallhaven.cc/full/vg/wallhaven-vg8885.jpg')] bg-cover">
                                             <div className="flex justify-center my-2">
                                                 <span className="bg-[#17212b]/60 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">Hoje</span>
                                             </div>
-
-                                            {/* Message Bubble */}
                                             <div className="flex items-end gap-2">
                                                 <div className="bg-[#182533] rounded-tl-xl rounded-tr-xl rounded-br-xl p-3 max-w-[85%] shadow-sm border border-black/10">
                                                     <p className="text-white text-sm whitespace-pre-wrap">
                                                         {settings.message_text.replace("{first_name}", "Ryan").replace("{username}", "@ryan")}
                                                     </p>
-
-                                                    {/* Buttons Preview */}
                                                     {settings.buttons_config.length > 0 && (
                                                         <div className="mt-3 space-y-1">
                                                             {settings.buttons_config.map((btn, i) => (
@@ -328,19 +386,11 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                                                             ))}
                                                         </div>
                                                     )}
-
                                                     <div className="flex justify-end mt-1">
                                                         <span className="text-[#6c7883] text-[10px]">12:30 PM</span>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-
-                                        {/* Input Area (Fake) */}
-                                        <div className="bg-[#17212b] px-3 py-2 flex items-center gap-2">
-                                            <div className="w-6 h-6 rounded-full border border-[#6c7883]"></div>
-                                            <div className="flex-1 h-8 bg-[#0e1621] rounded px-2"></div>
-                                            <div className="w-6 h-6 rounded-full bg-[#2b5278]"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -350,68 +400,154 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                     </div>
                 </TabsContent>
 
-                {/* ABA LOGS */}
-                <TabsContent value="logs" className="mt-6">
-                    <Card className="bg-[#0a0a0a]/40 border-white/5 backdrop-blur-sm">
-                        <CardHeader>
-                            <CardTitle className="text-white">Histórico de Mensagens</CardTitle>
-                            <CardDescription>Últimas interações do bot neste funil.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="rounded-md border border-white/5 overflow-hidden">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="bg-white/5 text-gray-400 font-medium">
-                                        <tr>
-                                            <th className="px-4 py-3">Data</th>
-                                            <th className="px-4 py-3">Usuário</th>
-                                            <th className="px-4 py-3">Direção</th>
-                                            <th className="px-4 py-3">Conteúdo</th>
-                                            <th className="px-4 py-3">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/5">
-                                        {logs.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                                                    Nenhum registro encontrado.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            logs.map((log) => (
-                                                <tr key={log.id} className="hover:bg-white/[0.02]">
-                                                    <td className="px-4 py-3 text-gray-400">
-                                                        {new Date(log.created_at).toLocaleString()}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-white font-medium">
-                                                        {log.telegram_user_name || log.telegram_chat_id}
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        {log.direction === 'outbound' ? (
-                                                            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                                                <Send className="h-3 w-3" /> Enviada
-                                                            </span>
-                                                        ) : (
-                                                            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
-                                                                <MessageSquare className="h-3 w-3" /> Recebida
-                                                            </span>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-gray-300 max-w-[300px] truncate">
-                                                        {log.message_content}
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <span className="inline-flex items-center gap-1 text-xs text-gray-400">
-                                                            <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Enviado
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
+                {/* ABA CHAT (NOVA) */}
+                <TabsContent value="chat" className="mt-6">
+                    <div className="flex bg-[#0a0a0a]/40 border border-white/5 rounded-xl overflow-hidden h-[600px] backdrop-blur-md">
+                        {/* 1. Sidebar de Conversas */}
+                        <div className="w-[320px] bg-[#0a0a0a]/60 border-r border-white/5 flex flex-col">
+                            <div className="p-4 border-b border-white/5">
+                                <h3 className="text-white font-medium mb-4">Conversas</h3>
+                                <div className="space-y-2">
+                                    <Input 
+                                        placeholder="Buscar conversa..." 
+                                        className="bg-white/5 border-white/10 text-white h-9 text-xs"
+                                    />
+                                </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                {chatList.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center h-full text-gray-500 p-4 text-center">
+                                        <MessageSquare className="h-8 w-8 mb-2 opacity-20" />
+                                        <p className="text-xs">Nenhuma conversa encontrada neste funil.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-0.5">
+                                        {chatList.map((chat) => (
+                                            <button
+                                                key={chat.telegram_chat_id}
+                                                onClick={() => handleSelectChat(chat.telegram_chat_id)}
+                                                className={`w-full px-4 py-3 flex items-start gap-3 hover:bg-white/5 transition-colors text-left border-l-2 ${selectedChatId === chat.telegram_chat_id ? 'bg-white/5 border-violet-500' : 'border-transparent'}`}
+                                            >
+                                                <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                                                    {chat.telegram_user_name.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between mb-0.5">
+                                                        <span className={`text-sm font-medium truncate ${selectedChatId === chat.telegram_chat_id ? 'text-white' : 'text-gray-300'}`}>
+                                                            {chat.telegram_user_name}
+                                                        </span>
+                                                        <span className="text-[10px] text-gray-500">
+                                                            {new Date(chat.last_message_at).toLocaleTimeString().slice(0, 5)}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 truncate">
+                                                        {chat.last_message}
+                                                    </p>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 2. Área Principal do Chat */}
+                        <div className="flex-1 flex flex-col bg-[#111111]/80">
+                            {selectedChatId ? (
+                                <>
+                                    {/* Header do Chat */}
+                                    <div className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-[#0a0a0a]/40">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs">
+                                                {chatList.find(c => c.telegram_chat_id === selectedChatId)?.telegram_user_name.substring(0, 2).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <h4 className="text-white text-sm font-medium">
+                                                    {chatList.find(c => c.telegram_chat_id === selectedChatId)?.telegram_user_name}
+                                                </h4>
+                                                <p className="text-xs text-gray-500 flex items-center gap-1">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                    Online via Telegram
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Lista de Mensagens */}
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[url('https://w.wallhaven.cc/full/vg/wallhaven-vg8885.jpg')] bg-cover bg-center bg-blend-overlay bg-black/80">
+                                        {chatMessages.length === 0 ? (
+                                            <div className="flex items-center justify-center h-full">
+                                                <Loader2 className="h-6 w-6 text-violet-500 animate-spin" />
+                                            </div>
+                                        ) : (
+                                            chatMessages.map((msg) => {
+                                                const isOutbound = msg.direction === 'outbound';
+                                                return (
+                                                    <div 
+                                                        key={msg.id} 
+                                                        className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}
+                                                    >
+                                                        <div 
+                                                            className={`
+                                                                max-w-[70%] rounded-2xl px-4 py-2 text-sm shadow-sm relative group
+                                                                ${isOutbound 
+                                                                    ? 'bg-violet-600 text-white rounded-tr-none' 
+                                                                    : 'bg-[#202c33] text-gray-100 rounded-tl-none border border-white/5'
+                                                                }
+                                                            `}
+                                                        >
+                                                            <p className="whitespace-pre-wrap leading-relaxed">{msg.message_content}</p>
+                                                            <div className={`text-[10px] mt-1 flex items-center justify-end gap-1 ${isOutbound ? 'text-violet-200' : 'text-gray-400'}`}>
+                                                                {new Date(msg.created_at).toLocaleTimeString().slice(0, 5)}
+                                                                {isOutbound && <CheckCircle2 className="h-3 w-3" />}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                        <div id="scroll-anchor"></div>
+                                    </div>
+
+                                    {/* Input Area */}
+                                    <div className="p-4 bg-[#0a0a0a] border-t border-white/5">
+                                        <div className="flex gap-2">
+                                            <Input 
+                                                value={replyText}
+                                                onChange={(e) => setReplyText(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                                        e.preventDefault();
+                                                        handleSendReply();
+                                                    }
+                                                }}
+                                                placeholder="Digite sua mensagem..." 
+                                                className="bg-[#202c33] border-none text-white focus-visible:ring-violet-500/50"
+                                            />
+                                            <Button 
+                                                onClick={handleSendReply}
+                                                disabled={!replyText.trim() || sendingReply}
+                                                className="bg-violet-600 hover:bg-violet-700 text-white w-12 px-0"
+                                            >
+                                                {sendingReply ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                                            </Button>
+                                        </div>
+                                        <div className="text-[10px] text-gray-500 mt-2 text-center">
+                                            Pressione Enter para enviar
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-gray-500 p-8 text-center bg-[#0a0a0a]/20">
+                                    <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                                        <MessageSquare className="h-10 w-10 opacity-30" />
+                                    </div>
+                                    <h3 className="text-lg font-medium text-white mb-2">TrackGram Chat</h3>
+                                    <p className="text-sm max-w-sm">Selecione uma conversa ao lado para visualizar o histórico e responder mensagens do Telegram.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </TabsContent>
             </Tabs>
         </div>

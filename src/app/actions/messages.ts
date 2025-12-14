@@ -100,5 +100,120 @@ export async function getMessageLogs(funnelId: string) {
         return [];
     }
 
+
     return data;
+}
+
+// --- CHAT ACTIONS ---
+
+export interface ChatPreview {
+    telegram_chat_id: string;
+    telegram_user_name: string;
+    last_message: string;
+    last_message_at: string;
+    unread_count: number; // Por enquanto mockado ou baseado em status
+}
+
+export async function getChatList(funnelId: string): Promise<ChatPreview[]> {
+    const supabase = await createClient();
+
+    // Buscar últimos 200 logs para montar a lista de conversas recentes
+    // Idealmente, teríamos uma tabela 'conversations', mas vamos agregar em tempo real para MVP
+    const { data, error } = await supabase
+        .from("telegram_message_logs")
+        .select("*")
+        .eq("funnel_id", funnelId)
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+    if (error) {
+        console.error("Error fetching chat list logs:", error);
+        return [];
+    }
+
+    // Agrupar por telegram_chat_id
+    const chatsMap = new Map<string, ChatPreview>();
+
+    data.forEach((log) => {
+        if (!chatsMap.has(log.telegram_chat_id)) {
+            chatsMap.set(log.telegram_chat_id, {
+                telegram_chat_id: log.telegram_chat_id,
+                telegram_user_name: log.telegram_user_name || "Usuário",
+                last_message: log.message_content,
+                last_message_at: log.created_at,
+                unread_count: 0
+            });
+        }
+    });
+
+    return Array.from(chatsMap.values());
+}
+
+export async function getConversationMessages(funnelId: string, telegramChatId: string) {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+        .from("telegram_message_logs")
+        .select("*")
+        .eq("funnel_id", funnelId)
+        .eq("telegram_chat_id", telegramChatId)
+        .order("created_at", { ascending: true }) // Mais antigas primeiro para renderizar de cima p/ baixo
+        .limit(100);
+
+    if (error) {
+        console.error("Error fetching conversation:", error);
+        return [];
+    }
+
+    return data;
+}
+
+export async function sendReplyMessage(funnelId: string, telegramChatId: string, messageText: string) {
+    const supabase = await createClient();
+
+    // 1. Buscar Token do Bot
+    const { data: funnelData } = await supabase
+        .from("funnels")
+        .select(`
+            telegram_bots (
+                bot_token
+            )
+        `)
+        .eq("id", funnelId)
+        .single();
+    
+    const botData: any = funnelData?.telegram_bots;
+    const botToken = Array.isArray(botData) ? botData[0]?.bot_token : botData?.bot_token;
+
+    if (!botToken) {
+        throw new Error("Bot token not found for this funnel");
+    }
+
+    // 2. Enviar via Telegram API
+    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            chat_id: telegramChatId,
+            text: messageText
+        })
+    });
+
+    const result = await response.json();
+
+    if (!result.ok) {
+        throw new Error(`Telegram API Error: ${result.description}`);
+    }
+
+    // 3. Salvar Log Outbound
+    await supabase.from("telegram_message_logs").insert({
+        funnel_id: funnelId,
+        telegram_chat_id: telegramChatId,
+        telegram_user_name: result.result?.chat?.first_name || "Bot", // Opcional
+        direction: 'outbound',
+        message_content: messageText,
+        status: 'sent'
+    });
+
+    return { success: true };
 }
