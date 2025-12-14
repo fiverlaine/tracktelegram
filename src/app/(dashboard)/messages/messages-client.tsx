@@ -574,6 +574,43 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                     </div>
                 </TabsContent>
             </Tabs>
+
+            {/* Modal de Confirmação */}
+            <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+                <DialogContent className="bg-[#1a1a1a] border-white/10 text-white">
+                    <DialogHeader>
+                        <DialogTitle>Ativar Mensagens de Boas-vindas?</DialogTitle>
+                        <DialogDescription className="text-gray-400">
+                            Ao ativar este recurso, todos os links de convite gerados para este funil passarão a exigir <strong>aprovação para entrar</strong> ("Pedir para Entrar").
+                            <br /><br />
+                            O bot aprovará automaticamente a entrada do usuário e enviará a mensagem de boas-vindas logo em seguida.
+                            <br /><br />
+                            Deseja confirmar essa alteração?
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShowConfirmDialog(false);
+                                setSettings({...settings, is_active: false});
+                            }}
+                            className="border-white/10 text-gray-300 hover:bg-white/5"
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                setShowConfirmDialog(false);
+                                setSettings({...settings, is_active: true, use_join_request: true});
+                            }}
+                            className="bg-violet-600 hover:bg-violet-700 text-white"
+                        >
+                            Confirmar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
