@@ -382,30 +382,45 @@ export async function POST(
                         console.log(`[Webhook] ⚠️ Nenhum pixel configurado para este funil.`);
                     }
 
+
                     // --- NOVA LÓGICA: Enviar Mensagem de Boas-vindas ---
                     // Se use_join_request for true, a mensagem já foi enviada no evento chat_join_request
                     if (!funnelData?.use_join_request) {
                         try {
-                            console.log(`[Webhook] Verificando configurações de boas-vindas para funil ${funnelId}...`);
-
-                            const { data: welcomeSettings } = await supabase
-                                .from("funnel_welcome_settings")
-                                .select("*")
-                                .eq("funnel_id", funnelId)
-                                .eq("is_active", true)
+                            // Buscar token do bot para enviar msg ou revogar link
+                            const { data: botData } = await supabase
+                                .from("telegram_bots")
+                                .select("bot_token")
+                                .eq("id", bot_id)
                                 .single();
 
-                            if (welcomeSettings) {
-                                console.log(`[Webhook] Configuração de boas-vindas encontrada. Enviando...`);
+                            if (botData?.bot_token) {
+                                // 1. Tentar revogar o link de convite (Limpeza)
+                                if (inviteLink?.invite_link) {
+                                    await fetch(`https://api.telegram.org/bot${botData.bot_token}/revokeChatInviteLink`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            chat_id: chatId,
+                                            invite_link: inviteLink.invite_link
+                                        })
+                                    });
+                                    console.log(`[Webhook] Link de convite revogado após entrada direta.`);
+                                }
 
-                                // Buscar token do bot (se já não tiver buscado antes)
-                                const { data: botData } = await supabase
-                                    .from("telegram_bots")
-                                    .select("bot_token")
-                                    .eq("id", bot_id)
+                                // 2. Enviar boas-vindas
+                                console.log(`[Webhook] Verificando configurações de boas-vindas para funil ${funnelId}...`);
+
+                                const { data: welcomeSettings } = await supabase
+                                    .from("funnel_welcome_settings")
+                                    .select("*")
+                                    .eq("funnel_id", funnelId)
+                                    .eq("is_active", true)
                                     .single();
 
-                                if (botData?.bot_token) {
+                                if (welcomeSettings) {
+                                    console.log(`[Webhook] Configuração de boas-vindas encontrada. Enviando...`);
+                                    
                                     // Preparar mensagem
                                     let messageText = welcomeSettings.message_text || "";
                                     const firstName = chatMember.new_chat_member?.user?.first_name || "Visitante";
@@ -430,8 +445,7 @@ export async function POST(
                                     });
 
                                     const result = await response.json();
-                                    console.log(`[Webhook] Resultado envio mensagem:`, result);
-
+                                    
                                     // Logar envio
                                     await supabase.from("telegram_message_logs").insert({
                                         funnel_id: funnelId,
@@ -442,11 +456,9 @@ export async function POST(
                                         status: result.ok ? 'sent' : 'failed'
                                     });
                                 }
-                            } else {
-                                console.log(`[Webhook] Nenhuma configuração de boas-vindas ativa encontrada.`);
                             }
                         } catch (err) {
-                            console.error("[Webhook] Erro ao processar boas-vindas:", err);
+                            console.error("[Webhook] Erro ao processar boas-vindas/revogação:", err);
                         }
                     }
                     // ---------------------------------------------------
@@ -545,7 +557,24 @@ export async function POST(
                     });
                     console.log(`[Webhook] Auto-aprovado user ${telegramUserId}`);
 
-                    // 2. Enviar Mensagem de Boas-vindas (se tiver funil)
+                    // 2. Revogar o Link de Convite (Limpeza)
+                    if (inviteLink?.invite_link) {
+                        try {
+                            await fetch(`https://api.telegram.org/bot${botData.bot_token}/revokeChatInviteLink`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    chat_id: botData.chat_id,
+                                    invite_link: inviteLink.invite_link
+                                })
+                            });
+                            console.log(`[Webhook] Link de convite revogado após aprovação.`);
+                        } catch (e) {
+                            console.error(`[Webhook] Erro ao revogar link:`, e);
+                        }
+                    }
+
+                    // 3. Enviar Mensagem de Boas-vindas (se tiver funil)
                     if (funnelId) {
                         try {
                             const { data: welcomeSettings } = await supabase
