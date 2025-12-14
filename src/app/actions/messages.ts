@@ -168,52 +168,71 @@ export async function getConversationMessages(funnelId: string, telegramChatId: 
     return data;
 }
 
+
 export async function sendReplyMessage(funnelId: string, telegramChatId: string, messageText: string) {
-    const supabase = await createClient();
+    try {
+        const supabase = await createClient();
 
-    // 1. Buscar Token do Bot
-    const { data: funnelData } = await supabase
-        .from("funnels")
-        .select(`
-            telegram_bots (
-                bot_token
-            )
-        `)
-        .eq("id", funnelId)
-        .single();
-    
-    const botData: any = funnelData?.telegram_bots;
-    const botToken = Array.isArray(botData) ? botData[0]?.bot_token : botData?.bot_token;
+        // 1. Buscar Token do Bot
+        const { data: funnelData, error: funnelError } = await supabase
+            .from("funnels")
+            .select(`
+                telegram_bots (
+                    bot_token
+                )
+            `)
+            .eq("id", funnelId)
+            .single();
 
-    if (!botToken) {
-        throw new Error("Bot token not found for this funnel");
+        if (funnelError || !funnelData) {
+            console.error("Error fetching funnel bot token:", funnelError);
+            throw new Error(`Funnel not found or error fetching bot: ${funnelError?.message}`);
+        }
+        
+        const botData: any = funnelData.telegram_bots;
+        // Handle array or single object response (Supabase relation can be tricky depending on schema)
+        const botToken = Array.isArray(botData) ? botData[0]?.bot_token : botData?.bot_token;
+
+        if (!botToken) {
+            throw new Error("Bot token NOT found for this funnel. Check if a bot is connected.");
+        }
+
+        // 2. Enviar via Telegram API
+        const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: telegramChatId,
+                text: messageText
+            })
+        });
+
+        const result = await response.json();
+
+        if (!result.ok) {
+            console.error("Telegram API Error Response:", result);
+            throw new Error(`Telegram API Error: ${result.description}`);
+        }
+
+        // 3. Salvar Log Outbound
+        const { error: insertError } = await supabase.from("telegram_message_logs").insert({
+            funnel_id: funnelId,
+            telegram_chat_id: telegramChatId,
+            telegram_user_name: result.result?.chat?.first_name || result.result?.chat?.username || "Bot", 
+            direction: 'outbound',
+            message_content: messageText,
+            status: 'sent'
+        });
+
+        if (insertError) {
+            console.error("Error saving outbound log:", insertError);
+            // We don't throw here because message was sent successfully
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("sendReplyMessage Exception:", error);
+        throw new Error(error.message || "Failed to send message");
     }
-
-    // 2. Enviar via Telegram API
-    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            chat_id: telegramChatId,
-            text: messageText
-        })
-    });
-
-    const result = await response.json();
-
-    if (!result.ok) {
-        throw new Error(`Telegram API Error: ${result.description}`);
-    }
-
-    // 3. Salvar Log Outbound
-    await supabase.from("telegram_message_logs").insert({
-        funnel_id: funnelId,
-        telegram_chat_id: telegramChatId,
-        telegram_user_name: result.result?.chat?.first_name || "Bot", // Opcional
-        direction: 'outbound',
-        message_content: messageText,
-        status: 'sent'
-    });
-
-    return { success: true };
 }
+

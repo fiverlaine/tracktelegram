@@ -39,12 +39,13 @@ export async function POST(
             const messageText = update.message.text;
             const isPrivate = update.message.chat.type === "private";
 
+
             // Só salvar mensagens privadas (DM com o bot)
             if (isPrivate) {
                 console.log(`[Webhook] Mensagem recebida de ${telegramUserId}: ${messageText}`);
 
-                // Tentar descobrir o Funnel ID pelo vínculo existente
-                const { data: linkData } = await supabase
+                // 1. Tentar descobrir o Funnel ID pelo vínculo existente (User -> Visitor -> Funnel)
+                let { data: linkData } = await supabase
                     .from("visitor_telegram_links")
                     .select("funnel_id")
                     .eq("telegram_user_id", telegramUserId)
@@ -52,17 +53,33 @@ export async function POST(
                     .limit(1)
                     .single();
 
-                const funnelId = linkData?.funnel_id;
+                let funnelId = linkData?.funnel_id;
+
+                // 2. Se não achou vínculo, tentar pegar qualquer funil associado a este Bot (Fallback)
+                if (!funnelId) {
+                    const { data: funnelData } = await supabase
+                        .from("funnels")
+                        .select("id")
+                        .eq("bot_id", bot_id)
+                        .limit(1)
+                        .single();
+                    
+                    funnelId = funnelData?.id;
+                }
 
                 // Salvar log da mensagem recebida
-                await supabase.from("telegram_message_logs").insert({
-                    funnel_id: funnelId, // Pode ser null se não tiver vínculo ainda
-                    telegram_chat_id: telegramUserId.toString(),
-                    telegram_user_name: telegramUsername || update.message.from.first_name,
-                    direction: 'inbound',
-                    message_content: messageText,
-                    status: 'received'
-                });
+                if (funnelId) {
+                    await supabase.from("telegram_message_logs").insert({
+                        funnel_id: funnelId,
+                        telegram_chat_id: telegramUserId.toString(),
+                        telegram_user_name: telegramUsername || update.message.from.first_name,
+                        direction: 'inbound',
+                        message_content: messageText,
+                        status: 'received'
+                    });
+                } else {
+                    console.warn(`[Webhook] Mensagem recebida mas nenhum funil encontrado para Bot ${bot_id}`);
+                }
             }
         }
 
