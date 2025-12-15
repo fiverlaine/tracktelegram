@@ -361,7 +361,8 @@ export async function POST(
                                         external_id: visitorId,
                                         ct: metadata?.city || undefined,
                                         st: metadata?.region || undefined,
-                                        country: metadata?.country || undefined
+                                        country: metadata?.country || undefined,
+                                        zp: metadata?.postal_code || undefined
                                     },
                                     {
                                         content_name: funnelData?.name || "Lead"

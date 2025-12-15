@@ -29,6 +29,7 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
     const city = headersList.get("x-vercel-ip-city") ? decodeURIComponent(headersList.get("x-vercel-ip-city")!) : undefined;
     const country = headersList.get("x-vercel-ip-country");
     const region = headersList.get("x-vercel-ip-country-region");
+    const postalCode = headersList.get("x-vercel-ip-postal-code");
 
     const vid = search.vid as string;
 
@@ -71,7 +72,7 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
             utm_content: search.utm_content,
             utm_term: search.utm_term,
             ip_address: ip,
-            city, country, region
+            city, country, region, postal_code: postalCode
         };
 
         let destinationUrl: string | null = null;

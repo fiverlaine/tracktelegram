@@ -1,143 +1,218 @@
-# 📋 Product Requirements Document (PRD) - TrackGram
-
----
-
-**Versão:** 2.0.0
-**Data da Análise:** 14 de Dezembro de 2025
-**Status:** Produção / Manutenção Evolutiva
-**Projeto Supabase:** TeleTrack (`qwqgefuvxnlruiqcgsil`)
-
----
+# Product Requirements Document (PRD) - TrackGram
 
 ## 1. Visão Geral do Produto
 
-O **TrackGram** é um SaaS de rastreamento e atribuição de conversões focado em campanhas que direcionam tráfego para o Telegram. O sistema resolve a "cegueira de dados" de anunciantes, permitindo mensurar com precisão quantos cliques em anúncios (Facebook/Instagram/Meta) resultam efetivamente em entradas em canais ou grupos, utilizando a **API de Conversões do Facebook (CAPI)** para otimização de campanhas (ROAS).
+### 1.1 Problema
 
-### 1.1 Proposta de Valor
+Anunciantes que utilizam o Telegram como canal de aquisição sofrem com a "cegueira de dados". As ferramentas tradicionais de analytics perdem o rastreamento no momento em que o usuário clica para abrir o aplicativo do Telegram, impedindo a atribuição correta de conversões e otimização de campanhas no Facebook Ads (Meta).
 
-Rastreamento preciso de leads "Click-to-Telegram" através de links de convite únicos, eliminando a necessidade de bots intermediários de "boas-vindas" que causam fricção, e envidando eventos "Lead" otimizados para o Facebook Ads.
+### 1.2 Solução
 
----
+O TrackGram é um SaaS (Software as a Service) de rastreamento avançado que atua como middleware entre o anúncio e o canal do Telegram. Ele captura os parâmetros de rastreamento (fbclid, fbc, fbp, user_agent) antes do redirecionamento, gera links de convite únicos para cada visitante e utiliza um bot proprietário para detectar a entrada (join) no canal. Quando a entrada é confirmada, o sistema dispara um evento "Lead" via Facebook Conversions API (CAPI) com alta qualidade de correspondência (Event Match Quality - EMQ).
 
-## 2. Arquitetura do Sistema
+### 1.3 Proposta de Valor
 
-### 2.1 Fluxo de Rastreamento (Direct Flow)
-
-O sistema utiliza um fluxo "sem fricção" onde o usuário é redirecionado diretamente ao canal via um link único.
-
-1.  **Anúncio**: Usuário clica no anúncio (URL: `seusite.com/t/{slug}?fbclid=...`).
-2.  **Landing Page (`/t/[slug]`)**:
-    - **Cliente (Client-Side)**: Captura parâmetros (`fbclid`, `utm_*`), gera/recupera cookies (`_fbc`, `_fbp`) e um `visitor_id` único (armazenado no LocalStorage).
-    - **Registro**: Envia evento `pageview` e `click` para o Supabase via API.
-3.  **Geração de Link Único**:
-    - O frontend chama `/api/invite`.
-    - O backend usa a API do Telegram (`createChatInviteLink`) para gerar um link exclusivo para aquele visitante.
-    - **O Segredo**: O nome do link de convite (`invite_link.name`) contém o `visitor_id` (ex: `v_abc123...`).
-4.  **Redirecionamento**: O usuário é redirecionado imediatamente para o link gerado (`t.me/+AbCd...`).
-5.  **Entrada no Canal**: O usuário clica em "Entrar".
-6.  **Webhook & Atribuição**:
-    - Telegram notifica o webhook (`/api/webhook/telegram/[bot_id]`).
-    - O sistema recebe o evento `chat_member` (join).
-    - Extrai o `visitor_id` do nome do link de convite.
-    - Localiza a sessão do visitante no banco e recupera os dados de atribuição (`fbc`, `fbp`, `user_agent`).
-7.  **Evento CAPI**: O sistema envia um evento **Lead** para o Facebook CAPI com os dados de atribuição de alta qualidade.
-
-### 2.2 Stack Tecnológica
-
-- **Frontend**: Next.js 15 (App Router), React 19.
-- **Estilização**: Tailwind CSS 4, Shadcn/UI.
-- **Backend/Database**: Supabase (PostgreSQL, Auth, Edge Functions).
-- **Hospedagem**: Vercel (Frontend & API Routes).
-- **Integrações**: Telegram Bot API, Facebook Graph API (CAPI), Cakto (Pagamentos).
+- **Atribuição Precisa**: Saiba exatamente qual anúncio gerou cada membro do canal.
+- **Otimização de ROI**: Alimente o algoritmo do Facebook com dados reais de conversão para baixar o custo por lead.
+- **Fluxo sem Fricção**: Redirecionamento direto para o canal de forma transparente para o usuário final.
 
 ---
 
-## 3. Modelo de Dados (Schema Atual)
+## 2. Público-Alvo
 
-O banco de dados PostgreSQL no Supabase possui as seguintes tabelas principais:
-
-### 3.1 Identidade e Acesso
-
-- **`profiles`**: Dados públicos dos usuários.
-  - Colunas: `id` (UUID, PK), `email`, `full_name`, `avatar_url`, `created_at`.
-- **`subscriptions`**: Gestão de planos e cobranças.
-  - Colunas: `id`, `user_id`, `plan_name`, `status`, `cakto_id`, `amount`, `current_period_end`.
-
-### 3.2 Core do Rastreamento
-
-- **`telegram_bots`**: Bots conectados.
-  - Colunas: `id`, `bot_token`, `chat_id`, `channel_link`, `username`, `name`.
-- **`pixels`**: Pixels do Facebook.
-  - Colunas: `id`, `pixel_id`, `access_token` (CAPI), `name`.
-- **`funnels`**: Campanhas de rastreamento.
-  - Colunas: `id`, `name`, `slug` (URL), `pixel_id` (Pixel principal), `bot_id` (Canal destino).
-- **`domains`**: Domínios personalizados para os links de rastreamento.
-
-### 3.3 Logs e Eventos
-
-- **`events`**: Tabela central de eventos (pageview, click, join, leave).
-  - Colunas: `id`, `visitor_id`, `event_type`, `funnel_id`, `metadata` (JSONB: contém fbc, fbp, utms, user_agent).
-- **`visitor_telegram_links`**: Tabela de resolução de identidade.
-  - Mapeia: `visitor_id` (Web) <-> `telegram_user_id` (App).
-  - Uso: Permite saber quem é quem após a entrada no canal.
-- **`capi_logs`**: Auditoria de disparos para o Facebook.
-  - Colunas: `visitor_id`, `event_name`, `status` (success/failed), `request_payload`, `response_payload`.
-- **`telegram_message_logs`**: Histórico de mensagens de boas-vindas enviadas.
+- Gestores de Tráfego e Performance.
+- Infoprodutores que utilizam lançamentos ou perpétuos no Telegram.
+- Afiliados profissionais (iGaming, Betting, SaaS).
+- Donos de comunidades e canais pagos.
 
 ---
 
-## 4. Requisitos Funcionais
+## 3. Requisitos Funcionais
 
-### 4.1 Dashboard
+### 3.1 Autenticação e Gestão de Conta
 
-- **Métricas em Tempo Real**: Cards exibindo contagem de Pageviews, Clicks, Entradas (Joins) e Saídas (Leaves).
-- **Gráficos**: Visualização temporal das métricas.
-- **Retenção**: Tabela mostrando quantos usuários permanecem no canal ao longo do tempo.
+- **Login via Magic Link**: Sistema de autenticação sem senha utilizando Supabase Auth.
+- **Multi-tenancy**: Isolamento de dados por usuário (RLS - Row Level Security).
+- **Gestão de Perfil**: Edição de nome e avatar.
 
-### 4.2 Gestão de Funis
+### 3.2 Dashboard e Analytics
 
-- **Criação**: Usuário seleciona um Bot (Canal) e um Pixel.
-- **Slug Personalizado**: O link final é gerado como `app.trackgram.com/t/{slug}` (ou domínio próprio).
-- **Links Únicos**: O sistema deve gerar um link do Telegram _novo_ para cada visitante único para garantir atribuição 100%.
+- **Visão Geral**: Cards com métricas em tempo real:
+  - Pageviews (Visitantes únicos no link intermediário).
+  - Clicks (Cliques no botão de entrar/redirecionamento).
+  - Entradas (Joins confirmados no Telegram).
+  - Saídas (Leaves/Churn do canal).
+- **Gráficos**: Evolução temporal das métricas (Pageviews vs Entradas).
+- **Retenção**: Tabela de análise de cohort/retenção diária.
+- **Filtros de Data**: Hoje, Ontem, 7 dias, 30 dias.
 
-### 4.3 Integração Telegram
+### 3.3 Gestão de Pixels e Rastreamento
 
-- **Setup**: Usuário adiciona o bot como admin no canal.
-- **Auto-detecção**: O sistema tenta descobrir o `chat_id` automaticamente.
-- **Join Requests**: Suporte para canais com "Aprovar membros" (o bot aprova automaticamente e rastreia).
-- **Boas-vindas**: Envio opcional de mensagem privada (DM) ao entrar.
+- **Cadastro de Pixels**: Input para Pixel ID e Access Token (CAPI).
+- **Validação**: Teste de conexão com a API do Facebook.
 
-### 4.4 Integração Facebook CAPI
+### 3.4 Gestão de Canais (Bots)
 
-- **Deduplicação**: Uso de `event_id` para evitar contagem dupla (Browser Pixel + CAPI).
-- **Qualidade de Match (EMQ)**: Prioridade para envio de `fbc` (Click ID), `fbp` (Browser ID), `user_agent` e `external_id` (hash do visitor_id).
+- **Cadastro de Bot**: Input do Token do Bot (@BotFather).
+- **Validação de Admin**: Sistema verifica automaticamente se o bot é administrador do canal alvo.
+- **Webhooks**: Configuração automática e gestão de webhooks do Telegram via Edge Functions.
 
----
+### 3.5 Funis de Rastreamento
 
-## 5. Rotas e Estrutura de Arquivos Principal
+- **Criação de Funil**: Associação entre Pixel, Bot e Canal de Destino.
+- **Links Únicos**: Geração de slug personalizado (ex: `trackgram.com/t/black-friday`).
+- **Middleware de Rastreamento**:
+  - Captura automática de parâmetros URL (`utm_*`, `fbclid`).
+  - Geração de Cookies `_fbc` e `_fbp`.
+  - Redirecionamento inteligente (Client-side tracking antes do redirect).
 
-### Frontend (Next.js)
+### 3.6 API Server-Side e Webhooks
 
-- `src/app/page.tsx`: Dashboard principal.
-- `src/app/(dashboard)/`: Rotas autenticadas (funnels, channels, pixels, domains).
-- `src/app/t/[slug]/page.tsx`: **Landing Page de Rastreamento** (Server Component).
-- `src/app/t/[slug]/client-tracking.tsx`: Lógica Client-Side de rastreamento e redirect.
-
-### API Routes
-
-- `src/app/api/track/route.ts`: Recebe pageviews/clicks, salva no Supabase e dispara CAPI (PageView).
-- `src/app/api/invite/route.ts`: Gera links únicos do Telegram.
-- `src/app/api/webhook/telegram/[bot_id]/route.ts`: Recebe updates do Telegram, processa entradas e dispara CAPI (Lead).
-
----
-
-## 6. Próximos Passos (Roadmap Sugerido)
-
-1.  **Refinamento de Domínios**: Garantir que o SSL e os registros DNS dos domínios personalizados funcionem de forma fluida.
-2.  **Dashboard de Performance de UTMs**: Criar visualização dedicada para `utm_campaign`, `utm_source`, etc., cruzando com dados de conversão ("Joins").
-3.  **Alertas de Falha**: Notificar o usuário se o Bot perder permissão de admin ou se o Token do FB expirar.
-4.  **Tenant Isolation**: Reforçar RLS (Row Level Security) para garantir segurança absoluta entre contas.
+- **Integração Telegram**: Processamento de updates `chat_member` (join/leave), `chat_join_request` e comandos.
+- **Integração Meta CAPI**: Envio de eventos Server-Side com payload enriquecido para maximizar EMQ.
+- **Deduplicação**: Uso de `event_id` único para evitar duplicidade de eventos.
 
 ---
 
-> **Observação Importante**: Este documento reflete a análise técnica do código fonte atual (`/Users/ryanpazevedo/Downloads/Track Telegram`) e do banco de dados Supabase (`TeleTrack`) realizada em 14/12/2025.
+## 4. Requisitos Não-Funcionais
+
+### 4.1 Performance
+
+- **Edge Functions**: Processamento de webhooks em Edge Network para baixa latência.
+- **Redirect Rápido**: O tempo entre o clique e a abertura do Telegram deve ser minimizado.
+
+### 4.2 Segurança
+
+- **RLS (Row Level Security)**: Todas as tabelas protegidas, garantindo que usuários acessem apenas seus próprios dados.
+- **Variáveis de Ambiente**: Chaves sensíveis (Service Role, API Keys) nunca expostas no cliente.
+- **Proteção de Dados**: Hashing de dados sensíveis (PII) antes do envio para o Facebook (quando aplicável).
+
+### 4.3 Escalabilidade
+
+- Arquitetura Serverless (Next.js + Supabase) para escalar automaticamente com picos de tráfego.
+- Banco de dados PostgreSQL otimizado para leitura e escrita de eventos.
+
+---
+
+## 5. Modelo de Dados (Supabase)
+
+### 5.1 `profiles`
+
+Tabela pública de usuários, espelhando `auth.users`.
+
+- `id` (UUID, PK)
+- `email` (Text)
+- `full_name` (Text)
+- `avatar_url` (Text)
+
+### 5.2 `pixels`
+
+Configurações de integração com Facebook.
+
+- `id` (UUID, PK)
+- `user_id` (FK profiles)
+- `pixel_id` (Text)
+- `access_token` (Text, Secure)
+
+### 5.3 `telegram_bots`
+
+Configurações de Bots do Telegram.
+
+- `id` (UUID, PK)
+- `user_id` (FK profiles)
+- `bot_token` (Text, Secure)
+- `username` (Text)
+- `chat_id` (BigInt, ID do canal)
+
+### 5.4 `funnels`
+
+Configuração central da campanha.
+
+- `id` (UUID, PK)
+- `user_id` (FK profiles)
+- `name` (Text)
+- `slug` (Text, Unique)
+- `pixel_id` (FK pixels)
+- `bot_id` (FK telegram_bots)
+
+### 5.5 `events`
+
+Log analítico de interações.
+
+- `id` (UUID, PK)
+- `funnel_id` (FK funnels)
+- `visitor_id` (Text, Unique Session ID)
+- `event_type` (Enum: pageview, click, join, leave)
+- `metadata` (JSONB: user_agent, ip, utms, fbc, fbp)
+- `created_at` (Timestamp)
+
+### 5.6 `visitor_telegram_links`
+
+Tabela de correlação (De-Para) para atribuição.
+
+- `visitor_id` (Text)
+- `telegram_user_id` (BigInt)
+- `invite_link` (Text, Link único gerado)
+- `status` (Enum: pending, converted)
+
+---
+
+## 6. Arquitetura e Fluxo de Dados
+
+### 6.1 Fluxo de Conversão (Happy Path)
+
+1. **Visitante** clica no anúncio e acessa `/t/[slug]`.
+2. **Client-Side**:
+   - Captura `fbclid` da URL.
+   - Gera `visitor_id` único.
+   - Grava evento `pageview`.
+   - Solicita link de convite único à API (`/api/invite`).
+3. **API (/api/invite)**:
+   - Chama Telegram API `createChatInviteLink` com nome `v_{visitor_id}`.
+   - Retorna link único (ex: `t.me/+AbCd...`).
+4. **Visitante** clica em "Entrar".
+   - Grava evento `click`.
+   - Redireciona para o link Telegram.
+5. **Telegram**:
+   - Usuário entra no canal.
+   - Telegram envia webhook `chat_member` para o TrackGram.
+6. **Webhook Handler**:
+   - Recebe payload do Telegram.
+   - Extrai `invite_link` usado.
+   - Busca `visitor_id` associado ao link na tebela `visitor_telegram_links`.
+   - Recupera metadados do visitante (`fbp`, `fbc`, `user_agent`).
+   - Dispara evento `Lead` para Facebook CAPI.
+   - Grava evento `join` no banco.
+
+---
+
+## 7. Interface e UX
+
+### 7.1 Design System
+
+- **Framework**: Tailwind CSS v4 + Shadcn/UI.
+- **Tema**: Dark Mode predominante (fundo `zinc-950`, acentos `violet-600`).
+- **Tipografia**: Inter ou Geist Sans.
+
+### 7.2 Componentes Chave
+
+- **Sidebar**: Navegação fixa à esquerda.
+- **Metric Cards**: Cartões com ícone, valor grande e label descritivo.
+- **Data Tables**: Tabelas com paginação e ações (editar/excluir).
+- **Toasts**: Feedback visual para ações (Sucesso/Erro).
+
+---
+
+## 8. Integrações Externas
+
+### 8.1 Telegram Bot API
+
+- `getMe`: Validar token.
+- `getChatAdministrators`: Validar permissões no canal.
+- `createChatInviteLink`: Gerar links dinâmicos por visitante.
+- `setWebhook`: Configurar URL de callback.
+
+### 8.2 Facebook Graph API (CAPI)
+
+- Endpoint: `https://graph.facebook.com/v19.0/{pixel_id}/events`
+- Payload rigoroso seguindo guia de Melhores Práticas de CAPI para máxima pontuação de qualidade.
