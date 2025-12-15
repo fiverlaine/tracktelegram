@@ -20,71 +20,71 @@ export interface Plan {
 export const plans: Plan[] = [
     {
         id: "starter",
-        name: "Starter (Teste)",
-        price: "5",
-        description: "Ideal para quem está começando a escalar suas campanhas.",
+        name: "Starter",
+        price: "97",
+        description: "Mais recursos que a concorrência pelo menor preço.",
         color: "blue",
-        checkoutUrl: "https://pay.cakto.com.br/whxxcwj_684643",
+        checkoutUrl: "https://pay.cakto.com.br/whxxcwj_684643", // Atualize com o link correto depois
         features: [
-            "5 Domínios Personalizados",
-            "5 Pixels do Facebook",
-            "2 Canais/Bots Telegram",
-            "10 Funis de Rastreamento",
-            "Entradas Ilimitadas",
-            "Suporte por Email"
+            "2 Domínios Personalizados",
+            "2 Pixels do Facebook",
+            "1 Canal Telegram",
+            "5 Funis",
+            "Até 20.000 Leads/mês",
+            "Suporte Prioritário"
         ],
         limits: {
-            domains: 5,
-            pixels: 5,
-            channels: 2,
-            funnels: 10,
-            entries: 'unlimited'
+            domains: 2,
+            pixels: 2,
+            channels: 1,
+            funnels: 5,
+            entries: 20000
         }
     },
     {
         id: "pro",
         name: "Pro Scale",
         price: "197",
-        description: "Para players que precisam de mais volume e estrutura.",
+        description: "O melhor custo-benefício para quem está escalando.",
         highlight: true,
         color: "violet",
         buttonText: "Assinar Plano Pro",
+        checkoutUrl: "https://pay.cakto.com.br/link_pro", // Atualize com o link correto
         features: [
-            "15 Domínios Personalizados",
-            "15 Pixels do Facebook",
-            "5 Canais/Bots Telegram",
-            "Funis Ilimitados",
-            "Entradas Ilimitadas",
+            "4 Domínios Personalizados",
+            "4 Pixels do Facebook",
+            "2 Canais Telegram",
+            "10 Funis",
+            "Até 100.000 Leads/mês",
             "Suporte Prioritário",
-            "Acesso à API (Em breve)"
         ],
         limits: {
-            domains: 15,
-            pixels: 15,
-            channels: 5,
-            funnels: 'unlimited',
-            entries: 'unlimited'
+            domains: 4,
+            pixels: 4,
+            channels: 2,
+            funnels: 10,
+            entries: 100000
         }
     },
     {
-        id: "enterprise",
-        name: "Enterprise",
+        id: "agency",
+        name: "Agency",
         price: "297",
-        description: "Liberdade total para grandes operações e agências.",
+        description: "Infraestrutura robusta para grandes operações.",
         color: "emerald",
+        checkoutUrl: "https://pay.cakto.com.br/link_agency", // Atualize com o link correto
         features: [
-            "Domínios Ilimitados",
-            "Pixels Ilimitados",
-            "Canais Ilimitados",
-            "Funis Ilimitados",
-            "Entradas Ilimitadas",
-            "Gerente de Conta Dedicado",
-            "White Label (Em breve)"
+            "10 Domínios Personalizados",
+            "10 Pixels do Facebook",
+            "5 Canais Telegram",
+            "Funis ilimitados",
+            "Leads ilimitados",
+            "Suporte Prioritário",
         ],
         limits: {
-            domains: 9999, // "Unlimited" for practical purposes
-            pixels: 9999,
-            channels: 9999,
+            domains: 10,
+            pixels: 10,
+            channels: 5,
             funnels: 'unlimited',
             entries: 'unlimited'
         }
@@ -107,7 +107,7 @@ export function getPlanLimits(planName: string | null) {
     
     if (lowerName.includes('starter')) return plans.find(p => p.id === 'starter')?.limits || null;
     if (lowerName.includes('pro')) return plans.find(p => p.id === 'pro')?.limits || null;
-    if (lowerName.includes('enterprise')) return plans.find(p => p.id === 'enterprise')?.limits || null;
+    if (lowerName.includes('agency')) return plans.find(p => p.id === 'agency')?.limits || null;
 
     return null;
 }

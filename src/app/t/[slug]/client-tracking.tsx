@@ -9,6 +9,7 @@ interface GeoData {
     city?: string;
     country?: string;
     region?: string;
+    postal_code?: string;
 }
 
 interface ClientTrackingProps {
@@ -197,6 +198,7 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData }: Cli
             city: geo?.city,
             country: geo?.country,
             region: geo?.region,
+            postal_code: geo?.postal_code,
         };
 
         // A. Internal Tracking - Via API Server-Side (Mais seguro e performático)
@@ -266,6 +268,7 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData }: Cli
             city: geo?.city,
             country: geo?.country,
             region: geo?.region,
+            postal_code: geo?.postal_code,
         };
 
         // 3. NOVO FLUXO: Gerar link de convite e registrar CLICK em uma única requisição

@@ -118,7 +118,8 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
             geo={{
                 city,
                 country: country || undefined,
-                region: region || undefined
+                region: region || undefined,
+                postal_code: postalCode || undefined
             }}
             initialFunnelData={funnel}
         />

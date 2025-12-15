@@ -509,6 +509,88 @@ export async function POST(
                         }
                     });
                     console.log(`[Webhook] Evento LEAVE registrado`);
+
+                    // --- CAPI SAÍDA (CUSTOM EVENT) ---
+                    // 1. Buscar Pixels do Funil
+                    const { data: funnelData } = await supabase
+                        .from("funnels")
+                        .select(`
+                            id, 
+                            name, 
+                            pixel_id,
+                            pixels:pixels!funnels_pixel_id_fkey (id, pixel_id, access_token),
+                            funnel_pixels (
+                                pixels (id, pixel_id, access_token)
+                            )
+                        `)
+                        .eq("id", linkData.funnel_id)
+                        .single();
+
+                    // Collect Pixels
+                    let pixelsToFire: any[] = [];
+                    if (funnelData) {
+                        const legacyPixel = funnelData.pixels as any;
+                        if (legacyPixel?.pixel_id) pixelsToFire.push(legacyPixel);
+
+                        if (funnelData.funnel_pixels && Array.isArray(funnelData.funnel_pixels)) {
+                            funnelData.funnel_pixels.forEach((fp: any) => {
+                                if (fp.pixels) pixelsToFire.push(fp.pixels);
+                            });
+                        }
+                    }
+                    const uniquePixels = Array.from(new Map(pixelsToFire.map(p => [p.pixel_id, p])).values());
+
+                    // 2. Buscar Metadata (fbc, fbp, ip, geo) do Vistor
+                    // Tentamos pegar do evento mais recente (provavelmente o 'join' ou 'click')
+                    const { data: eventData } = await supabase
+                        .from("events")
+                        .select("metadata")
+                        .eq("visitor_id", linkData.visitor_id)
+                        .in("event_type", ["join", "click", "pageview"])
+                        .order("created_at", { ascending: false })
+                        .limit(1)
+                        .single();
+
+                    const metadata = eventData?.metadata;
+
+                    // 3. Disparar CAPI "SaidaDeCanal"
+                    if (uniquePixels.length > 0 && metadata) {
+                        console.log(`[Webhook] Disparando CAPI SaidaDeCanal para ${uniquePixels.length} pixels...`);
+
+                         const capiPromises = uniquePixels.map(async (pixelData) => {
+                            if (!pixelData?.access_token || !pixelData?.pixel_id) return;
+
+                            try {
+                                return await sendCAPIEvent(
+                                    pixelData.access_token,
+                                    pixelData.pixel_id,
+                                    "SaidaDeCanal", // Custom Event Name
+                                    {
+                                        fbc: metadata.fbc || undefined,
+                                        fbp: metadata.fbp || undefined,
+                                        user_agent: metadata.user_agent || undefined,
+                                        ip_address: metadata.ip_address || undefined,
+                                        external_id: linkData.visitor_id,
+                                        ct: metadata.city || undefined,
+                                        st: metadata.region || undefined,
+                                        country: metadata.country || undefined,
+                                        zp: metadata.postal_code || undefined
+                                    },
+                                    {
+                                        content_name: funnelData?.name || "Saída de Canal"
+                                    },
+                                    {
+                                        visitor_id: linkData.visitor_id,
+                                        funnel_id: linkData.funnel_id!
+                                    }
+                                );
+                            } catch (err) {
+                                console.error(`[Webhook] Erro envio CAPI Saída (Pixel ${pixelData.pixel_id}):`, err);
+                            }
+                        });
+
+                        await Promise.all(capiPromises);
+                    }
                 }
             }
         }

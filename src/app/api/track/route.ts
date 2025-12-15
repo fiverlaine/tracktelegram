@@ -26,11 +26,10 @@ export async function POST(request: Request) {
         // Isso evita "sujar" o banco com tráfego orgânico/direto que não queremos rastrear neste sistema.
         const hasAdOrigin = metadata?.fbclid || metadata?.fbc;
         
-        if (!hasAdOrigin) {
-            return NextResponse.json({ success: true, skipped: true, reason: "organic_traffic_ignored" }, {
-                headers: { "Access-Control-Allow-Origin": "*" }
-            });
-        }
+        // --- MUDANÇA: Capturar orgânico no DB, mas não no CAPI ---
+        // Removido o bloqueio anterior. Agora todos passam para o DB.
+        // A filtragem será feita apenas no momento de chamar o sendCAPIEvent
+        
         // --------------------------------
 
         const supabase = createClient(
@@ -117,7 +116,8 @@ export async function POST(request: Request) {
         }
 
         // 2. Disparar CAPI (PageView) para TODOS os pixels encontrados
-        if (event_type === 'pageview' && uniquePixels.length > 0) {
+        // IMPORTANTE: Só disparar CAPI se tiver origem de anúncio (hasAdOrigin)
+        if (event_type === 'pageview' && uniquePixels.length > 0 && hasAdOrigin) {
             // Aguarda o envio para garantir que a Vercel/Serverless não mate o processo antes de terminar
             const capiPromises = uniquePixels.map(pixelData => {
                  if (!pixelData.access_token || !pixelData.pixel_id) return Promise.resolve();
@@ -134,7 +134,8 @@ export async function POST(request: Request) {
                         external_id: visitor_id,
                         country: metadata?.country, 
                         st: metadata?.region,
-                        ct: metadata?.city
+                        ct: metadata?.city,
+                        zp: metadata?.postal_code // Fix: Mapeando CEP
                     },
                     {
                         content_name: metadata?.title || "Landing Page"
