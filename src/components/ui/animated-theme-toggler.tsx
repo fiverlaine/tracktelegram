@@ -38,8 +38,6 @@ export const AnimatedThemeToggler = ({
   const toggleTheme = useCallback(async () => {
     if (!buttonRef.current) return
 
-    const isGoingToDark = !isDark
-    
     // @ts-ignore - View Transitions API
     if (!document.startViewTransition) {
         const newTheme = !isDark
@@ -48,9 +46,6 @@ export const AnimatedThemeToggler = ({
         localStorage.setItem("theme", newTheme ? "dark" : "light")
         return
     }
-
-    // Set attribute for CSS z-index layering
-    document.documentElement.setAttribute("data-theme-transition", isGoingToDark ? "to-dark" : "to-light");
 
     // @ts-ignore
     const transition = document.startViewTransition(() => {
@@ -73,34 +68,22 @@ export const AnimatedThemeToggler = ({
       Math.max(top, window.innerHeight - top)
     )
 
-    // Determines which Pseudo Element to animate and in which direction
-    // Logic: Always animate the "Dark" layer.
-    // If to-dark: Animate NEW (Dark) from 0 to 100%.
-    // If to-light: Animate OLD (Dark) from 100% to 0%.
+    // ALWAYS animate the NEW view (expanding over the old view)
+    // This gives the "expanding" effect in both directions (white expands over dark, dark expands over white)
     
-    const pseudoElement = isGoingToDark
-        ? "::view-transition-new(root)"
-        : "::view-transition-old(root)"
-    
-    const clipPath = isGoingToDark
-        ? [`circle(0px at ${x}px ${y}px)`, `circle(${maxRadius}px at ${x}px ${y}px)`]
-        : [`circle(${maxRadius}px at ${x}px ${y}px)`, `circle(0px at ${x}px ${y}px)`]
-
     document.documentElement.animate(
       {
-        clipPath: clipPath,
+        clipPath: [
+          `circle(0px at ${x}px ${y}px)`,
+          `circle(${maxRadius}px at ${x}px ${y}px)`,
+        ],
       },
       {
         duration,
         easing: "ease-in-out",
-        pseudoElement: pseudoElement,
+        pseudoElement: "::view-transition-new(root)",
       }
     )
-    
-    // Cleanup attribute after transition
-    transition.finished.finally(() => {
-        document.documentElement.removeAttribute("data-theme-transition");
-    });
     
   }, [isDark, duration])
 

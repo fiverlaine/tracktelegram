@@ -158,22 +158,3 @@
   mix-blend-mode: normal;
   display: block;
 }
-
-/* 
-   Dark Theme is the "Top Layer" during transition.
-   If going TO dark: New (Dark) is on top.
-   If going TO light: Old (Dark) is on top.
-*/
-:root[data-theme-transition="to-dark"]::view-transition-new(root) {
-  z-index: 2147483646;
-}
-:root[data-theme-transition="to-dark"]::view-transition-old(root) {
-  z-index: 2147483645;
-}
-
-:root[data-theme-transition="to-light"]::view-transition-old(root) {
-  z-index: 2147483646;
-}
-:root[data-theme-transition="to-light"]::view-transition-new(root) {
-  z-index: 2147483645;
-}
