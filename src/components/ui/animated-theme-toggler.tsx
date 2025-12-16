@@ -38,9 +38,10 @@ export const AnimatedThemeToggler = ({
   const toggleTheme = useCallback(async () => {
     if (!buttonRef.current) return
 
-    // @ts-ignore - View Transitions API might not be in standard types yet
+    const isGoingToDark = !isDark
+    
+    // @ts-ignore - View Transitions API
     if (!document.startViewTransition) {
-        // Fallback for browsers that don't support View Transitions
         const newTheme = !isDark
         setIsDark(newTheme)
         document.documentElement.classList.toggle("dark")
@@ -48,15 +49,20 @@ export const AnimatedThemeToggler = ({
         return
     }
 
+    // Set attribute for CSS z-index layering
+    document.documentElement.setAttribute("data-theme-transition", isGoingToDark ? "to-dark" : "to-light");
+
     // @ts-ignore
-    await document.startViewTransition(() => {
+    const transition = document.startViewTransition(() => {
       flushSync(() => {
         const newTheme = !isDark
         setIsDark(newTheme)
         document.documentElement.classList.toggle("dark")
         localStorage.setItem("theme", newTheme ? "dark" : "light")
       })
-    }).ready
+    })
+
+    await transition.ready
 
     const { top, left, width, height } =
       buttonRef.current.getBoundingClientRect()
@@ -67,19 +73,35 @@ export const AnimatedThemeToggler = ({
       Math.max(top, window.innerHeight - top)
     )
 
+    // Determines which Pseudo Element to animate and in which direction
+    // Logic: Always animate the "Dark" layer.
+    // If to-dark: Animate NEW (Dark) from 0 to 100%.
+    // If to-light: Animate OLD (Dark) from 100% to 0%.
+    
+    const pseudoElement = isGoingToDark
+        ? "::view-transition-new(root)"
+        : "::view-transition-old(root)"
+    
+    const clipPath = isGoingToDark
+        ? [`circle(0px at ${x}px ${y}px)`, `circle(${maxRadius}px at ${x}px ${y}px)`]
+        : [`circle(${maxRadius}px at ${x}px ${y}px)`, `circle(0px at ${x}px ${y}px)`]
+
     document.documentElement.animate(
       {
-        clipPath: [
-          `circle(0px at ${x}px ${y}px)`,
-          `circle(${maxRadius}px at ${x}px ${y}px)`,
-        ],
+        clipPath: clipPath,
       },
       {
         duration,
         easing: "ease-in-out",
-        pseudoElement: "::view-transition-new(root)",
+        pseudoElement: pseudoElement,
       }
     )
+    
+    // Cleanup attribute after transition
+    transition.finished.finally(() => {
+        document.documentElement.removeAttribute("data-theme-transition");
+    });
+    
   }, [isDark, duration])
 
   return (
