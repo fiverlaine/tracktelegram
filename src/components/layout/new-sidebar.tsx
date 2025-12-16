@@ -43,6 +43,14 @@ export function NewSidebar() {
   const [user, setUser] = useState<any>(null);
   const { isSubscribed, plan, subscription } = useSubscription();
 
+  // Optimistic UI for instant click feedback
+  const [optimisticPath, setOptimisticPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Reset optimistic path when the real pathname updates (navigation complete)
+    setOptimisticPath(null);
+  }, [pathname]);
+
   useEffect(() => {
     const getUser = async () => {
         const { data: { user } } = await supabase.auth.getUser();
@@ -61,6 +69,7 @@ export function NewSidebar() {
     await supabase.auth.signOut();
     toast.success("Você saiu da conta.");
     router.refresh();
+    router.push("/login");
   };
 
   return (
@@ -72,24 +81,25 @@ export function NewSidebar() {
       <div>
         <div className="sr-only">
           <h1 className="font-bold text-lg leading-none tracking-tight">
-            <span className="text-violet-500">Track</span>
+            <span className="text-violet-600 dark:text-violet-500">Track</span>
             <span className="text-neutral-900 dark:text-white">Gram</span>
           </h1>
-          <span className="text-[10px] text-violet-400 font-medium tracking-widest uppercase">Analytics</span>
+          <span className="text-[10px] text-violet-600 dark:text-violet-400 font-medium tracking-widest uppercase">Analytics</span>
         </div>
       </div>
 
       {/* Navigation Items */}
       <div className="flex-1 flex flex-col gap-1 w-full px-3 overflow-y-auto custom-scrollbar">
         {menuItems.map((item) => {
-          const isActive = pathname === item.href;
+          // Determine active state: prioritizing optimistic path if set, otherwise fallback to current pathname
+          const isActive = (optimisticPath || pathname) === item.href;
+          
           return (
             <Link 
               key={item.id} 
-              href={item.href} 
-              prefetch={true}
-              onMouseEnter={() => router.prefetch(item.href)}
-              className="relative group"
+              href={item.href}
+              onClick={() => setOptimisticPath(item.href)}
+              className="relative group block"
             >
               <div className={`
                 flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 cursor-pointer
@@ -110,30 +120,30 @@ export function NewSidebar() {
             <div className="px-4 py-2 mb-2">
                 <div className="flex items-center justify-between mb-2">
                     <div>
-                         <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Seu Plano</div>
+                         <div className="text-[10px] text-neutral-500 dark:text-gray-500 uppercase tracking-wider mb-0.5">Seu Plano</div>
                          <div className="text-sm font-semibold text-neutral-900 dark:text-white">{plan || "Gratuito"}</div>
                     </div>
                     {isSubscribed && subscription && (
-                        <div className="text-[10px] text-violet-600 dark:text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full border border-violet-200 dark:border-violet-500/20">
+                        <div className="text-[10px] text-violet-600 dark:text-violet-400 bg-violet-100 dark:bg-violet-500/10 px-2 py-0.5 rounded-full border border-violet-200 dark:border-violet-500/20">
                           {subscription.current_period_end 
                             ? `${differenceInDays(parseISO(subscription.current_period_end), new Date())} dias`
                             : "Vitalício"}
                         </div>
                     )}
                 </div>
-                <div className="text-[10px] text-gray-500 truncate">{user.email}</div>
+                <div className="text-[10px] text-neutral-500 dark:text-gray-500 truncate">{user.email}</div>
             </div>
         )}
         
         <div className="flex items-center gap-2 mb-2 px-4">
-             <div className="text-xs text-gray-500 font-medium">Tema</div>
+             <div className="text-xs text-neutral-500 dark:text-gray-500 font-medium">Tema</div>
              <ThemeToggle className="ml-auto" />
         </div>
 
         {user ? (
             <button 
                 onClick={handleLogout}
-                className="flex items-center gap-3 w-full px-4 py-2.5 text-gray-500 hover:bg-neutral-100 dark:hover:bg-white/5 hover:text-neutral-900 dark:hover:text-white rounded-xl transition-colors text-sm font-medium"
+                className="flex items-center gap-3 w-full px-4 py-2.5 text-neutral-500 dark:text-gray-500 hover:bg-neutral-100 dark:hover:bg-white/5 hover:text-neutral-900 dark:hover:text-white rounded-xl transition-colors text-sm font-medium"
             >
                 <LogOut size={18} />
                 <span>Sair</span>
