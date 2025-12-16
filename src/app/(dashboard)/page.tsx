@@ -284,21 +284,21 @@ export default function DashboardPage() {
                 {loading ? "Carregando..." : "Atualizado agora"}
               </span>
             </div>
-            <h1 className="text-3xl font-bold text-white tracking-tight mb-1">
+            <h1 className="text-3xl font-bold text-neutral-900 dark:text-white tracking-tight mb-1">
               Dashboard
             </h1>
-            <p className="text-gray-400 text-sm">Bem-vindo ao centro de controle TrackGram.</p>
+            <p className="text-neutral-500 dark:text-gray-400 text-sm">Bem-vindo ao centro de controle TrackGram.</p>
           </div>
 
-          <div className="w-full xl:w-auto p-1.5 bg-white/[0.03] border border-white/5 backdrop-blur-md rounded-xl flex flex-col sm:flex-row gap-2">
+          <div className="w-full xl:w-auto p-1.5 bg-white dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 backdrop-blur-md rounded-xl flex flex-col sm:flex-row gap-2">
             
             {/* Date Range Picker */}
             <Popover>
               <PopoverTrigger asChild>
-                <button className="flex items-center justify-between w-full sm:w-48 bg-black/40 hover:bg-black/60 text-white text-xs px-3 py-2.5 rounded-lg border border-white/10 outline-none focus:border-violet-500 transition-colors cursor-pointer font-medium gap-2">
-                  <CalendarIcon size={14} className="text-violet-400" />
+                <button className="flex items-center justify-between w-full sm:w-48 bg-neutral-100 dark:bg-black/40 hover:bg-neutral-200 dark:hover:bg-black/60 text-neutral-900 dark:text-white text-xs px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-white/10 outline-none focus:border-violet-500 transition-colors cursor-pointer font-medium gap-2">
+                  <CalendarIcon size={14} className="text-violet-500 dark:text-violet-400" />
                   <span className="flex-1 text-left">{dateRangeDisplay}</span>
-                  <ChevronDown size={12} className="text-gray-500" />
+                  <ChevronDown size={12} className="text-neutral-500 dark:text-gray-500" />
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0 border-white/10 bg-black/95 text-white" align="start">
@@ -367,18 +367,18 @@ export default function DashboardPage() {
 
             {/* Funnel Filter */}
             <div className="relative flex-1 sm:flex-none">
-              <FilterIcon size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-violet-400" />
+              <FilterIcon size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-violet-500 dark:text-violet-400" />
               <select 
                 value={selectedFunnel}
                 onChange={(e) => setSelectedFunnel(e.target.value)}
-                className="w-full sm:w-36 appearance-none bg-black/40 hover:bg-black/60 text-white text-xs pl-8 pr-8 py-2.5 rounded-lg border border-white/10 outline-none focus:border-violet-500 transition-colors cursor-pointer font-medium"
+                className="w-full sm:w-36 appearance-none bg-neutral-100 dark:bg-black/40 hover:bg-neutral-200 dark:hover:bg-black/60 text-neutral-900 dark:text-white text-xs pl-8 pr-8 py-2.5 rounded-lg border border-neutral-200 dark:border-white/10 outline-none focus:border-violet-500 transition-colors cursor-pointer font-medium"
               >
                 <option value="all">Todos Funis</option>
                 {funnels.map(f => (
                   <option key={f.id} value={f.id}>{f.name}</option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={12} />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 dark:text-gray-500 pointer-events-none" size={12} />
             </div>
 
             {/* Pixel Filter */}
@@ -386,21 +386,21 @@ export default function DashboardPage() {
               <select 
                 value={selectedPixel}
                 onChange={(e) => setSelectedPixel(e.target.value)}
-                className="w-full sm:w-36 appearance-none bg-black/40 hover:bg-black/60 text-white text-xs px-3 pr-8 py-2.5 rounded-lg border border-white/10 outline-none focus:border-violet-500 transition-colors cursor-pointer font-medium"
+                className="w-full sm:w-36 appearance-none bg-neutral-100 dark:bg-black/40 hover:bg-neutral-200 dark:hover:bg-black/60 text-neutral-900 dark:text-white text-xs px-3 pr-8 py-2.5 rounded-lg border border-neutral-200 dark:border-white/10 outline-none focus:border-violet-500 transition-colors cursor-pointer font-medium"
               >
                 <option value="all">Todos Pixels</option>
                 {pixels.map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={12} />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 dark:text-gray-500 pointer-events-none" size={12} />
             </div>
             
             {/* Refresh Button */}
             <button 
               onClick={fetchData} 
               disabled={loading}
-              className="flex items-center justify-center gap-2 bg-white text-black hover:bg-gray-200 px-5 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50 w-[110px]"
+              className="flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 text-white px-5 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50 w-[110px]"
             >
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
               <span>{loading ? 'Carregando' : 'Atualizar'}</span>
@@ -423,24 +423,24 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             
             {/* Chart Area */}
-            <div className="bg-[#0a0a0a]/60 backdrop-blur-xl border border-white/5 rounded-2xl p-6 relative overflow-hidden flex flex-col">
+            <div className="bg-white/60 dark:bg-[#0a0a0a]/60 backdrop-blur-xl border border-neutral-200 dark:border-white/5 rounded-2xl p-6 relative overflow-hidden flex flex-col">
               <div className="flex justify-between items-center mb-6 relative z-10">
                 <div>
-                  <h3 className="text-lg font-bold text-white">Visão Geral</h3>
-                  <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                  <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Visão Geral</h3>
+                  <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-gray-400 mt-0.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-violet-500"/>
                     Desempenho de {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                   </div>
                 </div>
 
-                <div className="flex bg-black/40 rounded-lg p-0.5 border border-white/5">
+                <div className="flex bg-neutral-100 dark:bg-black/40 rounded-lg p-0.5 border border-neutral-200 dark:border-white/5">
                   {['Pageviews', 'Clicks', 'Joins', 'Leaves'].map(tab => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab.toLowerCase())}
                       className={`
                         px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wide transition-all
-                        ${activeTab === tab.toLowerCase() ? 'bg-white/10 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}
+                        ${activeTab === tab.toLowerCase() ? 'bg-white dark:bg-white/10 text-neutral-900 dark:text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-900 dark:text-gray-500 dark:hover:text-gray-300'}
                       `}
                     >
                       {tab === 'Joins' ? 'Entradas' : tab === 'Leaves' ? 'Saídas' : tab}
@@ -486,11 +486,11 @@ export default function DashboardPage() {
             </div>
 
             {/* Retention List */}
-            <div className="bg-[#0a0a0a]/60 backdrop-blur-xl border border-white/5 rounded-2xl p-5 flex flex-col h-[450px]">
+            <div className="bg-white/60 dark:bg-[#0a0a0a]/60 backdrop-blur-xl border border-neutral-200 dark:border-white/5 rounded-2xl p-5 flex flex-col h-[450px]">
               <div className="flex justify-between items-center mb-4 px-1">
                 <div>
-                  <h3 className="text-lg font-bold text-white">Retenção</h3>
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">
+                  <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Retenção</h3>
+                  <p className="text-[10px] text-neutral-500 dark:text-gray-500 uppercase tracking-wider mt-0.5">
                     {dateRangeDisplay === "Selecionar período" ? "Últimos 7 dias" : dateRangeDisplay}
                   </p>
                 </div>
@@ -500,7 +500,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Table Header */}
-              <div className="flex items-center justify-between px-3 py-2 border-b border-white/5 mb-2">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-100 dark:border-white/5 mb-2">
                 <div className="flex items-center gap-3 w-[120px]">
                     <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Dia</span>
                 </div>

@@ -1,59 +1,63 @@
-export const TrackGramLogo = ({ size = 40 }: { size?: number }) => (
+import { cn } from "@/lib/utils";
+
+export const TrackGramIcon = ({ size = 40, className }: { size?: number, className?: string }) => (
   <svg
     width={size}
     height={size}
-    viewBox="0 0 48 48"
+    viewBox="0 0 100 100"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
+    className={cn("shrink-0", className)}
   >
-    {/* Gradient Definitions */}
     <defs>
-      <linearGradient id="trackgram-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#8B5CF6" />
-        <stop offset="50%" stopColor="#A855F7" />
-        <stop offset="100%" stopColor="#D946EF" />
+      <linearGradient id="tg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#A855F7" />
+        <stop offset="100%" stopColor="#8B5CF6" />
       </linearGradient>
-      <linearGradient id="trackgram-glow" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.6" />
-        <stop offset="100%" stopColor="#D946EF" stopOpacity="0.2" />
-      </linearGradient>
+      <filter id="tg-glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+        <feMerge>
+          <feMergeNode in="coloredBlur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
     </defs>
-
-    {/* Background Circle with gradient */}
-    <rect
-      x="2"
-      y="2"
-      width="44"
-      height="44"
-      rx="14"
-      fill="url(#trackgram-gradient)"
-    />
-
-    {/* Telegram-inspired paper plane arrow - simplified & modern */}
-    <path
-      d="M14 24L32 16L28 32L22 26L14 24Z"
-      fill="white"
-      fillOpacity="0.95"
-    />
-    
-    {/* Arrow accent line */}
-    <path
-      d="M22 26L24 32L28 32"
-      stroke="white"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      fill="none"
-      opacity="0.7"
-    />
-
-    {/* Analytics dot / tracking indicator */}
-    <circle
-      cx="32"
-      cy="16"
-      r="3"
-      fill="white"
-      opacity="0.9"
-    />
+    <circle cx="50" cy="50" r="45" stroke="url(#tg-grad)" strokeWidth="1.5" fill="none" opacity="0.25" />
+    <circle cx="50" cy="50" r="35" stroke="url(#tg-grad)" strokeWidth="2" fill="none" opacity="0.45" />
+    <circle cx="50" cy="50" r="25" stroke="url(#tg-grad)" strokeWidth="2.5" fill="none" opacity="0.7" />
+    <path d="M25 50L70 28L55 72L46 52L25 50Z" fill="url(#tg-grad)" filter="url(#tg-glow)" />
   </svg>
 );
+
+export const TrackGramLogo = ({ 
+  iconSize = 50, 
+  textSize = 24, 
+  className 
+}: { 
+  iconSize?: number, 
+  textSize?: number,
+  className?: string 
+}) => {
+  return (
+    <div className={cn("flex items-center gap-3", className)}>
+      <TrackGramIcon size={iconSize} />
+      <div 
+        className="flex flex-col justify-center leading-[0.85]" 
+        style={{ fontFamily: "'Poppins', sans-serif" }}
+      >
+        <span 
+          className="font-bold text-[#A855F7] tracking-tight"
+          style={{ fontSize: textSize }}
+        >
+          Track
+        </span>
+        <span 
+          className="font-light text-neutral-900 dark:text-white tracking-tight transition-colors duration-300"
+          style={{ fontSize: textSize }}
+        >
+          Gram
+        </span>
+      </div>
+    </div>
+  );
+};

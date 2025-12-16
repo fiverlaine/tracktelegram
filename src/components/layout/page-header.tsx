@@ -16,13 +16,13 @@ export function PageHeader({ title, description, children }: PageHeaderProps) {
             Online
           </span>
         </div>
-        <h1 className="text-3xl font-bold text-white tracking-tight mb-1">
+        <h1 className="text-3xl font-bold text-neutral-900 dark:text-white tracking-tight mb-1">
           {title}
         </h1>
-        {description && <p className="text-gray-400 text-sm">{description}</p>}
+        {description && <p className="text-neutral-500 dark:text-gray-400 text-sm">{description}</p>}
       </div>
 
-      <div className="w-full xl:w-auto p-1 bg-white/[0.03] border border-white/5 backdrop-blur-md rounded-xl flex flex-col sm:flex-row gap-2">
+      <div className="w-full xl:w-auto p-1 bg-white dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 backdrop-blur-md rounded-xl flex flex-col sm:flex-row gap-2">
         {children}
       </div>
     </header>

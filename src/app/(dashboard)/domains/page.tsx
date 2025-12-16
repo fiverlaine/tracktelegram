@@ -203,8 +203,8 @@ export default function DomainsPage() {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <PageHeader title="Meus Domínios" description="Gerencie os domínios onde o script de rastreamento será instalado.">
                 <div className="flex items-center gap-4">
-                    <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs text-gray-400">
-                        <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-gray-500"} animate-pulse`} />
+                    <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-neutral-100 dark:bg-white/5 rounded-full border border-neutral-200 dark:border-white/10 text-xs text-neutral-500 dark:text-gray-400">
+                        <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-neutral-400 dark:bg-gray-500"} animate-pulse`} />
                         {!isSubscribed
                             ? "0 / 0 domínios"
                             : planLimits?.domains === 9999
@@ -214,49 +214,49 @@ export default function DomainsPage() {
                 </div>
                 <Button
                     onClick={handleNewDomain}
-                    className="bg-white text-black hover:bg-gray-200 gap-2 font-bold"
+                    className="bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-gray-200 gap-2 font-bold"
                 >
                     <Plus className="h-4 w-4" />
                     Adicionar Domínio
                 </Button>
 
                 <Dialog open={open} onOpenChange={setOpen}>
-                    <DialogContent className="bg-[#0a0a0a] border-white/10 text-white sm:max-w-[425px]">
+                    <DialogContent className="bg-white dark:bg-[#0a0a0a] border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white sm:max-w-[425px]">
                         <DialogHeader>
-                            <DialogTitle className="text-white">Novo Domínio</DialogTitle>
+                            <DialogTitle className="text-neutral-900 dark:text-white">Novo Domínio</DialogTitle>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="domain" className="text-gray-400">URL do Site</Label>
+                                <Label htmlFor="domain" className="text-neutral-500 dark:text-gray-400">URL do Site</Label>
                                 <Input
                                     id="domain"
                                     placeholder="exemplo.com.br"
                                     value={formData.domain}
                                     onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
+                                    className="bg-neutral-100 dark:bg-black/40 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-gray-700"
                                 />
-                                <p className="text-xs text-gray-500">
+                                <p className="text-xs text-neutral-500 dark:text-gray-500">
                                     Insira o domínio onde você instalará o script de rastreamento.
                                 </p>
                             </div>
                             <div className="grid gap-2">
-                                <Label className="text-gray-400">Pixel (Opcional)</Label>
-                                <p className="text-[10px] text-gray-500 mb-1">
+                                <Label className="text-neutral-500 dark:text-gray-400">Pixel (Opcional)</Label>
+                                <p className="text-[10px] text-neutral-500 dark:text-gray-500 mb-1">
                                     Selecione um ou mais Pixels para instalar automaticamente neste domínio.
                                 </p>
                                 <Popover>
                                     <PopoverTrigger asChild>
-                                        <Button variant="outline" className="w-full justify-between bg-black/40 border-white/10 text-white hover:bg-white/5">
+                                        <Button variant="outline" className="w-full justify-between bg-neutral-100 dark:bg-black/40 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-white/5">
                                             {formData.pixel_ids.length > 0
                                                 ? `${formData.pixel_ids.length} pixel(s) selecionado(s)`
                                                 : "Selecione Pixels"}
                                             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-[400px] p-0 bg-[#0a0a0a] border-white/10">
+                                    <PopoverContent className="w-[400px] p-0 bg-white dark:bg-[#0a0a0a] border-neutral-200 dark:border-white/10">
                                         <div className="p-2 space-y-1 max-h-[200px] overflow-y-auto">
                                             {pixels.length === 0 ? (
-                                                <div className="p-2 text-sm text-gray-500 text-center">Nenhum pixel cadastrado.</div>
+                                                <div className="p-2 text-sm text-neutral-500 dark:text-gray-500 text-center">Nenhum pixel cadastrado.</div>
                                             ) : (
                                                 pixels.map(pixel => {
                                                     const isSelected = formData.pixel_ids.includes(pixel.id);
@@ -266,10 +266,10 @@ export default function DomainsPage() {
                                                             onClick={() => togglePixelSelection(pixel.id)}
                                                             className={`
                                                                 flex items-center gap-2 px-3 py-2 text-sm rounded-md cursor-pointer transition-colors
-                                                                ${isSelected ? "bg-violet-600/20 text-violet-300" : "text-gray-300 hover:bg-white/5"}
+                                                                ${isSelected ? "bg-violet-100 dark:bg-violet-600/20 text-violet-700 dark:text-violet-300" : "text-neutral-700 dark:text-gray-300 hover:bg-neutral-100 dark:hover:bg-white/5"}
                                                             `}
                                                         >
-                                                            <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? "bg-violet-600 border-violet-600" : "border-gray-600"}`}>
+                                                            <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? "bg-violet-600 border-violet-600" : "border-neutral-300 dark:border-gray-600"}`}>
                                                                 {isSelected && <Check className="h-3 w-3 text-white" />}
                                                             </div>
                                                             {pixel.name}
@@ -316,20 +316,20 @@ export default function DomainsPage() {
                         Nenhum domínio cadastrado. Adicione o site onde sua página de vendas está hospedada.
                     </div>
                 ) : (
-                    <div className="bg-[#0a0a0a]/60 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden">
+                    <div className="bg-white/60 dark:bg-[#0a0a0a]/60 backdrop-blur-xl border border-neutral-200 dark:border-white/5 rounded-2xl overflow-hidden">
                         <table className="w-full text-sm text-left">
-                            <thead className="text-xs text-gray-500 uppercase bg-white/5 border-b border-white/5">
+                            <thead className="text-xs text-neutral-500 dark:text-gray-500 uppercase bg-neutral-50 dark:bg-white/5 border-b border-neutral-200 dark:border-white/5">
                                 <tr>
                                     <th className="px-6 py-4 font-medium">Domínio</th>
                                     <th className="px-6 py-4 font-medium">Status</th>
                                     <th className="px-6 py-4 font-medium text-right">Ações</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-white/5">
+                            <tbody className="divide-y divide-neutral-100 dark:divide-white/5">
                                 {domains.map(domain => (
-                                    <tr key={domain.id} className="hover:bg-white/5 transition-colors group">
-                                        <td className="px-6 py-4 font-medium text-white flex items-center gap-3">
-                                            <div className="p-2 rounded-lg bg-white/5 text-gray-400">
+                                    <tr key={domain.id} className="hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors group">
+                                        <td className="px-6 py-4 font-medium text-neutral-900 dark:text-white flex items-center gap-3">
+                                            <div className="p-2 rounded-lg bg-neutral-100 dark:bg-white/5 text-neutral-500 dark:text-gray-400">
                                                 <Globe className="h-4 w-4" />
                                             </div>
                                             {domain.domain}
@@ -337,12 +337,12 @@ export default function DomainsPage() {
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
                                                 {domain.verified ? (
-                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
                                                         <ShieldCheck className="h-3 w-3" />
                                                         Verificado
                                                     </div>
                                                 ) : (
-                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-xs font-semibold">
+                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-600 dark:text-yellow-400 text-xs font-semibold">
                                                         <ShieldAlert className="h-3 w-3" />
                                                         Não Verificado
                                                     </div>
@@ -350,7 +350,7 @@ export default function DomainsPage() {
                                                 {domain.domain_pixels && domain.domain_pixels.length > 0 ? (
                                                     <div className="flex flex-wrap gap-1 max-w-[200px]">
                                                         {domain.domain_pixels.map(dp => (
-                                                            <span key={dp.pixel_id} className="text-[10px] text-gray-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
+                                                            <span key={dp.pixel_id} className="text-[10px] text-neutral-500 dark:text-gray-400 bg-neutral-100 dark:bg-white/5 px-1.5 py-0.5 rounded border border-neutral-200 dark:border-white/5">
                                                                 {dp.pixels?.name}
                                                             </span>
                                                         ))}
@@ -369,7 +369,7 @@ export default function DomainsPage() {
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
-                                                            className="hover:bg-white/10 hover:text-white"
+                                                            className="hover:bg-neutral-100 dark:hover:bg-white/10 text-neutral-400 dark:text-gray-400 hover:text-neutral-900 dark:hover:text-white"
                                                             title="Ver detalhes"
                                                         >
                                                             <Eye className="h-4 w-4" />

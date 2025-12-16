@@ -257,8 +257,8 @@ export default function FunnelsPage() {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <PageHeader title="Funis de Rastreamento" description="Crie links de rastreamento para suas campanhas e monitore a conversão.">
                 <div className="flex items-center gap-4">
-                    <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs text-gray-400">
-                        <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-gray-500"} animate-pulse`} />
+                    <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-neutral-100 dark:bg-white/5 rounded-full border border-neutral-200 dark:border-white/10 text-xs text-neutral-500 dark:text-gray-400">
+                        <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-neutral-400 dark:bg-gray-500"} animate-pulse`} />
                         {!isSubscribed
                             ? "0 / 0 funis"
                             : planLimits?.funnels === 9999 || planLimits?.funnels === 'unlimited'
@@ -268,47 +268,47 @@ export default function FunnelsPage() {
                 </div>
                 <Button
                     onClick={handleNewFunnel}
-                    className="bg-white text-black hover:bg-gray-200 gap-2 font-bold"
+                    className="bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-gray-200 gap-2 font-bold"
                 >
                     <Plus className="h-4 w-4" />
                     Novo Funil
                 </Button>
 
                 <Dialog open={open} onOpenChange={setOpen}>
-                    <DialogContent className="sm:max-w-[500px] bg-[#0a0a0a] border-white/10 text-white">
+                    <DialogContent className="sm:max-w-[500px] bg-white dark:bg-[#0a0a0a] border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white">
                         <DialogHeader>
-                            <DialogTitle className="text-white">
+                            <DialogTitle className="text-neutral-900 dark:text-white">
                                 {editingId ? "Editar Funil" : "Criar Link de Rastreamento"}
                             </DialogTitle>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="name" className="text-gray-400">Nome da Campanha</Label>
+                                <Label htmlFor="name" className="text-neutral-500 dark:text-gray-400">Nome da Campanha</Label>
                                 <Input
                                     id="name"
                                     placeholder="Ex: Campanha FB Ads #01"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
+                                    className="bg-neutral-100 dark:bg-black/40 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-gray-700"
                                 />
                             </div>
 
 
                             <div className="grid gap-2">
-                                <Label className="text-gray-400">Pixel do Facebook (Multi-seleção)</Label>
+                                <Label className="text-neutral-500 dark:text-gray-400">Pixel do Facebook (Multi-seleção)</Label>
                                 <Popover>
                                     <PopoverTrigger asChild>
-                                        <Button variant="outline" className="w-full justify-between bg-black/40 border-white/10 text-white hover:bg-white/5">
+                                        <Button variant="outline" className="w-full justify-between bg-neutral-100 dark:bg-black/40 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-white/5">
                                             {formData.pixel_ids.length > 0
                                                 ? `${formData.pixel_ids.length} pixel(s) selecionado(s)`
                                                 : "Selecione Pixels"}
                                             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-[400px] p-0 bg-[#0a0a0a] border-white/10">
+                                    <PopoverContent className="w-[400px] p-0 bg-white dark:bg-[#0a0a0a] border-neutral-200 dark:border-white/10">
                                         <div className="p-2 space-y-1 max-h-[200px] overflow-y-auto">
                                             {pixels.length === 0 ? (
-                                                <div className="p-2 text-sm text-gray-500 text-center">Nenhum pixel cadastrado.</div>
+                                                <div className="p-2 text-sm text-neutral-500 dark:text-gray-500 text-center">Nenhum pixel cadastrado.</div>
                                             ) : (
                                                 pixels.map(pixel => {
                                                     const isSelected = formData.pixel_ids.includes(pixel.id);
@@ -318,10 +318,10 @@ export default function FunnelsPage() {
                                                             onClick={() => togglePixelSelection(pixel.id)}
                                                             className={`
                                                                 flex items-center gap-2 px-3 py-2 text-sm rounded-md cursor-pointer transition-colors
-                                                                ${isSelected ? "bg-violet-600/20 text-violet-300" : "text-gray-300 hover:bg-white/5"}
+                                                                ${isSelected ? "bg-violet-100 dark:bg-violet-600/20 text-violet-700 dark:text-violet-300" : "text-neutral-700 dark:text-gray-300 hover:bg-neutral-100 dark:hover:bg-white/5"}
                                                             `}
                                                         >
-                                                            <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? "bg-violet-600 border-violet-600" : "border-gray-600"}`}>
+                                                            <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? "bg-violet-600 border-violet-600" : "border-neutral-300 dark:border-gray-600"}`}>
                                                                 {isSelected && <Check className="h-3 w-3 text-white" />}
                                                             </div>
                                                             {pixel.name}
@@ -349,17 +349,17 @@ export default function FunnelsPage() {
                             </div>
 
                             <div className="grid gap-2">
-                                <Label className="text-gray-400">Canal de Destino (Bot)</Label>
+                                <Label className="text-neutral-500 dark:text-gray-400">Canal de Destino (Bot)</Label>
                                 <Select
                                     value={formData.bot_id}
                                     onValueChange={(val) => setFormData({ ...formData, bot_id: val })}
                                 >
-                                    <SelectTrigger className="bg-black/40 border-white/10 text-white">
+                                    <SelectTrigger className="bg-neutral-100 dark:bg-black/40 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white">
                                         <SelectValue placeholder="Selecione um Bot" />
                                     </SelectTrigger>
-                                    <SelectContent className="bg-[#0a0a0a] border-white/10 text-white">
+                                    <SelectContent className="bg-white dark:bg-[#0a0a0a] border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white">
                                         {bots.map(b => (
-                                            <SelectItem key={b.id} value={b.id} className="focus:bg-white/10 focus:text-white">{b.name}</SelectItem>
+                                            <SelectItem key={b.id} value={b.id} className="focus:bg-neutral-100 dark:focus:bg-white/10 focus:text-neutral-900 dark:focus:text-white">{b.name}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
@@ -376,9 +376,9 @@ export default function FunnelsPage() {
                 </Dialog>
             </PageHeader>
 
-            <div className="bg-[#0a0a0a]/60 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden">
+            <div className="bg-white/60 dark:bg-[#0a0a0a]/60 backdrop-blur-xl border border-neutral-200 dark:border-white/5 rounded-2xl overflow-hidden">
                 <table className="w-full text-sm text-left">
-                    <thead className="text-xs text-gray-500 uppercase bg-white/5 border-b border-white/5">
+                    <thead className="text-xs text-neutral-500 dark:text-gray-500 uppercase bg-neutral-50 dark:bg-white/5 border-b border-neutral-200 dark:border-white/5">
                         <tr>
                             <th className="px-6 py-4 font-medium">Campanha</th>
                             <th className="px-6 py-4 font-medium">Link Gerado</th>
@@ -386,7 +386,7 @@ export default function FunnelsPage() {
                             <th className="px-6 py-4 font-medium text-right">Ações</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody className="divide-y divide-neutral-100 dark:divide-white/5">
                         {loading ? (
                             <tr>
                                 <td colSpan={4} className="px-6 py-8 text-center text-violet-500">
@@ -395,7 +395,7 @@ export default function FunnelsPage() {
                             </tr>
                         ) : funnels.length === 0 ? (
                             <tr>
-                                <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                                <td colSpan={4} className="px-6 py-8 text-center text-neutral-500 dark:text-gray-500">
                                     Você ainda não criou nenhum funil.
                                 </td>
                             </tr>
@@ -407,22 +407,22 @@ export default function FunnelsPage() {
                                     : funnel.pixels?.name || '-'; // Fallback
 
                                 return (
-                                    <tr key={funnel.id} className="hover:bg-white/5 transition-colors group text-gray-300">
-                                        <td className="px-6 py-4 font-medium text-white flex items-center gap-3">
-                                            <div className="p-2 rounded-lg bg-pink-500/10 text-pink-400 hidden sm:block">
+                                    <tr key={funnel.id} className="hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors group text-neutral-600 dark:text-gray-300">
+                                        <td className="px-6 py-4 font-medium text-neutral-900 dark:text-white flex items-center gap-3">
+                                            <div className="p-2 rounded-lg bg-pink-500/10 text-pink-600 dark:text-pink-400 hidden sm:block">
                                                 <LinkIcon className="h-4 w-4" />
                                             </div>
                                             {funnel.name}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2 bg-black/40 p-2 rounded-lg border border-white/5 text-xs font-mono max-w-[300px] overflow-hidden group/link">
-                                                <span className="truncate text-gray-400 group-hover/link:text-gray-300 transition-colors">
+                                            <div className="flex items-center gap-2 bg-neutral-100 dark:bg-black/40 p-2 rounded-lg border border-neutral-200 dark:border-white/5 text-xs font-mono max-w-[300px] overflow-hidden group/link">
+                                                <span className="truncate text-neutral-500 dark:text-gray-400 group-hover/link:text-neutral-900 dark:group-hover/link:text-gray-300 transition-colors">
                                                     {typeof window !== 'undefined' ? `${window.location.origin}/t/${funnel.slug}` : `/t/${funnel.slug}`}
                                                 </span>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-6 w-6 shrink-0 text-gray-500 hover:text-white hover:bg-white/10"
+                                                    className="h-6 w-6 shrink-0 text-neutral-500 dark:text-gray-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-200 dark:hover:bg-white/10"
                                                     onClick={() => handleCopyLink(funnel.slug)}
                                                 >
                                                     {copiedId === funnel.slug ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
@@ -431,21 +431,21 @@ export default function FunnelsPage() {
                                                     href={`/t/${funnel.slug}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="h-6 w-6 flex items-center justify-center rounded-md text-gray-500 hover:text-white hover:bg-white/10"
+                                                    className="h-6 w-6 flex items-center justify-center rounded-md text-neutral-500 dark:text-gray-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-200 dark:hover:bg-white/10"
                                                 >
                                                     <ExternalLink className="h-3 w-3" />
                                                 </a>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-xs text-gray-500">
+                                        <td className="px-6 py-4 text-xs text-neutral-500 dark:text-gray-500">
                                             <div className="flex flex-col gap-1">
                                                 <span className="flex items-center gap-2">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                                                    Pixel: <span className="text-gray-300 truncate max-w-[150px]" title={pixelDisplay}>{pixelDisplay}</span>
+                                                    Pixel: <span className="text-neutral-700 dark:text-gray-300 truncate max-w-[150px]" title={pixelDisplay}>{pixelDisplay}</span>
                                                 </span>
                                                 <span className="flex items-center gap-2">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                                    Bot: <span className="text-gray-300">{funnel.telegram_bots?.name || '-'}</span>
+                                                    Bot: <span className="text-neutral-700 dark:text-gray-300">{funnel.telegram_bots?.name || '-'}</span>
                                                 </span>
                                             </div>
                                         </td>
@@ -454,7 +454,7 @@ export default function FunnelsPage() {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="text-gray-500 hover:text-white hover:bg-white/10"
+                                                    className="text-neutral-400 dark:text-gray-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10"
                                                     onClick={() => handleEditFunnel(funnel)}
                                                 >
                                                     <Pencil className="h-4 w-4" />
@@ -462,7 +462,7 @@ export default function FunnelsPage() {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="text-gray-500 hover:text-red-400 hover:bg-red-500/10"
+                                                    className="text-neutral-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10"
                                                     onClick={() => handleDelete(funnel.id, funnel.name)}
                                                     disabled={deleting === funnel.id}
                                                 >

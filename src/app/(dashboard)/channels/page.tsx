@@ -542,22 +542,22 @@ export default function ChannelsPage() {
         type?: "success" | "error" | "warning" 
     }) {
         const colors = {
-            success: { bg: "bg-emerald-500/10", icon: "text-emerald-400", text: "text-emerald-400" },
-            error: { bg: "bg-red-500/10", icon: "text-red-400", text: "text-red-400" },
-            warning: { bg: "bg-amber-500/10", icon: "text-amber-400", text: "text-amber-400" }
+            success: { bg: "bg-emerald-500/10", icon: "text-emerald-600 dark:text-emerald-400", text: "text-emerald-600 dark:text-emerald-400" },
+            error: { bg: "bg-red-500/10", icon: "text-red-500 dark:text-red-400", text: "text-red-500 dark:text-red-400" },
+            warning: { bg: "bg-amber-500/10", icon: "text-amber-500 dark:text-amber-400", text: "text-amber-500 dark:text-amber-400" }
         };
         
         const color = status ? colors.success : colors[type];
         const Icon = status ? CheckCircle2 : type === "warning" ? AlertTriangle : XCircle;
 
         return (
-            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/5">
+            <div className="flex items-center gap-3 p-3 bg-neutral-100 dark:bg-white/5 rounded-lg border border-neutral-200 dark:border-white/5">
                 <div className={`h-8 w-8 rounded-full ${color.bg} flex items-center justify-center shrink-0`}>
                     <Icon className={`h-4 w-4 ${color.icon}`} />
                 </div>
                 <div className="min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{title}</p>
-                    <p className={`text-xs ${status ? "text-emerald-400" : color.text}`}>
+                    <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">{title}</p>
+                    <p className={`text-xs ${status ? "text-emerald-600 dark:text-emerald-400" : color.text}`}>
                         {description}
                     </p>
                 </div>
@@ -569,8 +569,8 @@ export default function ChannelsPage() {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
              <PageHeader title="Meus Canais" description="Conecte seu Canal ou Grupo do Telegram para rastrear membros e enviar notificações.">
                  <div className="flex items-center gap-4">
-                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs text-gray-400">
-                    <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-gray-500"} animate-pulse`} />
+                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-neutral-100 dark:bg-white/5 rounded-full border border-neutral-200 dark:border-white/10 text-xs text-neutral-500 dark:text-gray-400">
+                    <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-neutral-400 dark:bg-gray-500"} animate-pulse`} />
                     {!isSubscribed 
                         ? "0 / 0 canais"
                         : planLimits?.channels === 9999 
@@ -598,20 +598,20 @@ export default function ChannelsPage() {
                         setFormData({ name: "", bot_token: "", channel_link: "", username: "", chat_id: "" });
                         setOpen(true);
                      }} 
-                     className="bg-white text-black hover:bg-gray-200 gap-2 font-bold"
+                     className="bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-gray-200 gap-2 font-bold"
                  >
                      <Plus className="h-4 w-4" />
                      Adicionar Canal
                  </Button>
 
                  <Dialog open={open} onOpenChange={setOpen}>
-                    <DialogContent className="sm:max-w-[500px] bg-[#0a0a0a] border-white/10 text-white">
+                    <DialogContent className="sm:max-w-[500px] bg-white dark:bg-[#0a0a0a] border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white">
                         <DialogHeader>
-                            <DialogTitle className="text-white">Configurar Novo Canal</DialogTitle>
+                            <DialogTitle className="text-neutral-900 dark:text-white">Configurar Novo Canal</DialogTitle>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
-                            <div className="bg-white/5 border border-white/5 p-3 rounded text-xs text-gray-400 mb-2">
-                                <p className="font-bold text-white mb-1">Instruções:</p>
+                            <div className="bg-neutral-50 dark:bg-white/5 border border-neutral-100 dark:border-white/5 p-3 rounded text-xs text-neutral-500 dark:text-gray-400 mb-2">
+                                <p className="font-bold text-neutral-900 dark:text-white mb-1">Instruções:</p>
                                 <ol className="list-decimal pl-4 space-y-1">
                                     <li>Crie um Bot no <strong>@BotFather</strong>.</li>
                                     <li>Crie um Canal ou Grupo no Telegram.</li>
@@ -621,45 +621,45 @@ export default function ChannelsPage() {
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="name" className="text-gray-400">Nome do Canal</Label>
+                                <Label htmlFor="name" className="text-neutral-500 dark:text-gray-400">Nome do Canal</Label>
                                 <Input
                                     id="name"
                                     placeholder="Ex: Ofertas VIP"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
+                                    className="bg-neutral-100 dark:bg-black/40 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-gray-700"
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="token" className="text-gray-400">Token do Bot (BotFather)</Label>
+                                <Label htmlFor="token" className="text-neutral-500 dark:text-gray-400">Token do Bot (BotFather)</Label>
                                 <Input
                                     id="token"
                                     placeholder="123456:ABC-DEF..."
                                     value={formData.bot_token}
                                     onChange={(e) => setFormData({ ...formData, bot_token: e.target.value })}
-                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700 font-mono"
+                                    className="bg-neutral-100 dark:bg-black/40 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-gray-700 font-mono"
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="link" className="text-gray-400">Link do Canal (Destino Final)</Label>
+                                <Label htmlFor="link" className="text-neutral-500 dark:text-gray-400">Link do Canal (Destino Final)</Label>
                                 <Input
                                     id="link"
                                     placeholder="https://t.me/+AbCdEfGhIj..."
                                     value={formData.channel_link}
                                     onChange={(e) => setFormData({ ...formData, channel_link: e.target.value })}
-                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
+                                    className="bg-neutral-100 dark:bg-black/40 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-gray-700"
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="chat_id" className="text-gray-400">ID do Canal/Grupo (Opcional)</Label>
+                                <Label htmlFor="chat_id" className="text-neutral-500 dark:text-gray-400">ID do Canal/Grupo (Opcional)</Label>
                                 <Input
                                     id="chat_id"
                                     placeholder="-1001234567890"
                                     value={formData.chat_id}
                                     onChange={(e) => setFormData({ ...formData, chat_id: e.target.value })}
-                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700 font-mono"
+                                    className="bg-neutral-100 dark:bg-black/40 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-gray-700 font-mono"
                                 />
-                                <p className="text-[10px] text-gray-500">
+                                <p className="text-[10px] text-neutral-500 dark:text-gray-500">
                                     Insira o ID se já souber (ex: -100...), ou deixe vazio para detectar depois.
                                 </p>
                             </div>
@@ -676,8 +676,8 @@ export default function ChannelsPage() {
             </PageHeader>
 
             {/* Table Header */}
-            <div className="bg-[#0a0a0a]/60 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden">
-                <div className="grid grid-cols-4 gap-4 p-4 border-b border-white/5 text-xs font-medium text-gray-500 uppercase">
+            <div className="bg-white/60 dark:bg-[#0a0a0a]/60 backdrop-blur-xl border border-neutral-200 dark:border-white/5 rounded-2xl overflow-hidden">
+                <div className="grid grid-cols-4 gap-4 p-4 border-b border-neutral-100 dark:border-white/5 text-xs font-medium text-neutral-500 dark:text-gray-500 uppercase">
                     <div>NOME DO CANAL</div>
                     <div>NOME DO BOT</div>
                     <div>TOKEN</div>
@@ -689,7 +689,7 @@ export default function ChannelsPage() {
                         <Loader2 className="animate-spin text-violet-500" />
                     </div>
                 ) : bots.length === 0 ? (
-                    <div className="text-center p-8 text-gray-500 border-t border-white/5">
+                    <div className="text-center p-8 text-neutral-500 dark:text-gray-500 border-t border-neutral-100 dark:border-white/5">
                         Nenhum bot configurado.
                     </div>
                 ) : (
@@ -697,9 +697,9 @@ export default function ChannelsPage() {
                         const status = integrationStatuses[bot.id];
                         
                         return (
-                            <div key={bot.id} className="grid grid-cols-4 gap-4 p-4 border-b border-white/5 items-center hover:bg-white/5 transition-colors group text-gray-300 last:border-0">
-                                <div className="font-medium text-white flex items-center gap-2">
-                                    <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
+                            <div key={bot.id} className="grid grid-cols-4 gap-4 p-4 border-b border-neutral-100 dark:border-white/5 items-center hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors group text-neutral-700 dark:text-gray-300 last:border-0">
+                                <div className="font-medium text-neutral-900 dark:text-white flex items-center gap-2">
+                                    <div className="p-2 bg-blue-500/10 rounded-lg text-blue-600 dark:text-blue-400">
                                         <Bot className="h-4 w-4" />
                                     </div>
                                     {bot.name}
@@ -707,7 +707,7 @@ export default function ChannelsPage() {
                                 <div className="text-sm">
                                     {status?.bot?.username ? `@${status.bot.username}` : bot.username ? `@${bot.username}` : "—"}
                                 </div>
-                                <div className="font-mono text-xs text-gray-500">
+                                <div className="font-mono text-xs text-neutral-500 dark:text-gray-500">
                                     {bot.bot_token.substring(0, 15)}...
                                 </div>
                                 <div className="flex items-center justify-end gap-2">
@@ -716,15 +716,15 @@ export default function ChannelsPage() {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="hover:bg-white/10 hover:text-white text-gray-400"
+                                                className="hover:bg-neutral-100 dark:hover:bg-white/10 hover:text-neutral-900 dark:hover:text-white text-neutral-400 dark:text-gray-400"
                                                 title="Ver detalhes"
                                             >
                                                 <Eye className="h-4 w-4" />
                                             </Button>
                                         </DialogTrigger>
-                                        <DialogContent className="sm:max-w-[700px] bg-[#0a0a0a] border-white/10 text-white max-h-[90vh] overflow-y-auto">
+                                        <DialogContent className="sm:max-w-[700px] bg-white dark:bg-[#0a0a0a] border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white max-h-[90vh] overflow-y-auto">
                                             <DialogHeader>
-                                                <DialogTitle className="flex items-center gap-2 text-white">
+                                                <DialogTitle className="flex items-center gap-2 text-neutral-900 dark:text-white">
                                                     <Bot className="h-5 w-5 text-violet-500" />
                                                     Detalhes: {bot.name}
                                                 </DialogTitle>
@@ -739,106 +739,151 @@ export default function ChannelsPage() {
                                                     return (
                                                         <>
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                {/* Status do Bot */}
-                                                                <div className="bg-white/5 border border-white/5 rounded-lg p-4 space-y-3">
-                                                                    <h4 className="font-semibold text-center mb-4 text-white">Status do Bot</h4>
-                                                                    
-                                                                    <StatusItem
-                                                                        status={isWebhookCorrect}
-                                                                        title="Conexão com a TrackGram"
-                                                                        description={isWebhookCorrect ? "Conectado e rastreando!" : "Não encontrada! Ative o rastreamento."}
-                                                                        type="error"
-                                                                    />
-                                                                    
-                                                                    <StatusItem
-                                                                        status={status?.channel?.botIsAdmin || false}
-                                                                        title="Conexão com o Canal"
-                                                                        description={status?.channel?.botIsAdmin ? "Bot é administrador do canal." : "Não encontrada! Insira o ID do canal abaixo."}
-                                                                        type="error"
-                                                                    />
-                                                                    
-                                                                    {/* Input para ID do Canal */}
-                                                                    {!status?.channel?.botIsAdmin && (
-                                                                        <div className="space-y-2">
-                                                                            <div className="flex gap-2">
-                                                                                <Input
-                                                                                    placeholder="-1002406299839"
-                                                                                    value={chatIdInput[bot.id] || ""}
-                                                                                    onChange={(e) => setChatIdInput(prev => ({ ...prev, [bot.id]: e.target.value }))}
-                                                                                    className="text-xs h-8 bg-black/40 border-white/10 text-white"
-                                                                                />
+                                                                <div className="space-y-4">
+                                                                    {/* Status do Bot */}
+                                                                    <div className="bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/5 rounded-lg p-4 space-y-3">
+                                                                        <h4 className="font-semibold text-center mb-4 text-neutral-900 dark:text-white">Status do Bot</h4>
+                                                                        
+                                                                        <StatusItem
+                                                                            status={isWebhookCorrect}
+                                                                            title="Conexão com a TrackGram"
+                                                                            description={isWebhookCorrect ? "Conectado e rastreando!" : "Não encontrada! Ative o rastreamento."}
+                                                                            type="error"
+                                                                        />
+                                                                        
+                                                                        <StatusItem
+                                                                            status={status?.channel?.botIsAdmin || false}
+                                                                            title="Conexão com o Canal"
+                                                                            description={status?.channel?.botIsAdmin ? "Bot é administrador do canal." : "Não encontrada! Insira o ID do canal abaixo."}
+                                                                            type="error"
+                                                                        />
+                                                                        
+                                                                        {/* Input para ID do Canal */}
+                                                                        {!status?.channel?.botIsAdmin && (
+                                                                            <div className="space-y-2">
+                                                                                <div className="flex gap-2">
+                                                                                    <Input
+                                                                                        placeholder="-1002406299839"
+                                                                                        value={chatIdInput[bot.id] || ""}
+                                                                                        onChange={(e) => setChatIdInput(prev => ({ ...prev, [bot.id]: e.target.value }))}
+                                                                                        className="text-xs h-8 bg-neutral-100 dark:bg-black/40 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                                                                                    />
+                                                                                    <Button
+                                                                                        variant="outline"
+                                                                                        size="sm"
+                                                                                        className="border-neutral-200 dark:border-white/10 hover:bg-neutral-100 dark:hover:bg-white/10 text-emerald-600 dark:text-emerald-400 h-8 px-3"
+                                                                                        onClick={() => saveChatId(bot)}
+                                                                                        disabled={savingChatId === bot.id}
+                                                                                    >
+                                                                                        {savingChatId === bot.id ? (
+                                                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                                                        ) : (
+                                                                                            <Save className="h-4 w-4" />
+                                                                                        )}
+                                                                                    </Button>
+                                                                                </div>
+                                                                                <p className="text-[10px] text-neutral-500 dark:text-gray-500">
+                                                                                    Cole o ID do canal (ex: -1002406299839). 
+                                                                                    <a 
+                                                                                        href="https://t.me/getidsbot" 
+                                                                                        target="_blank" 
+                                                                                        rel="noopener noreferrer"
+                                                                                        className="text-blue-600 dark:text-blue-400 hover:underline ml-1"
+                                                                                    >
+                                                                                        Use @getidsbot
+                                                                                    </a>
+                                                                                </p>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Botão de ativar/desativar */}
+                                                                        <div className="pt-2">
+                                                                            {isWebhookCorrect ? (
                                                                                 <Button
                                                                                     variant="outline"
                                                                                     size="sm"
-                                                                                    className="border-white/10 hover:bg-white/10 text-emerald-400 h-8 px-3"
-                                                                                    onClick={() => saveChatId(bot)}
-                                                                                    disabled={savingChatId === bot.id}
+                                                                                    className="w-full border-red-500/20 hover:bg-red-500/10 text-red-600 dark:text-red-500 bg-transparent"
+                                                                                    onClick={() => {
+                                                                                        deactivateWebhook(bot);
+                                                                                        setTimeout(() => checkIntegrationStatus(bot), 1000);
+                                                                                    }}
+                                                                                    disabled={activating === bot.id}
                                                                                 >
-                                                                                    {savingChatId === bot.id ? (
-                                                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                                                    {activating === bot.id ? (
+                                                                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                                                                     ) : (
-                                                                                        <Save className="h-4 w-4" />
+                                                                                        <Zap className="h-4 w-4 mr-2" />
                                                                                     )}
+                                                                                    Desativar Rastreamento
+                                                                                </Button>
+                                                                            ) : (
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    className="w-full bg-violet-600 hover:bg-violet-700 text-white"
+                                                                                    onClick={() => {
+                                                                                        activateWebhook(bot);
+                                                                                        setTimeout(() => checkIntegrationStatus(bot), 1000);
+                                                                                    }}
+                                                                                    disabled={activating === bot.id}
+                                                                                >
+                                                                                    {activating === bot.id ? (
+                                                                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                                                                    ) : (
+                                                                                        <Zap className="h-4 w-4 mr-2" />
+                                                                                    )}
+                                                                                    Ativar Rastreamento
+                                                                                </Button>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Detalhes do Webhook */}
+                                                                    <div className="bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/5 rounded-lg p-4 space-y-3">
+                                                                        <h4 className="font-semibold text-center mb-4 text-neutral-900 dark:text-white">Detalhes da Integração</h4>
+                                                                        
+                                                                        <div className="space-y-2 text-xs">
+                                                                            <div className="flex justify-between py-1 border-b border-neutral-200 dark:border-white/5">
+                                                                                <span className="text-neutral-500 dark:text-gray-400">Tipo de Chat:</span>
+                                                                                <span className="text-neutral-900 dark:text-white font-mono">{status?.channel?.chatType || "Desconhecido"}</span>
+                                                                            </div>
+                                                                            <div className="flex justify-between py-1 border-b border-neutral-200 dark:border-white/5">
+                                                                                <span className="text-neutral-500 dark:text-gray-400">Título:</span>
+                                                                                <span className="text-neutral-900 dark:text-white">{status?.channel?.chatTitle || "—"}</span>
+                                                                            </div>
+                                                                            <div className="flex justify-between py-1 border-b border-neutral-200 dark:border-white/5">
+                                                                                <span className="text-neutral-500 dark:text-gray-400">Membros:</span>
+                                                                                <span className="text-neutral-900 dark:text-white font-mono">{status?.channel?.memberCount || "—"}</span>
+                                                                            </div>
+                                                                            <div className="flex justify-between py-1 border-b border-neutral-200 dark:border-white/5">
+                                                                                <span className="text-neutral-500 dark:text-gray-400">Pending Updates:</span>
+                                                                                <span className="text-neutral-900 dark:text-white font-mono">{status?.webhook?.pendingUpdates || 0}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="pt-2">
+                                                                            <Label className="text-xs text-neutral-500 dark:text-gray-400 mb-1 block">Webhook URL (Registrada no Telegram)</Label>
+                                                                            <div className="flex items-center gap-2 bg-neutral-100 dark:bg-black/40 p-2 rounded border border-neutral-200 dark:border-white/5">
+                                                                                <code className="text-[10px] text-neutral-500 dark:text-gray-400 break-all flex-1 font-mono">
+                                                                                    {status?.webhook?.url || "Nenhuma URL registrada"}
+                                                                                </code>
+                                                                                <Button
+                                                                                    variant="ghost" 
+                                                                                    size="icon" 
+                                                                                    className="h-5 w-5 text-neutral-400 dark:text-gray-500 hover:text-neutral-900 dark:hover:text-white"
+                                                                                    onClick={() => {
+                                                                                        navigator.clipboard.writeText(status?.webhook?.url || "");
+                                                                                        toast.success("URL copiada!");
+                                                                                    }}
+                                                                                >
+                                                                                    <Copy className="h-3 w-3" />
                                                                                 </Button>
                                                                             </div>
-                                                                            <p className="text-[10px] text-gray-500">
-                                                                                Cole o ID do canal (ex: -1002406299839). 
-                                                                                <a 
-                                                                                    href="https://t.me/getidsbot" 
-                                                                                    target="_blank" 
-                                                                                    rel="noopener noreferrer"
-                                                                                    className="text-blue-400 hover:underline ml-1"
-                                                                                >
-                                                                                    Use @getidsbot
-                                                                                </a>
-                                                                            </p>
                                                                         </div>
-                                                                    )}
-
-                                                                    {/* Botão de ativar/desativar */}
-                                                                    <div className="pt-2">
-                                                                        {isWebhookCorrect ? (
-                                                                            <Button
-                                                                                variant="outline"
-                                                                                size="sm"
-                                                                                className="w-full border-red-500/20 hover:bg-red-500/10 text-red-500 bg-transparent"
-                                                                                onClick={() => {
-                                                                                    deactivateWebhook(bot);
-                                                                                    setTimeout(() => checkIntegrationStatus(bot), 1000);
-                                                                                }}
-                                                                                disabled={activating === bot.id}
-                                                                            >
-                                                                                {activating === bot.id ? (
-                                                                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                                                                ) : (
-                                                                                    <Zap className="h-4 w-4 mr-2" />
-                                                                                )}
-                                                                                Desativar Rastreamento
-                                                                            </Button>
-                                                                        ) : (
-                                                                            <Button
-                                                                                size="sm"
-                                                                                className="w-full bg-violet-600 hover:bg-violet-700 text-white"
-                                                                                onClick={() => {
-                                                                                    activateWebhook(bot);
-                                                                                    setTimeout(() => checkIntegrationStatus(bot), 1000);
-                                                                                }}
-                                                                                disabled={activating === bot.id}
-                                                                            >
-                                                                                {activating === bot.id ? (
-                                                                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                                                                ) : (
-                                                                                    <Zap className="h-4 w-4 mr-2" />
-                                                                                )}
-                                                                                Ativar Rastreamento
-                                                                            </Button>
-                                                                        )}
                                                                     </div>
                                                                 </div>
 
                                                                 {/* Status do Canal */}
-                                                                <div className="bg-white/5 border border-white/5 rounded-lg p-4 space-y-3">
-                                                                    <h4 className="font-semibold text-center mb-4 text-white">Status do Canal</h4>
+                                                                <div className="bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/5 rounded-lg p-4 space-y-3 h-fit">
+                                                                    <h4 className="font-semibold text-center mb-4 text-neutral-900 dark:text-white">Status do Canal</h4>
                                                                     
                                                                     <StatusItem
                                                                         status={status?.channel?.chatType !== "private"}
@@ -866,8 +911,8 @@ export default function ChannelsPage() {
                                                                                 <Info className="h-4 w-4 text-blue-500" />
                                                                             </div>
                                                                             <div>
-                                                                                <p className="text-sm font-medium text-white">Membros no Canal</p>
-                                                                                <p className="text-xs text-blue-400">{status.channel.memberCount} membros</p>
+                                                                                <p className="text-sm font-medium text-neutral-900 dark:text-white">Membros no Canal</p>
+                                                                                <p className="text-xs text-blue-600 dark:text-blue-400">{status.channel.memberCount} membros</p>
                                                                             </div>
                                                                         </div>
                                                                     )}
@@ -878,7 +923,7 @@ export default function ChannelsPage() {
                                                                             href={bot.channel_link} 
                                                                             target="_blank" 
                                                                             rel="noopener noreferrer"
-                                                                            className="flex items-center justify-center gap-2 p-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded text-gray-300 text-sm transition-colors"
+                                                                            className="flex items-center justify-center gap-2 p-2 bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/5 rounded text-neutral-500 dark:text-gray-300 text-sm transition-colors"
                                                                         >
                                                                             <ExternalLink className="h-4 w-4" />
                                                                             Abrir Canal no Telegram
@@ -888,12 +933,12 @@ export default function ChannelsPage() {
                                                             </div>
 
                                                             {/* Botão de atualizar status */}
-                                                            <div className="flex justify-center">
+                                                            <div className="flex justify-center mt-6">
                                                                 <Button
                                                                     variant="outline"
                                                                     onClick={() => checkIntegrationStatus(bot)}
                                                                     disabled={checkingStatus === bot.id}
-                                                                    className="border-white/10 hover:bg-white/5 text-gray-400"
+                                                                    className="border-neutral-200 dark:border-white/10 hover:bg-neutral-100 dark:hover:bg-white/5 text-neutral-600 dark:text-gray-400"
                                                                 >
                                                                     {checkingStatus === bot.id ? (
                                                                         <Loader2 className="h-4 w-4 animate-spin mr-2" />

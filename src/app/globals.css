@@ -44,88 +44,93 @@
 }
 
 :root {
-  /* Default to Dark Mode values (Cyberpunk/Dark Theme) with oklch syntax */
-  --background: oklch(0.12 0.05 264);
-  /* Very dark blue */
-  --foreground: oklch(0.985 0 0);
+  /* Light Mode Defaults */
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.12 0.05 264);
 
-  --card: oklch(0.18 0.04 264);
-  --card-foreground: oklch(0.985 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.12 0.05 264);
 
-  --popover: oklch(0.18 0.04 264);
-  --popover-foreground: oklch(0.985 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.12 0.05 264);
 
-  --primary: oklch(0.6 0.3 290);
-  /* Neon Purple */
+  --primary: oklch(0.6 0.3 290); /* Neon Purple */
   --primary-foreground: oklch(0.985 0 0);
 
-  --secondary: oklch(0.25 0.03 264);
-  --secondary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.96 0.01 264);
+  --secondary-foreground: oklch(0.2 0.05 264);
 
-  --muted: oklch(0.25 0.03 264);
-  --muted-foreground: oklch(0.7 0.02 264);
+  --muted: oklch(0.96 0.01 264);
+  --muted-foreground: oklch(0.45 0.02 264);
 
-  --accent: oklch(0.25 0.03 264);
-  --accent-foreground: oklch(0.985 0 0);
+  --accent: oklch(0.96 0.01 264);
+  --accent-foreground: oklch(0.2 0.05 264);
 
   --destructive: oklch(0.4 0.15 20);
   --destructive-foreground: oklch(0.985 0 0);
 
-  --border: oklch(0.4 0.03 264);
-  --input: oklch(0.3 0.03 264);
+  --border: oklch(0.92 0.01 264);
+  --input: oklch(0.92 0.01 264);
   --ring: oklch(0.6 0.3 290);
 
   --radius: 0.5rem;
 
-  /* Chart Colors */
+  /* Chart Colors for Light Mode */
   --chart-1: oklch(0.6 0.3 290);
-  /* Purple */
-  --chart-2: oklch(0.7 0.2 200);
-  /* Cyan */
-  --chart-3: oklch(0.6 0.3 330);
-  /* Pink */
-  --chart-4: oklch(0.8 0.2 80);
-  /* Yellow */
-  --chart-5: oklch(0.6 0.2 30);
-  /* Red */
+  --chart-2: oklch(0.5 0.2 200);
+  --chart-3: oklch(0.5 0.3 330);
+  --chart-4: oklch(0.7 0.2 80);
+  --chart-5: oklch(0.5 0.2 30);
 
-  /* Sidebar */
-  --sidebar: oklch(0.12 0.05 264);
-  --sidebar-foreground: oklch(0.985 0 0);
+  /* Sidebar Light Mode */
+  --sidebar: oklch(0.98 0.01 264);
+  --sidebar-foreground: oklch(0.2 0.05 264);
   --sidebar-primary: oklch(0.6 0.3 290);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.25 0.03 264);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.3 0.03 264);
+  --sidebar-accent: oklch(0.94 0.02 264);
+  --sidebar-accent-foreground: oklch(0.2 0.05 264);
+  --sidebar-border: oklch(0.92 0.01 264);
   --sidebar-ring: oklch(0.6 0.3 290);
 }
 
 .dark {
-  /* Explicit dark mode override if needed, but defaults are already dark */
+  /* Dark Mode Override (Cyberpunk/Dark Theme) */
   --background: oklch(0.12 0.05 264);
   --foreground: oklch(0.985 0 0);
+
   --card: oklch(0.18 0.04 264);
   --card-foreground: oklch(0.985 0 0);
+
   --popover: oklch(0.18 0.04 264);
   --popover-foreground: oklch(0.985 0 0);
+
   --primary: oklch(0.6 0.3 290);
   --primary-foreground: oklch(0.985 0 0);
+
   --secondary: oklch(0.25 0.03 264);
   --secondary-foreground: oklch(0.985 0 0);
+
   --muted: oklch(0.25 0.03 264);
   --muted-foreground: oklch(0.7 0.02 264);
+
   --accent: oklch(0.25 0.03 264);
   --accent-foreground: oklch(0.985 0 0);
+
   --destructive: oklch(0.4 0.15 20);
   --destructive-foreground: oklch(0.985 0 0);
+
   --border: oklch(0.4 0.03 264);
   --input: oklch(0.3 0.03 264);
   --ring: oklch(0.6 0.3 290);
+
+  /* Chart Colors */
   --chart-1: oklch(0.6 0.3 290);
   --chart-2: oklch(0.7 0.2 200);
   --chart-3: oklch(0.6 0.3 330);
   --chart-4: oklch(0.8 0.2 80);
   --chart-5: oklch(0.6 0.2 30);
+
+  /* Sidebar */
   --sidebar: oklch(0.12 0.05 264);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.6 0.3 290);

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, ArrowRight, Sparkles } from "lucide-react";
 import { TrackGramLogo } from "@/components/ui/trackgram-logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -89,41 +90,39 @@ export default function LoginPage() {
   ];
 
   return (
-    <div className="min-h-screen w-full flex bg-black">
+    <div className="min-h-screen w-full flex bg-white dark:bg-black transition-colors duration-300">
       {/* Left Column - Form */}
       <div className="flex-1 flex items-center justify-center p-8 relative">
+        <div className="absolute top-6 right-6 z-20">
+          <ThemeToggle />
+        </div>
+        
         {/* Subtle gradient background */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-violet-900/20 rounded-full blur-[100px]" />
-          <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-fuchsia-900/10 rounded-full blur-[100px]" />
+          <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-violet-200/40 dark:bg-violet-900/20 rounded-full blur-[100px]" />
+          <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-fuchsia-200/40 dark:bg-fuchsia-900/10 rounded-full blur-[100px]" />
         </div>
 
         <div className="w-full max-w-md relative z-10">
           {/* Logo */}
-          <div className="flex items-center gap-3 mb-10">
-            <div className="shadow-lg shadow-violet-500/30 rounded-xl overflow-hidden">
-              <TrackGramLogo size={48} />
-            </div>
-            <div>
-              <h2 className="text-white font-bold text-xl leading-none tracking-tight">TrackGram</h2>
-              <span className="text-[10px] text-violet-400 font-medium tracking-widest uppercase">Analytics</span>
-            </div>
+          <div className="flex items-center justify-start mb-10">
+            <TrackGramLogo iconSize={60} textSize={28} />
           </div>
 
           {/* Title */}
           <div className="mb-8">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight">
+            <h1 className="text-4xl md:text-5xl font-bold text-neutral-900 dark:text-white mb-3 tracking-tight">
               {mode === "login" ? (
                 <>
-                  Bem-vindo de <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">volta</span>
+                  Bem-vindo de <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-fuchsia-500 dark:from-violet-400 dark:to-fuchsia-400">volta</span>
                 </>
               ) : (
                 <>
-                  Crie sua <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">conta</span>
+                  Crie sua <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-fuchsia-500 dark:from-violet-400 dark:to-fuchsia-400">conta</span>
                 </>
               )}
             </h1>
-            <p className="text-gray-400">
+            <p className="text-neutral-500 dark:text-gray-400">
               {mode === "login"
                 ? "Entre na sua conta para acessar o dashboard"
                 : "Comece a rastrear seus resultados hoje"}
@@ -134,7 +133,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Email</label>
+              <label className="block text-sm font-medium text-neutral-600 dark:text-gray-400 mb-2">Email</label>
               <div className="relative">
                 <input
                   type="email"
@@ -142,14 +141,14 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="seu@email.com"
                   required
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder:text-gray-500 focus:outline-none focus:border-violet-500 focus:bg-violet-500/5 transition-all"
+                  className="w-full bg-neutral-50 border border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus:bg-white dark:bg-white/5 dark:border-white/10 dark:text-white dark:placeholder:text-gray-500 dark:focus:bg-violet-500/5 rounded-xl px-4 py-3.5 focus:outline-none focus:border-violet-500 transition-all"
                 />
               </div>
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Senha</label>
+              <label className="block text-sm font-medium text-neutral-600 dark:text-gray-400 mb-2">Senha</label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -157,12 +156,12 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 pr-12 text-white placeholder:text-gray-500 focus:outline-none focus:border-violet-500 focus:bg-violet-500/5 transition-all"
+                  className="w-full bg-neutral-50 border border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus:bg-white dark:bg-white/5 dark:border-white/10 dark:text-white dark:placeholder:text-gray-500 dark:focus:bg-violet-500/5 rounded-xl px-4 py-3.5 pr-12 focus:outline-none focus:border-violet-500 transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-gray-500 dark:hover:text-white transition-colors"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -172,7 +171,7 @@ export default function LoginPage() {
             {/* Confirm Password (only for register) */}
             {mode === "register" && (
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Confirmar Senha</label>
+                <label className="block text-sm font-medium text-neutral-600 dark:text-gray-400 mb-2">Confirmar Senha</label>
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
@@ -180,7 +179,7 @@ export default function LoginPage() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 pr-12 text-white placeholder:text-gray-500 focus:outline-none focus:border-violet-500 focus:bg-violet-500/5 transition-all"
+                    className="w-full bg-neutral-50 border border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus:bg-white dark:bg-white/5 dark:border-white/10 dark:text-white dark:placeholder:text-gray-500 dark:focus:bg-violet-500/5 rounded-xl px-4 py-3.5 pr-12 focus:outline-none focus:border-violet-500 transition-all"
                   />
                 </div>
               </div>
@@ -194,11 +193,11 @@ export default function LoginPage() {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded border-white/20 bg-white/5 text-violet-500 focus:ring-violet-500 focus:ring-offset-0"
+                    className="w-4 h-4 rounded border-neutral-300 bg-neutral-100 dark:border-white/20 dark:bg-white/5 text-violet-500 focus:ring-violet-500 focus:ring-offset-0"
                   />
-                  <span className="text-gray-400 group-hover:text-white transition-colors">Lembrar de mim</span>
+                  <span className="text-neutral-500 group-hover:text-neutral-900 dark:text-gray-400 dark:group-hover:text-white transition-colors">Lembrar de mim</span>
                 </label>
-                <button type="button" className="text-violet-400 hover:text-violet-300 transition-colors">
+                <button type="button" className="text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300 transition-colors">
                   Esqueceu a senha?
                 </button>
               </div>
@@ -222,13 +221,13 @@ export default function LoginPage() {
           </form>
 
           {/* Toggle Mode */}
-          <p className="text-center text-gray-400 mt-8">
+          <p className="text-center text-neutral-500 dark:text-gray-400 mt-8">
             {mode === "login" ? (
               <>
                 Não tem uma conta?{" "}
                 <button
                   onClick={() => setMode("register")}
-                  className="text-violet-400 hover:text-violet-300 font-medium transition-colors"
+                  className="text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300 font-medium transition-colors"
                 >
                   Criar conta
                 </button>
@@ -238,7 +237,7 @@ export default function LoginPage() {
                 Já tem uma conta?{" "}
                 <button
                   onClick={() => setMode("login")}
-                  className="text-violet-400 hover:text-violet-300 font-medium transition-colors"
+                  className="text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300 font-medium transition-colors"
                 >
                   Fazer login
                 </button>
@@ -250,7 +249,7 @@ export default function LoginPage() {
 
       {/* Right Column - Hero */}
       <div className="hidden lg:flex flex-1 relative p-6">
-        <div className="absolute inset-6 rounded-3xl overflow-hidden bg-gradient-to-br from-violet-900/40 via-fuchsia-900/30 to-violet-900/40 border border-white/10">
+        <div className="absolute inset-6 rounded-3xl overflow-hidden bg-neutral-900 dark:bg-black bg-gradient-to-br from-violet-900/40 via-fuchsia-900/30 to-violet-900/40 border border-white/10 shadow-2xl">
           {/* Decorative elements */}
           <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-20" />
           <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-violet-500/30 rounded-full blur-[80px]" />

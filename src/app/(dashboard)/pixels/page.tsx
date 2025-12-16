@@ -146,9 +146,9 @@ export default function PixelsPage() {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <PageHeader title="Pixels do Facebook" description="Gerencie seus Pixels para rastreamento de conversões via API (CAPI).">
-                 <div className="flex items-center gap-4">
-                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs text-gray-400">
-                    <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-gray-500"} animate-pulse`} />
+                <div className="flex items-center gap-4">
+                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-neutral-100 dark:bg-white/5 rounded-full border border-neutral-200 dark:border-white/10 text-xs text-neutral-500 dark:text-gray-400">
+                    <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-neutral-400 dark:bg-gray-500"} animate-pulse`} />
                     {!isSubscribed 
                         ? "0 / 0 pixels"
                         : planLimits?.pixels === 9999 
@@ -175,46 +175,46 @@ export default function PixelsPage() {
                         setFormData({ name: "", pixel_id: "", access_token: "" });
                         setOpen(true);
                     }}
-                    className="bg-white text-black hover:bg-gray-200 gap-2 font-bold"
+                    className="bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-gray-200 gap-2 font-bold"
                 >
                     <Plus className="h-4 w-4" />
                     Novo Pixel
                 </Button>
 
                 <Dialog open={open} onOpenChange={setOpen}>
-                    <DialogContent className="bg-[#0a0a0a] border-white/10 text-white sm:max-w-[425px]">
+                    <DialogContent className="bg-white dark:bg-[#0a0a0a] border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white sm:max-w-[425px]">
                         <DialogHeader>
-                            <DialogTitle className="text-white">Novo Pixel do Facebook</DialogTitle>
+                            <DialogTitle className="text-neutral-900 dark:text-white">Novo Pixel do Facebook</DialogTitle>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="name" className="text-gray-400">Nome de Identificação</Label>
+                                <Label htmlFor="name" className="text-neutral-500 dark:text-gray-400">Nome de Identificação</Label>
                                 <Input
                                     id="name"
                                     placeholder="Ex: Pixel Principal"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
+                                    className="bg-neutral-100 dark:bg-black/40 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-gray-700"
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="pixel_id" className="text-gray-400">Pixel ID</Label>
+                                <Label htmlFor="pixel_id" className="text-neutral-500 dark:text-gray-400">Pixel ID</Label>
                                 <Input
                                     id="pixel_id"
                                     placeholder="1234567890"
                                     value={formData.pixel_id}
                                     onChange={(e) => setFormData({ ...formData, pixel_id: e.target.value })}
-                                    className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
+                                    className="bg-neutral-100 dark:bg-black/40 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-gray-700"
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="token" className="text-gray-400">Access Token (CAPI)</Label>
+                                <Label htmlFor="token" className="text-neutral-500 dark:text-gray-400">Access Token (CAPI)</Label>
                                 <Input
                                     id="token"
                                     placeholder="EAAB..."
                                     value={formData.access_token}
                                     onChange={(e) => setFormData({ ...formData, access_token: e.target.value })}
-                                     className="bg-black/40 border-white/10 text-white placeholder:text-gray-700"
+                                     className="bg-neutral-100 dark:bg-black/40 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-gray-700"
                                 />
                             </div>
                         </div>
@@ -229,9 +229,9 @@ export default function PixelsPage() {
                 </Dialog>
             </PageHeader>
 
-            <div className="bg-[#0a0a0a]/60 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden">
+            <div className="bg-white/60 dark:bg-[#0a0a0a]/60 backdrop-blur-xl border border-neutral-200 dark:border-white/5 rounded-2xl overflow-hidden">
                 <table className="w-full text-sm text-left">
-                    <thead className="text-xs text-gray-500 uppercase bg-white/5 border-b border-white/5">
+                    <thead className="text-xs text-neutral-500 dark:text-gray-500 uppercase bg-neutral-50 dark:bg-white/5 border-b border-neutral-200 dark:border-white/5">
                         <tr>
                             <th className="px-6 py-4 font-medium">Nome</th>
                             <th className="px-6 py-4 font-medium">Pixel ID</th>
@@ -239,7 +239,7 @@ export default function PixelsPage() {
                             <th className="px-6 py-4 font-medium text-right">Ações</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody className="divide-y divide-neutral-100 dark:divide-white/5">
                         {loading ? (
                              <tr>
                                 <td colSpan={4} className="px-6 py-8 text-center text-violet-500">
@@ -254,15 +254,15 @@ export default function PixelsPage() {
                             </tr>
                         ) : (
                             pixels.map((pixel) => (
-                                <tr key={pixel.id} className="hover:bg-white/5 transition-colors group text-gray-300">
-                                    <td className="px-6 py-4 font-medium text-white flex items-center gap-3">
-                                        <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+                                <tr key={pixel.id} className="hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors group text-neutral-700 dark:text-gray-300">
+                                    <td className="px-6 py-4 font-medium text-neutral-900 dark:text-white flex items-center gap-3">
+                                        <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
                                             <BarChart2 className="h-4 w-4" />
                                         </div>
                                         {pixel.name}
                                     </td>
-                                    <td className="px-6 py-4 text-gray-400 font-mono text-xs">{pixel.pixel_id}</td>
-                                    <td className="px-6 py-4 text-gray-500 font-mono text-xs max-w-[150px] truncate">
+                                    <td className="px-6 py-4 text-neutral-500 dark:text-gray-400 font-mono text-xs">{pixel.pixel_id}</td>
+                                    <td className="px-6 py-4 text-neutral-500 dark:text-gray-500 font-mono text-xs max-w-[150px] truncate">
                                         {pixel.access_token.substring(0, 10)}...
                                     </td>
                                     <td className="px-6 py-4 text-right">
@@ -270,7 +270,7 @@ export default function PixelsPage() {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="hover:bg-white/10 hover:text-white text-gray-400"
+                                                className="hover:bg-neutral-100 dark:hover:bg-white/10 hover:text-neutral-900 dark:hover:text-white text-neutral-400 dark:text-gray-400"
                                                 onClick={() => handleEdit(pixel)}
                                             >
                                                 <Pencil className="h-4 w-4" />
@@ -278,7 +278,7 @@ export default function PixelsPage() {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="hover:bg-red-500/10 hover:text-red-400 text-gray-500"
+                                                className="hover:bg-red-500/10 hover:text-red-400 text-neutral-400 dark:text-gray-500"
                                                 onClick={() => handleDelete(pixel.id)}
                                             >
                                                 <Trash2 className="h-4 w-4" />
