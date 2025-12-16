@@ -150,3 +150,10 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* View Transition Styles */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}

@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import { TrackGramLogo } from "@/components/ui/trackgram-logo";
 import { useSubscription } from "@/hooks/use-subscription";
 import { differenceInDays, parseISO } from "date-fns";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 
 const menuItems = [
     { id: "dashboard", label: "Dashboard", href: "/", icon: LayoutGrid },
@@ -137,7 +137,7 @@ export function NewSidebar() {
         
         <div className="flex items-center gap-2 mb-2 px-4">
              <div className="text-xs text-neutral-500 dark:text-gray-500 font-medium">Tema</div>
-             <ThemeToggle className="ml-auto" />
+             <AnimatedThemeToggler className="ml-auto p-2" />
         </div>
 
         {user ? (

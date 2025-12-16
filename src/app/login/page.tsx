@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, ArrowRight, Sparkles } from "lucide-react";
 import { TrackGramLogo } from "@/components/ui/trackgram-logo";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -94,7 +94,7 @@ export default function LoginPage() {
       {/* Left Column - Form */}
       <div className="flex-1 flex items-center justify-center p-8 relative">
         <div className="absolute top-6 right-6 z-20">
-          <ThemeToggle />
+          <AnimatedThemeToggler className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors" />
         </div>
         
         {/* Subtle gradient background */}
