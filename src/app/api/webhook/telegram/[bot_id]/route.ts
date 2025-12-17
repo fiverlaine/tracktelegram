@@ -314,6 +314,7 @@ export async function POST(
                         visitor_id: visitorId,
                         event_type: "join",
                         metadata: {
+                            ...(eventData?.metadata || {}), // Merge UTMs and other metadata
                             source: "telegram_webhook",
                             telegram_user_id: telegramUserId,
                             telegram_username: telegramUsername,
@@ -421,7 +422,7 @@ export async function POST(
 
                                 if (welcomeSettings) {
                                     console.log(`[Webhook] Configuração de boas-vindas encontrada. Enviando...`);
-                                    
+
                                     // Preparar mensagem
                                     let messageText = welcomeSettings.message_text || "";
                                     const firstName = chatMember.new_chat_member?.user?.first_name || "Visitante";
@@ -446,7 +447,7 @@ export async function POST(
                                     });
 
                                     const result = await response.json();
-                                    
+
                                     // Logar envio
                                     await supabase.from("telegram_message_logs").insert({
                                         funnel_id: funnelId,
@@ -570,7 +571,7 @@ export async function POST(
                     if (uniquePixels.length > 0) {
                         console.log(`[Webhook] Disparando CAPI SaidaDeCanal para ${uniquePixels.length} pixels...`);
 
-                         const capiPromises = uniquePixels.map(async (pixelData) => {
+                        const capiPromises = uniquePixels.map(async (pixelData) => {
                             if (!pixelData?.access_token || !pixelData?.pixel_id) return;
 
                             try {

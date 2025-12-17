@@ -25,11 +25,11 @@ export async function POST(request: Request) {
         // Só processar eventos que tenham origem confirmada do Facebook (fbclid na URL ou cookie fbc)
         // Isso evita "sujar" o banco com tráfego orgânico/direto que não queremos rastrear neste sistema.
         const hasAdOrigin = metadata?.fbclid || metadata?.fbc;
-        
+
         // --- MUDANÇA: Capturar orgânico no DB, mas não no CAPI ---
         // Removido o bloqueio anterior. Agora todos passam para o DB.
         // A filtragem será feita apenas no momento de chamar o sendCAPIEvent
-        
+
         // --------------------------------
 
         const supabase = createClient(
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
         // Deduplicação: Verificar se já existe evento recente (5 min)
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-        
+
         const { data: recentEvents } = await supabase
             .from("events")
             .select("id")
@@ -57,11 +57,13 @@ export async function POST(request: Request) {
 
         // 1. Buscar Pixels vinculados ao dominio (Multi-Pixel Support)
         let pixelsToFire: any[] = [];
+        let funnelId: string | null = null;
 
         if (domain_id) {
             const { data: domain, error: domainError } = await supabase
                 .from("domains")
                 .select(`
+                    funnel_id,
                     pixels:pixels!domains_pixel_id_fkey (
                         id,
                         pixel_id,
@@ -79,6 +81,11 @@ export async function POST(request: Request) {
                 .single();
 
             if (domain) {
+                // 0. Set Funnel ID if available
+                if (domain.funnel_id) {
+                    funnelId = domain.funnel_id;
+                }
+
                 // 1. Legacy/Primary Pixel
                 if (domain.pixels) {
                     const legacyPixel = Array.isArray(domain.pixels) ? domain.pixels[0] : domain.pixels;
@@ -103,7 +110,7 @@ export async function POST(request: Request) {
         const { error } = await supabase.from("events").insert({
             visitor_id,
             event_type,
-            funnel_id: null, // Pageview generico nao tem funil ainda
+            funnel_id: funnelId, // Agora usamos o ID do funil associado ao domínio
             metadata: {
                 ...metadata,
                 domain_id,
@@ -120,9 +127,9 @@ export async function POST(request: Request) {
         if (event_type === 'pageview' && uniquePixels.length > 0 && hasAdOrigin) {
             // Aguarda o envio para garantir que a Vercel/Serverless não mate o processo antes de terminar
             const capiPromises = uniquePixels.map(pixelData => {
-                 if (!pixelData.access_token || !pixelData.pixel_id) return Promise.resolve();
-                 
-                 return sendCAPIEvent(
+                if (!pixelData.access_token || !pixelData.pixel_id) return Promise.resolve();
+
+                return sendCAPIEvent(
                     pixelData.access_token,
                     pixelData.pixel_id,
                     "PageView",
@@ -132,7 +139,7 @@ export async function POST(request: Request) {
                         user_agent: metadata?.user_agent,
                         ip_address: metadata?.ip_address,
                         external_id: visitor_id,
-                        country: metadata?.country, 
+                        country: metadata?.country,
                         st: metadata?.region,
                         ct: metadata?.city,
                         zp: metadata?.postal_code // Fix: Mapeando CEP
