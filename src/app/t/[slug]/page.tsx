@@ -82,16 +82,19 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
             // Isso reduz o tempo de espera do usuário significativamente
 
             // 1. Promise do Log (Tratamos o erro aqui para não bloquear o redirecionamento)
-            const logPromise = supabase.from("events").insert({
-                funnel_id: funnel.id,
-                visitor_id: vid,
-                event_type: "click",
-                metadata: clickData
-            }).then(({ error }) => {
-                if (error) console.error("[SSR] Erro ao logar clique:", error);
-            }).catch(err => {
-                console.error("[SSR] Erro de exceção ao logar clique:", err);
-            });
+            const logPromise = (async () => {
+                try {
+                    const { error } = await supabase.from("events").insert({
+                        funnel_id: funnel.id,
+                        visitor_id: vid,
+                        event_type: "click",
+                        metadata: clickData
+                    });
+                    if (error) console.error("[SSR] Erro ao logar clique:", error);
+                } catch (err) {
+                    console.error("[SSR] Erro de exceção ao logar clique:", err);
+                }
+            })();
 
             // 2. Promise do Convite (Essencial para o redirecionamento)
             const invitePromise = generateTelegramInvite({
