@@ -1,57 +1,62 @@
 import { createClient } from "@supabase/supabase-js";
 
 export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-    let pixelCode = "";
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+  let pixelCode = "";
+  let forcedSlug = "";
 
-    // Se tiver ID de domínio, buscar configurações
-    if (id) {
-        try {
-            const supabase = createClient(
-                process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-            );
-            
-            // Buscar domínio e pixels associados (Multi-Pixel)
-            const { data: domain } = await supabase
-                .from("domains")
-                .select(`
+  // Se tiver ID de domínio, buscar configurações
+  if (id) {
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      // Buscar domínio e pixels associados (Multi-Pixel)
+      const { data: domain } = await supabase
+        .from("domains")
+        .select(`
                     id,
+                    funnel_id,
+                    funnels ( slug ),
                     pixels:pixels!domains_pixel_id_fkey (pixel_id),
                     domain_pixels (
                         pixels (pixel_id)
                     )
                 `)
-                .eq("id", id)
-                .single();
+        .eq("id", id)
+        .single();
 
-            // Collect Pixel IDs
-            const pixelIds = new Set<string>();
-            
-            // Legacy/Primary
-            const legacyPixel = domain?.pixels as any;
-            if (legacyPixel?.pixel_id) {
-                pixelIds.add(legacyPixel.pixel_id);
-            }
+      // Collect Pixel IDs
+      const pixelIds = new Set<string>();
 
-            // Multi-pixels
-            if (domain?.domain_pixels && Array.isArray(domain.domain_pixels)) {
-                domain.domain_pixels.forEach((dp: any) => {
-                    if (dp.pixels?.pixel_id) {
-                        pixelIds.add(dp.pixels.pixel_id);
-                    }
-                });
-            }
+      // Legacy/Primary
+      const legacyPixel = domain?.pixels as any;
+      if (legacyPixel?.pixel_id) {
+        pixelIds.add(legacyPixel.pixel_id);
+      }
 
-            // Se tiver pixels, injetar código
-            if (pixelIds.size > 0) {
-                const initCodes = Array.from(pixelIds)
-                    .map(pid => `fbq('init', '${pid}');`)
-                    .join('\n');
+      // Multi-pixels
+      if (domain?.domain_pixels && Array.isArray(domain.domain_pixels)) {
+        domain.domain_pixels.forEach((dp: any) => {
+          if (dp.pixels?.pixel_id) {
+            pixelIds.add(dp.pixels.pixel_id);
+          }
+        });
+      }
 
-                
-                pixelCode = `
+      forcedSlug = (domain as any)?.funnels?.slug || "";
+
+      // Se tiver pixels, injetar código
+      if (pixelIds.size > 0) {
+        const initCodes = Array.from(pixelIds)
+          .map(pid => `fbq('init', '${pid}');`)
+          .join('\n');
+
+
+        pixelCode = `
 // --- Auto-Injected Facebook Pixel ---
 !function(f,b,e,v,n,t,s)
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -68,17 +73,17 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
 }
 // ------------------------------------
 `;
-            }
-        } catch (err) {
+      }
+    } catch (err) {
 
-        }
     }
+  }
 
-    const scriptContent = `
+  const scriptContent = `
 (function() {
   ${pixelCode}
 
-
+  const FORCED_SLUG = "${forcedSlug}";
 
   // 1. Helper Functions
   function generateUUID() {
@@ -201,6 +206,16 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
           }
         }
 
+        // FORCE FUNNEL SLUG (Se configurado no domínio)
+        if (FORCED_SLUG && url.pathname.includes('/t/')) {
+             // Substituir qualquer slug pelo slug forçado
+             // Ex: /t/funnel-antigo -> /t/funnel-novo
+             const pathParts = url.pathname.split('/t/');
+             if (pathParts.length > 1) {
+                 url.pathname = '/t/' + FORCED_SLUG;
+             }
+        }
+
         // Update href se houver mudanças
         if (links[i].getAttribute('href') !== url.toString()) {
             links[i].setAttribute('href', url.toString());
@@ -280,11 +295,11 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
 })();
 `;
 
-    return new Response(scriptContent, {
-        headers: {
-            'Content-Type': 'application/javascript',
-            'Cache-Control': 'no-store, max-age=0',
-            'Access-Control-Allow-Origin': '*',
-        },
-    });
+  return new Response(scriptContent, {
+    headers: {
+      'Content-Type': 'application/javascript',
+      'Cache-Control': 'no-store, max-age=0',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
 }
