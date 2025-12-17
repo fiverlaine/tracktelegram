@@ -541,20 +541,33 @@ export async function POST(
                     const uniquePixels = Array.from(new Map(pixelsToFire.map(p => [p.pixel_id, p])).values());
 
                     // 2. Buscar Metadata (fbc, fbp, ip, geo) do Vistor
-                    // Tentamos pegar do evento mais recente (provavelmente o 'join' ou 'click')
-                    const { data: eventData } = await supabase
+                    // Buscar os últimos 5 eventos para garantir que pegamos metadados completos
+                    const { data: eventsList } = await supabase
                         .from("events")
                         .select("metadata")
                         .eq("visitor_id", linkData.visitor_id)
-                        .in("event_type", ["join", "click", "pageview"])
+                        .in("event_type", ["click", "pageview"])
                         .order("created_at", { ascending: false })
-                        .limit(1)
-                        .single();
+                        .limit(5);
 
-                    const metadata = eventData?.metadata;
+                    let metadata: any = {};
+
+                    if (eventsList && eventsList.length > 0) {
+                        for (const ev of eventsList) {
+                            const m = ev.metadata || {};
+                            if (!metadata.fbc && m.fbc) metadata.fbc = m.fbc;
+                            if (!metadata.fbp && m.fbp) metadata.fbp = m.fbp;
+                            if (!metadata.user_agent && m.user_agent) metadata.user_agent = m.user_agent;
+                            if (!metadata.ip_address && m.ip_address) metadata.ip_address = m.ip_address;
+                            if (!metadata.city && m.city) metadata.city = m.city;
+                            if (!metadata.region && m.region) metadata.region = m.region;
+                            if (!metadata.country && m.country) metadata.country = m.country;
+                            if (!metadata.postal_code && m.postal_code) metadata.postal_code = m.postal_code;
+                        }
+                    }
 
                     // 3. Disparar CAPI "SaidaDeCanal"
-                    if (uniquePixels.length > 0 && metadata) {
+                    if (uniquePixels.length > 0) {
                         console.log(`[Webhook] Disparando CAPI SaidaDeCanal para ${uniquePixels.length} pixels...`);
 
                          const capiPromises = uniquePixels.map(async (pixelData) => {

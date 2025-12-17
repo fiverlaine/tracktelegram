@@ -71,112 +71,68 @@ export default function DashboardPage() {
   async function fetchData() {
     setLoading(true);
     
-    // Build query with filters
-    let query = supabase.from("events").select("event_type, created_at, funnel_id, metadata");
+    try {
+      // 1. Determine Date Range
+      const end = dateRange?.to ? endOfDay(dateRange.to) : endOfDay(new Date());
+      const start = dateRange?.from ? startOfDay(dateRange.from) : startOfDay(subDays(end, 6));
 
-    // Date filter
-    if (dateRange?.from) {
-      query = query.gte("created_at", startOfDay(dateRange.from).toISOString());
-    }
-    if (dateRange?.to) {
-      query = query.lte("created_at", endOfDay(dateRange.to).toISOString());
-    }
+      // 2. Call RPC
+      const { data, error } = await supabase.rpc('get_dashboard_metrics', {
+        p_start_date: start.toISOString(),
+        p_end_date: end.toISOString(),
+        p_funnel_id: selectedFunnel !== "all" ? selectedFunnel : null,
+        p_pixel_id: selectedPixel !== "all" ? selectedPixel : null
+      });
 
-    // Funnel filter
-    if (selectedFunnel !== "all") {
-      query = query.eq("funnel_id", selectedFunnel);
-    }
-
-    const { data: events, error } = await query;
-
-    if (error) {
-      console.error(error);
-      setLoading(false);
-      return;
-    }
-
-    // Filter by pixel (need to get funnels that use this pixel)
-    let filteredEvents = events || [];
-    if (selectedPixel !== "all") {
-      // Get funnel IDs that use this pixel
-      const { data: funnelIds } = await supabase
-        .from("funnels")
-        .select("id")
-        .eq("pixel_id", selectedPixel);
-      
-      const validFunnelIds = funnelIds?.map(f => f.id) || [];
-      filteredEvents = filteredEvents.filter(e => validFunnelIds.includes(e.funnel_id));
-    }
-
-    const counts = {
-      pageviews: 0,
-      clicks: 0,
-      joins: 0,
-      leaves: 0
-    };
-
-    const dailyStats: Record<string, typeof counts> = {};
-
-    // 1. Generate all days in the range (Default: Last 7 days)
-    const end = dateRange?.to || new Date();
-    const start = dateRange?.from || subDays(end, 6);
-    
-    // Normalize dates to avoid discrepancies
-    const rangeDays = eachDayOfInterval({ 
-        start: startOfDay(start), 
-        end: endOfDay(end) 
-    });
-
-    // Initialize stats with 0 for all days
-    rangeDays.forEach(day => {
-        const isoDate = format(day, "yyyy-MM-dd");
-        dailyStats[isoDate] = { pageviews: 0, clicks: 0, joins: 0, leaves: 0 };
-    });
-
-    filteredEvents.forEach((event: any) => {
-      // Calculate totals
-      if (event.event_type === "pageview") counts.pageviews++;
-      if (event.event_type === "click") counts.clicks++;
-      if (event.event_type === "join") counts.joins++;
-      if (event.event_type === "leave") counts.leaves++;
-
-      // Calculate daily stats
-      const eventDate = new Date(event.created_at);
-      const isoDate = format(eventDate, "yyyy-MM-dd");
-      
-      // Safety check if event date is inside range
-      if (dailyStats[isoDate]) {
-          if (event.event_type === "pageview") dailyStats[isoDate].pageviews++;
-          if (event.event_type === "click") dailyStats[isoDate].clicks++;
-          if (event.event_type === "join") dailyStats[isoDate].joins++;
-          if (event.event_type === "leave") dailyStats[isoDate].leaves++;
+      if (error) {
+        console.error("Error fetching dashboard metrics:", error);
+        setLoading(false);
+        return;
       }
-    });
 
-    setMetrics(counts);
+      // 3. Process Totals
+      if (data?.totals) {
+        setMetrics(data.totals);
+      }
 
-    // Prepare sorted chart data
-    const chart = Object.keys(dailyStats)
-      .sort()
-      .map(isoDate => {
-        const dStats = dailyStats[isoDate];
-        const retentionRateVal = dStats.joins > 0 ? (dStats.joins - dStats.leaves) / dStats.joins : 0;
+      // 4. Process Chart Data (Merge with complete date interval to fill empty days)
+      const rangeDays = eachDayOfInterval({ start, end });
+      const dailyMap = new Map();
+      
+      // Index RPC results by date
+      if (Array.isArray(data?.daily)) {
+        data.daily.forEach((day: any) => {
+           // RPC returns full timestamp, we need YYYY-MM-DD
+           const dateKey = format(new Date(day.date), "yyyy-MM-dd");
+           dailyMap.set(dateKey, day);
+        });
+      }
+
+      const chart = rangeDays.map(day => {
+        const isoDate = format(day, "yyyy-MM-dd");
+        const stats = dailyMap.get(isoDate) || { pageviews: 0, clicks: 0, joins: 0, leaves: 0 };
         
+        const retentionRateVal = stats.joins > 0 ? (stats.joins - stats.leaves) / stats.joins : 0;
+
         return {
-          name: format(new Date(isoDate), "dd/MM"),
-          date: format(new Date(isoDate), "dd/MM"),
+          name: format(day, "dd/MM"),
+          date: format(day, "dd/MM"),
           rawDate: isoDate,
-          pageviews: dStats.pageviews,
-          clicks: dStats.clicks,
-          joins: dStats.joins,
-          leaves: dStats.leaves,
+          pageviews: stats.pageviews,
+          clicks: stats.clicks,
+          joins: stats.joins,
+          leaves: stats.leaves,
           retencao: Math.round(retentionRateVal * 100) + "%",
           status: retentionRateVal < 0.5 ? 'low' : retentionRateVal < 0.8 ? 'med' : 'high'
         };
       });
 
-    setChartData(chart);
-    setLoading(false);
+      setChartData(chart);
+    } catch (err) {
+      console.error("Unexpected error:", err);
+    } finally {
+      setLoading(false);
+    }
   }
   
   // Calculate Rates for Cards

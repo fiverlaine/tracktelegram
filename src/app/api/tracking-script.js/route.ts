@@ -225,6 +225,11 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
         fbc: fbc,
         fbp: fbp,
         fbclid: fbclid,
+        utm_source: utmSource || localStorage.getItem('track_utm_source'),
+        utm_medium: utmMedium || localStorage.getItem('track_utm_medium'),
+        utm_campaign: utmCampaign || localStorage.getItem('track_utm_campaign'),
+        utm_content: utmContent || localStorage.getItem('track_utm_content'),
+        utm_term: utmTerm || localStorage.getItem('track_utm_term'),
         ...extraMetadata
       }
     };

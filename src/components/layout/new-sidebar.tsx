@@ -22,6 +22,7 @@ import { TrackGramLogo } from "@/components/ui/trackgram-logo";
 import { useSubscription } from "@/hooks/use-subscription";
 import { differenceInDays, parseISO } from "date-fns";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const menuItems = [
     { id: "dashboard", label: "Dashboard", href: "/", icon: LayoutGrid },
@@ -115,39 +116,49 @@ export function NewSidebar() {
         })}
       </div>
 
-      <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-white/5 w-full px-3">
-        {user && (
-            <div className="px-4 py-2 mb-2">
-                <div className="flex items-center justify-between mb-2">
-                    <div>
-                         <div className="text-[10px] text-neutral-500 dark:text-gray-500 uppercase tracking-wider mb-0.5">Seu Plano</div>
-                         <div className="text-sm font-semibold text-neutral-900 dark:text-white">{plan || "Gratuito"}</div>
-                    </div>
-                    {isSubscribed && subscription && (
-                        <div className="text-[10px] text-violet-600 dark:text-violet-400 bg-violet-100 dark:bg-violet-500/10 px-2 py-0.5 rounded-full border border-violet-200 dark:border-violet-500/20">
-                          {subscription.current_period_end 
-                            ? `${differenceInDays(parseISO(subscription.current_period_end), new Date())} dias`
-                            : "Vitalício"}
-                        </div>
-                    )}
-                </div>
-                <div className="text-[10px] text-neutral-500 dark:text-gray-500 truncate">{user.email}</div>
-            </div>
-        )}
-        
-        <div className="flex items-center gap-2 mb-2 px-4">
-             <div className="text-xs text-neutral-500 dark:text-gray-500 font-medium">Tema</div>
-             <AnimatedThemeToggler className="ml-auto p-2" />
-        </div>
-
+      <div className="mt-auto w-full px-3 pt-4 border-t border-neutral-200 dark:border-white/5">
         {user ? (
-            <button 
-                onClick={handleLogout}
-                className="flex items-center gap-3 w-full px-4 py-2.5 text-neutral-500 dark:text-gray-500 hover:bg-neutral-100 dark:hover:bg-white/5 hover:text-neutral-900 dark:hover:text-white rounded-xl transition-colors text-sm font-medium"
-            >
-                <LogOut size={18} />
-                <span>Sair</span>
-            </button>
+            <Popover>
+                <PopoverTrigger asChild>
+                    <div className="w-full flex items-center justify-between p-1.5 pr-2 rounded-2xl bg-neutral-50 dark:bg-white/5 hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors border border-transparent hover:border-neutral-200 dark:hover:border-white/5 cursor-pointer group select-none">
+                        {/* Left: Avatar + Info */}
+                        <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-500/20 flex items-center justify-center text-violet-600 dark:text-violet-300 font-bold text-sm shrink-0 border border-violet-200 dark:border-violet-500/20">
+                                {user?.email?.charAt(0).toUpperCase() || "U"}
+                            </div>
+                            <div className="flex flex-col min-w-0 text-left">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-sm font-bold text-neutral-900 dark:text-white truncate leading-tight">
+                                        {plan || "Gratuito"}
+                                    </span>
+                                    {/* Indicador de Status (opcional, adicionei pra dar um charme) */}
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"/>
+                                </div>
+                                <span className="text-[10px] text-neutral-500 dark:text-gray-400 truncate leading-tight w-28">
+                                    {user?.email}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Right: Theme Toggle */}
+                        <div onClick={(e) => e.stopPropagation()}>
+                            <AnimatedThemeToggler className="w-8 h-8 rounded-full bg-white dark:bg-black border border-neutral-200 dark:border-white/10 shadow-sm hover:scale-105 flex items-center justify-center" />
+                        </div>
+                    </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-1 mb-2 bg-white dark:bg-[#0A0A0A] border border-neutral-200 dark:border-white/10 shadow-xl rounded-xl" side="right" align="end" sideOffset={10}>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-neutral-500 dark:text-gray-500/50 uppercase tracking-widest mb-1">
+                        Conta
+                    </div>
+                    <button 
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 w-full px-2 py-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg text-xs font-medium transition-colors"
+                    >
+                        <LogOut size={14} />
+                        Sair da conta
+                    </button>
+                </PopoverContent>
+            </Popover>
         ) : (
             <Link href="/login" className="flex items-center gap-3 w-full px-4 py-2.5 text-neutral-900 dark:text-white hover:bg-neutral-100 dark:hover:bg-white/10 rounded-xl transition-colors text-sm font-medium">
                 <LogOut size={18} className="rotate-180" />

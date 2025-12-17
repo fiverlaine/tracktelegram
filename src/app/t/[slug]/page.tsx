@@ -78,28 +78,38 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
         let destinationUrl: string | null = null;
 
         try {
-            // Registrar clique
-            await supabase.from("events").insert({
+            // OTIMIZAÇÃO: Execução em Paralelo (Banco de Dados + API Telegram)
+            // Isso reduz o tempo de espera do usuário significativamente
+
+            // 1. Promise do Log (Tratamos o erro aqui para não bloquear o redirecionamento)
+            const logPromise = supabase.from("events").insert({
                 funnel_id: funnel.id,
                 visitor_id: vid,
-                event_type: "click", // Consideramos 'click' pois é a transição para o canal
+                event_type: "click",
                 metadata: clickData
+            }).then(({ error }) => {
+                if (error) console.error("[SSR] Erro ao logar clique:", error);
+            }).catch(err => {
+                console.error("[SSR] Erro de exceção ao logar clique:", err);
             });
 
-            // 3. Gerar Link Telegram
-            const result = await generateTelegramInvite({
+            // 2. Promise do Convite (Essencial para o redirecionamento)
+            const invitePromise = generateTelegramInvite({
                 funnelId: funnel.id,
                 visitorId: vid,
                 bot: funnel.telegram_bots,
-                createsJoinRequest: funnel.use_join_request // Passar configuração
+                createsJoinRequest: funnel.use_join_request
             });
+
+            // 3. Aguardar as duas ao mesmo tempo
+            const [, result] = await Promise.all([logPromise, invitePromise]);
 
             if (result?.invite_link) {
                 destinationUrl = result.invite_link;
             }
 
         } catch (err) {
-            console.error("[SSR] Erro no processamento:", err);
+            console.error("[SSR] Erro crítico no processamento:", err);
         }
 
         // 4. Redirecionar Imediatamente (Fora do try/catch)

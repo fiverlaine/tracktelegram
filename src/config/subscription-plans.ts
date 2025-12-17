@@ -76,7 +76,7 @@ export const plans: Plan[] = [
         features: [
             "10 Domínios Personalizados",
             "10 Pixels do Facebook",
-            "5 Canais Telegram",
+            "2 Canais Telegram",
             "Funis ilimitados",
             "Leads ilimitados",
             "Suporte Prioritário",
@@ -84,7 +84,7 @@ export const plans: Plan[] = [
         limits: {
             domains: 10,
             pixels: 10,
-            channels: 5,
+            channels: 2,
             funnels: 'unlimited',
             entries: 'unlimited'
         }
