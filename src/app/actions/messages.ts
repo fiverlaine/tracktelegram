@@ -23,7 +23,7 @@ export async function getWelcomeSettings(funnelId: string) {
         .single();
 
     // Buscar configuração do funil (use_join_request)
-    const { data: funnelData, error: funnelError } = await supabase
+    const { data: funnelData } = await supabase
         .from("funnels")
         .select("use_join_request")
         .eq("id", funnelId)
@@ -188,7 +188,7 @@ export async function sendReplyMessage(funnelId: string, telegramChatId: string,
             console.error("Error fetching funnel bot token:", funnelError);
             throw new Error(`Funnel not found or error fetching bot: ${funnelError?.message}`);
         }
-        
+
         const botData: any = funnelData.telegram_bots;
         // Handle array or single object response (Supabase relation can be tricky depending on schema)
         const botToken = Array.isArray(botData) ? botData[0]?.bot_token : botData?.bot_token;
@@ -218,7 +218,7 @@ export async function sendReplyMessage(funnelId: string, telegramChatId: string,
         const { error: insertError } = await supabase.from("telegram_message_logs").insert({
             funnel_id: funnelId,
             telegram_chat_id: telegramChatId,
-            telegram_user_name: result.result?.chat?.first_name || result.result?.chat?.username || "Bot", 
+            telegram_user_name: result.result?.chat?.first_name || result.result?.chat?.username || "Bot",
             direction: 'outbound',
             message_content: messageText,
             status: 'sent'

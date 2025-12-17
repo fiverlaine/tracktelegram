@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, Plus, Trash2, MessageSquare, Send, Smartphone, Eye, CheckCircle2, Clock, Loader2 } from "lucide-react";
+import { Save, Plus, Trash2, MessageSquare, Send, CheckCircle2, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,8 +45,7 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
         buttons_config: [],
         image_url: ""
     });
-    const [logs, setLogs] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
+
     const [saving, setSaving] = useState(false);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
@@ -62,7 +61,6 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
         if (!selectedFunnelId) return;
 
         async function load() {
-            setLoading(true);
             const data = await getWelcomeSettings(selectedFunnelId);
             if (data) {
                 setSettings(data);
@@ -77,14 +75,11 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
             }
 
             // Carregar logs antigos (para aba Logs se ainda existir)
-            const logsData = await getMessageLogs(selectedFunnelId);
-            setLogs(logsData || []);
+            await getMessageLogs(selectedFunnelId);
 
             // Carregar Lista de Chats
             const chats = await getChatList(selectedFunnelId);
             setChatList(chats);
-
-            setLoading(false);
         }
 
         load();
@@ -100,7 +95,7 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
         async function loadMessages() {
             const msgs = await getConversationMessages(selectedFunnelId, selectedChatId!);
             setChatMessages(msgs || []);
-            
+
             // Scroll to bottom
             setTimeout(() => {
                 const element = document.getElementById("scroll-anchor");
@@ -110,7 +105,7 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
 
         // 1. Carga Inicial
         loadMessages();
-        
+
         // 2. Realtime Subscription (Supabase)
         const channel = supabase
             .channel('chat-updates')
@@ -147,11 +142,11 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
         try {
             await sendReplyMessage(selectedFunnelId, selectedChatId, replyText);
             setReplyText("");
-            
+
             // Recarregar mensagens imediatamente
             const msgs = await getConversationMessages(selectedFunnelId, selectedChatId);
             setChatMessages(msgs || []);
-            
+
             // Atualizar lista de chats (para mostrar last message)
             const chats = await getChatList(selectedFunnelId);
             setChatList(chats);
@@ -432,8 +427,8 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                             <div className="p-4 border-b border-neutral-200 dark:border-white/5">
                                 <h3 className="text-neutral-900 dark:text-white font-medium mb-4">Conversas</h3>
                                 <div className="space-y-2">
-                                    <Input 
-                                        placeholder="Buscar conversa..." 
+                                    <Input
+                                        placeholder="Buscar conversa..."
                                         className="bg-neutral-100 dark:bg-white/5 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white h-9 text-xs"
                                     />
                                 </div>
@@ -507,15 +502,15 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                                             chatMessages.map((msg) => {
                                                 const isOutbound = msg.direction === 'outbound';
                                                 return (
-                                                    <div 
-                                                        key={msg.id} 
+                                                    <div
+                                                        key={msg.id}
                                                         className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}
                                                     >
-                                                        <div 
+                                                        <div
                                                             className={`
                                                                 max-w-[70%] rounded-2xl px-4 py-2 text-sm shadow-sm relative group
-                                                                ${isOutbound 
-                                                                    ? 'bg-violet-600 text-white rounded-tr-none' 
+                                                                ${isOutbound
+                                                                    ? 'bg-violet-600 text-white rounded-tr-none'
                                                                     : 'bg-white dark:bg-[#202c33] text-neutral-900 dark:text-gray-100 rounded-tl-none border border-neutral-200 dark:border-white/5'
                                                                 }
                                                             `}
@@ -536,7 +531,7 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                                     {/* Input Area */}
                                     <div className="p-4 bg-white dark:bg-[#0a0a0a] border-t border-neutral-200 dark:border-white/5">
                                         <div className="flex gap-2">
-                                            <Input 
+                                            <Input
                                                 value={replyText}
                                                 onChange={(e) => setReplyText(e.target.value)}
                                                 onKeyDown={(e) => {
@@ -545,10 +540,10 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                                                         handleSendReply();
                                                     }
                                                 }}
-                                                placeholder="Digite sua mensagem..." 
+                                                placeholder="Digite sua mensagem..."
                                                 className="bg-neutral-100 dark:bg-[#202c33] border-none text-neutral-900 dark:text-white focus-visible:ring-violet-500/50"
                                             />
-                                            <Button 
+                                            <Button
                                                 onClick={handleSendReply}
                                                 disabled={!replyText.trim() || sendingReply}
                                                 className="bg-violet-600 hover:bg-violet-700 text-white w-12 px-0"
@@ -593,7 +588,7 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                             variant="outline"
                             onClick={() => {
                                 setShowConfirmDialog(false);
-                                setSettings({...settings, is_active: false});
+                                setSettings({ ...settings, is_active: false });
                             }}
                             className="border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-gray-300 hover:bg-neutral-100 dark:hover:bg-white/5"
                         >
@@ -602,7 +597,7 @@ export default function MessagesClient({ initialFunnels }: MessagesClientProps) 
                         <Button
                             onClick={() => {
                                 setShowConfirmDialog(false);
-                                setSettings({...settings, is_active: true, use_join_request: true});
+                                setSettings({ ...settings, is_active: true, use_join_request: true });
                             }}
                             className="bg-violet-600 hover:bg-violet-700 text-white"
                         >

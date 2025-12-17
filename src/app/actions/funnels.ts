@@ -15,10 +15,10 @@ interface CreateFunnelData {
 
 export async function createFunnel(data: CreateFunnelData) {
     const supabase = await createClient();
-    
+
     // 1. Authenticate User
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
         throw new Error("Usuário não autenticado");
     }
 
@@ -82,19 +82,19 @@ export async function createFunnel(data: CreateFunnelData) {
 
         if (insertError) {
             if (insertError.code === '23505' && !data.slug) {
-                 // Collision on auto-generated slug -> Retry with new slug
-                 finalSlug = Math.random().toString(36).substring(2, 10);
-                 continue; 
+                // Collision on auto-generated slug -> Retry with new slug
+                finalSlug = Math.random().toString(36).substring(2, 10);
+                continue;
             }
             if (insertError.code === '23505') {
-                 throw new Error("Este slug já existe. Escolha outro.");
+                throw new Error("Este slug já existe. Escolha outro.");
             }
             throw new Error(`Erro ao salvar funil: ${insertError.message}`);
         }
-        
+
         newFunnel = inserted;
     }
-    
+
     if (!newFunnel) {
         throw new Error("Erro ao gerar link único. Tente novamente.");
     }
@@ -105,10 +105,10 @@ export async function createFunnel(data: CreateFunnelData) {
             funnel_id: newFunnel.id,
             pixel_id: pid
         }));
-        
+
         const { error: pixelError } = await supabase.from("funnel_pixels").insert(pixelInserts);
         if (pixelError) {
-             console.error("Erro ao vincular pixels extras:", pixelError);
+            console.error("Erro ao vincular pixels extras:", pixelError);
         }
     }
 
@@ -118,7 +118,7 @@ export async function createFunnel(data: CreateFunnelData) {
 
 export async function updateFunnel(id: string, data: CreateFunnelData) {
     const supabase = await createClient();
-    
+
     // 1. Authenticate
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuário não autenticado");

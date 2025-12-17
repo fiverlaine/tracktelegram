@@ -65,7 +65,7 @@ async function logCAPIEvent(data: CAPILogData) {
             return;
         }
 
-        const { data: insertedData, error } = await supabase.from("capi_logs").insert({
+        const { error } = await supabase.from("capi_logs").insert({
             visitor_id: data.visitor_id,
             funnel_id: data.funnel_id,
             event_name: data.event_name,
@@ -123,7 +123,7 @@ export async function sendCAPIEvent(
 
     // Construir user_data conforme documentação Meta
     const userData: Record<string, any> = {};
-    
+
     if (userDataPayload.fbc) {
         userData.fbc = userDataPayload.fbc;
     }
@@ -140,7 +140,7 @@ export async function sendCAPIEvent(
         // external_id deve ser hasheado conforme documentação
         userData.external_id = hashSHA256(userDataPayload.external_id);
     }
-    
+
     // Geolocation fields - Meta requires them to be hashed (lowercase + sha256)
     if (userDataPayload.ct) {
         userData.ct = hashSHA256(userDataPayload.ct.toLowerCase().trim());

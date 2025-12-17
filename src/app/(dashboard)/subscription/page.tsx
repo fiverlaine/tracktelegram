@@ -12,15 +12,15 @@ import { plans } from "@/config/subscription-plans";
 
 export default function SubscriptionPage() {
     const [loading, setLoading] = useState<string | null>(null);
-    const { isSubscribed, plan: currentPlanName, subscription, isLoading: subLoading } = useSubscription();
+    const { isSubscribed, plan: currentPlanName, subscription } = useSubscription();
 
     const handleSubscribe = (planId: string) => {
         setLoading(planId);
-        
+
         const plan = plans.find(p => p.id === planId);
         if (plan?.checkoutUrl) {
-             window.location.href = plan.checkoutUrl;
-             return;
+            window.location.href = plan.checkoutUrl;
+            return;
         }
 
         setTimeout(() => {
@@ -31,14 +31,14 @@ export default function SubscriptionPage() {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
-            <PageHeader 
-                title="Planos de Assinatura" 
-                description="Escolha o plano ideal para escalar sua operação sem limites." 
+            <PageHeader
+                title="Planos de Assinatura"
+                description="Escolha o plano ideal para escalar sua operação sem limites."
             />
 
             {/* Current Subscription Status */}
             {isSubscribed && subscription && (
-                 <div className="bg-gradient-to-r from-violet-100 to-fuchsia-100 dark:from-violet-900/40 dark:to-fuchsia-900/40 border border-violet-200 dark:border-violet-500/30 rounded-2xl p-6 md:p-8 backdrop-blur-xl">
+                <div className="bg-gradient-to-r from-violet-100 to-fuchsia-100 dark:from-violet-900/40 dark:to-fuchsia-900/40 border border-violet-200 dark:border-violet-500/30 rounded-2xl p-6 md:p-8 backdrop-blur-xl">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="flex items-center gap-4">
                             <div className="h-12 w-12 rounded-xl bg-violet-600/10 dark:bg-violet-500/20 flex items-center justify-center text-violet-600 dark:text-violet-300">
@@ -64,20 +64,20 @@ export default function SubscriptionPage() {
                             </div>
                         </div>
                     </div>
-                 </div>
+                </div>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-7xl mx-auto">
                 {plans.map((plan) => {
                     const isCurrentPlan = currentPlanName === plan.name;
-                    
+
                     return (
-                        <div 
+                        <div
                             key={plan.id}
                             className={`
                                 relative flex flex-col p-6 rounded-3xl border backdrop-blur-xl transition-all duration-300
-                                ${plan.highlight 
-                                    ? "bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-500/50 shadow-2xl shadow-violet-500/5 dark:shadow-violet-500/20 md:-mt-8 md:mb-4 z-10" 
+                                ${plan.highlight
+                                    ? "bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-500/50 shadow-2xl shadow-violet-500/5 dark:shadow-violet-500/20 md:-mt-8 md:mb-4 z-10"
                                     : "bg-white/60 dark:bg-[#0a0a0a]/60 border-neutral-200 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20 hover:bg-white dark:hover:bg-white/[0.02]"
                                 }
                                 ${isCurrentPlan ? "ring-2 ring-emerald-500/50 border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/20" : ""}
@@ -102,11 +102,10 @@ export default function SubscriptionPage() {
                             )}
 
                             <div className="mb-6">
-                                <h3 className={`text-lg font-bold mb-2 flex items-center gap-2 ${
-                                    plan.color === 'blue' ? 'text-blue-600 dark:text-blue-400' :
-                                    plan.color === 'violet' ? 'text-violet-600 dark:text-violet-400' : 
-                                    plan.color === 'emerald' ? 'text-emerald-600 dark:text-emerald-400' : 'text-neutral-500 dark:text-gray-400'
-                                }`}>
+                                <h3 className={`text-lg font-bold mb-2 flex items-center gap-2 ${plan.color === 'blue' ? 'text-blue-600 dark:text-blue-400' :
+                                        plan.color === 'violet' ? 'text-violet-600 dark:text-violet-400' :
+                                            plan.color === 'emerald' ? 'text-emerald-600 dark:text-emerald-400' : 'text-neutral-500 dark:text-gray-400'
+                                    }`}>
                                     <Zap className="w-5 h-5" />
                                     {plan.name}
                                 </h3>
@@ -131,15 +130,15 @@ export default function SubscriptionPage() {
                                 ))}
                             </ul>
 
-                            <Button 
+                            <Button
                                 onClick={() => handleSubscribe(plan.id)}
                                 disabled={!!loading || isCurrentPlan}
                                 className={`
                                     w-full h-12 rounded-xl font-bold transition-all
                                     ${isCurrentPlan
                                         ? "bg-emerald-100 dark:bg-emerald-600/20 text-emerald-700 dark:text-emerald-400 cursor-default hover:bg-emerald-200 dark:hover:bg-emerald-600/20"
-                                        : plan.highlight 
-                                            ? "bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-500/25" 
+                                        : plan.highlight
+                                            ? "bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-500/25"
                                             : "bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-gray-200"
                                     }
                                 `}

@@ -60,7 +60,7 @@ export async function POST(request: Request) {
         let funnelId: string | null = null;
 
         if (domain_id) {
-            const { data: domain, error: domainError } = await supabase
+            const { data: domain } = await supabase
                 .from("domains")
                 .select(`
                     funnel_id,

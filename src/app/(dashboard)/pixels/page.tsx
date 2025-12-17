@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Loader2, BarChart2, Pencil } from "lucide-react";
 import { toast } from "sonner";
@@ -125,7 +125,7 @@ export default function PixelsPage() {
                 .from("funnels")
                 .update({ pixel_id: null })
                 .eq("pixel_id", id);
-            
+
             toast.info(`${funnels.length} funil(is) desvinculado(s) do pixel`);
         }
 
@@ -147,16 +147,16 @@ export default function PixelsPage() {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <PageHeader title="Pixels do Facebook" description="Gerencie seus Pixels para rastreamento de conversões via API (CAPI).">
                 <div className="flex items-center gap-4">
-                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-neutral-100 dark:bg-white/5 rounded-full border border-neutral-200 dark:border-white/10 text-xs text-neutral-500 dark:text-gray-400">
-                    <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-neutral-400 dark:bg-gray-500"} animate-pulse`} />
-                    {!isSubscribed 
-                        ? "0 / 0 pixels"
-                        : planLimits?.pixels === 9999 
-                            ? "Ilimitado" 
-                            : `${pixels.length} / ${planLimits?.pixels || 0} pixels`}
+                    <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-neutral-100 dark:bg-white/5 rounded-full border border-neutral-200 dark:border-white/10 text-xs text-neutral-500 dark:text-gray-400">
+                        <span className={`w-2 h-2 rounded-full ${isSubscribed ? "bg-violet-500" : "bg-neutral-400 dark:bg-gray-500"} animate-pulse`} />
+                        {!isSubscribed
+                            ? "0 / 0 pixels"
+                            : planLimits?.pixels === 9999
+                                ? "Ilimitado"
+                                : `${pixels.length} / ${planLimits?.pixels || 0} pixels`}
+                    </div>
                 </div>
-                </div>
-                <Button 
+                <Button
                     onClick={() => {
                         if (subLoading) return;
                         if (!isSubscribed) {
@@ -214,7 +214,7 @@ export default function PixelsPage() {
                                     placeholder="EAAB..."
                                     value={formData.access_token}
                                     onChange={(e) => setFormData({ ...formData, access_token: e.target.value })}
-                                     className="bg-neutral-100 dark:bg-black/40 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-gray-700"
+                                    className="bg-neutral-100 dark:bg-black/40 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-gray-700"
                                 />
                             </div>
                         </div>
@@ -241,7 +241,7 @@ export default function PixelsPage() {
                     </thead>
                     <tbody className="divide-y divide-neutral-100 dark:divide-white/5">
                         {loading ? (
-                             <tr>
+                            <tr>
                                 <td colSpan={4} className="px-6 py-8 text-center text-violet-500">
                                     <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                                 </td>
