@@ -305,41 +305,10 @@ export async function POST(request: Request) {
 
         const telegramData = await telegramResponse.json();
 
-        console.log("[DEBUG] Telegram Response:", JSON.stringify(telegramData));
-
-        // Log SUCCESS payload for debugging
-        await supabase.from("events").insert({
-            funnel_id,
-            visitor_id,
-            event_type: "debug_info",
-            metadata: {
-                payload: telegramPayload,
-                response: telegramData,
-                should_use_join_request: shouldUseJoinRequest,
-                funnel_data: funnelData,
-                welcome_settings: welcomeSettings,
-                source: "api_invite_success"
-            }
-        });
-
         if (!telegramData.ok) {
             console.error("Erro Telegram API (POST invite):", telegramData);
 
-            // Log error to Supabase for debugging
-            await supabase.from("events").insert({
-                funnel_id,
-                visitor_id,
-                event_type: "debug_error",
-                metadata: {
-                    error: telegramData.description,
-                    payload: telegramPayload,
-                    response: telegramData,
-                    source: "api_invite_error"
-                }
-            });
-
             if (bot?.channel_link) {
-                console.log("[DEBUG] Falling back to static link:", bot.channel_link);
                 return NextResponse.json({
                     invite_link: bot.channel_link,
                     is_dynamic: false,
