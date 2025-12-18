@@ -422,7 +422,7 @@ export async function POST(
 
                     // --- NOVA LÓGICA: Enviar Mensagem de Boas-vindas ---
                     // Se use_join_request for true, a mensagem já foi enviada no evento chat_join_request
-                    if (!funnelData?.use_join_request) {
+                    if (funnelData && !funnelData.use_join_request) {
                         try {
                             // Buscar token do bot para enviar msg ou revogar link
                             const { data: botData } = await supabase
@@ -670,12 +670,18 @@ export async function POST(
                 // Tentar descobrir o Funnel ID pelo visitor_id parcial
                 const { data: linkData } = await supabase
                     .from("visitor_telegram_links")
-                    .select("funnel_id, visitor_id")
+                    .select("id, funnel_id, visitor_id, metadata")
                     .like("visitor_id", `${partialVisitorId}%`)
                     .limit(1)
                     .single();
 
                 const funnelId = linkData?.funnel_id;
+
+                // Check for duplicate processing (Idempotency via Metadata)
+                if (linkData?.metadata?.welcome_sent) {
+                    console.log(`[Webhook] Welcome message already sent (metadata check). Skipping.`);
+                    return NextResponse.json({ success: true });
+                }
 
                 if (botData?.bot_token && botData?.chat_id) {
                     // 1. Aprovar Entrada
@@ -688,6 +694,20 @@ export async function POST(
                         })
                     });
                     console.log(`[Webhook] Auto-aprovado user ${telegramUserId}`);
+
+                    // Mark as approved/welcome sent immediately to prevent race conditions
+                    if (linkData) {
+                        await supabase
+                            .from("visitor_telegram_links")
+                            .update({
+                                metadata: {
+                                    ...linkData.metadata,
+                                    welcome_sent: true,
+                                    approved_at: new Date().toISOString()
+                                }
+                            })
+                            .eq("id", linkData.id);
+                    }
 
                     // 2. Revogar o Link de Convite (Limpeza)
                     if (inviteLink?.invite_link) {
@@ -709,19 +729,19 @@ export async function POST(
                     // 3. Enviar Mensagem de Boas-vindas (se tiver funil)
                     if (funnelId) {
                         try {
-                            // Check for duplicate messages (Idempotency)
+                            // Double check logs just in case
                             const { data: recentMsg } = await supabase
                                 .from("telegram_message_logs")
                                 .select("id")
                                 .eq("funnel_id", funnelId)
                                 .eq("telegram_chat_id", telegramUserId.toString())
                                 .eq("direction", "outbound")
-                                .gt("created_at", new Date(Date.now() - 2 * 60 * 1000).toISOString()) // Last 2 mins
+                                .gt("created_at", new Date(Date.now() - 5 * 60 * 1000).toISOString())
                                 .limit(1)
                                 .single();
 
                             if (recentMsg) {
-                                console.log(`[Webhook] Mensagem de boas-vindas já enviada recentemente. Ignorando duplicata.`);
+                                console.log(`[Webhook] Mensagem já enviada (log check).`);
                             } else {
                                 const { data: welcomeSettings } = await supabase
                                     .from("funnel_welcome_settings")
