@@ -53,87 +53,45 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
         .eq("slug", slug)
         .single();
 
-    // --- MODO RÁPIDO (Server-Side Redirect) ---
-    // Se já temos o Visitor ID (vindo da Landing Page), processamos tudo no servidor
-    if (vid && funnel) {
+    // --- MODO CLIENT-SIDE REDIRECT (Para mostrar UI de Loading) ---
+    // Não fazemos redirect no servidor para permitir que o componente ClientTracking
+    // renderize a tela de "Redirecionando" enquanto processa.
 
-        // 2. Rastrear Clique (Assíncrono - fire & forget)
-        const clickData = {
-            timestamp: new Date().toISOString(),
-            fbclid: search.fbclid,
-            fbc: search.fbc,
-            fbp: search.fbp,
-            user_agent: userAgent,
-            page_url: `https://${headersList.get("host")}/t/${slug}`,
-            utm_source: search.utm_source,
-            utm_medium: search.utm_medium,
-            utm_campaign: search.utm_campaign,
-            utm_content: search.utm_content,
-            utm_term: search.utm_term,
-            ip_address: ip,
-            city, country, region, postal_code: postalCode
-        };
-
-        let destinationUrl: string | null = null;
-
-        try {
-            // OTIMIZAÇÃO: Execução em Paralelo (Banco de Dados + API Telegram)
-            // Isso reduz o tempo de espera do usuário significativamente
-
-            // 1. Promise do Log (Tratamos o erro aqui para não bloquear o redirecionamento)
-            const logPromise = (async () => {
-                try {
-                    const { error } = await supabase.from("events").insert({
-                        funnel_id: funnel.id,
-                        visitor_id: vid,
-                        event_type: "click",
-                        metadata: clickData
-                    });
-                    if (error) console.error("[SSR] Erro ao logar clique:", error);
-                } catch (err) {
-                    console.error("[SSR] Erro de exceção ao logar clique:", err);
-                }
-            })();
-
-            // 2. Promise do Convite (On-Demand)
-            const invitePromise = generateTelegramInvite({
-                funnelId: funnel.id,
-                visitorId: vid,
-                bot: funnel.telegram_bots,
-                createsJoinRequest: funnel.use_join_request
-            });
-
-            // 3. Aguardar as duas ao mesmo tempo
-            const [, result] = await Promise.all([logPromise, invitePromise]);
-
-            if (result?.invite_link) {
-                destinationUrl = result.invite_link;
-            }
-
-        } catch (err) {
-            console.error("[SSR] Erro crítico no processamento:", err);
-        }
-
-        // 4. Redirecionar Imediatamente (Fora do try/catch)
-        if (destinationUrl) {
-            redirect(destinationUrl);
-        }
-    }
-
-    // --- MODO LEGADO / FALLBACK (Client-Side) ---
-    // Se o usuário acessou direto sem 'vid', usamos o client-tracking para gerar o ID
-    // Passamos o funnel pré-carregado para evitar fetch no cliente (que falharia com RLS restrito)
-    return (
-        <ClientTracking
-            slug={slug}
-            ip={ip}
-            geo={{
-                city,
-                country: country || undefined,
-                region: region || undefined,
-                postal_code: postalCode || undefined
+    // Injetar Logs no Console (Estilo Concorrente)
+    const consoleLogScript = (
+        <script
+            dangerouslySetInnerHTML={{
+                __html: `
+                (function() {
+                    if (window.__teletrack_branded) return;
+                    window.__teletrack_branded = true;
+                    console.log("%c████████╗██████╗  █████╗  ██████╗██╗  ██╗███████╗ █████╗ ████████╗██╗  ██╗███████╗██████╗ \\n╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝██╔════╝██╔══██╗╚══██╔══╝██║  ██║██╔════╝██╔══██╗\\n   ██║   ██████╔╝███████║██║     █████╔╝ █████╗  ███████║   ██║   ███████║█████╗  ██████╔╝\\n   ██║   ██╔══██╗██╔══██║██║     ██╔═██╗ ██╔══╝  ██╔══██║   ██║   ██╔══██║██╔══╝  ██╔══██╗\\n   ██║   ██║  ██║██║  ██║╚██████╗██║  ██╗██║     ██║  ██║   ██║   ██║  ██║███████╗██║  ██║\\n   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝", "color: #4F46E5; font-family: monospace; font-size: 10px;");
+                    console.log("%c🚀 Este site usa TeleTrack - Marketing Attribution & Analytics", "color: #4F46E5; font-size: 14px; font-weight: bold; padding: 8px 0;");
+                    console.log("%c📊 Plataforma completa de atribuição de marketing para Telegram", "color: #6B7280; font-size: 12px;");
+                    console.log("%c🔗 Conheça mais em: https://teletrack.vercel.app", "color: #10B981; font-size: 12px; font-weight: bold;");
+                    console.log("%c─────────────────────────────────────────────────────", "color: #E5E7EB;");
+                })();
+                `
             }}
-            initialFunnelData={funnel}
         />
+    );
+
+    return (
+        <>
+            {consoleLogScript}
+            <ClientTracking
+                slug={slug}
+                ip={ip}
+                geo={{
+                    city,
+                    country: country || undefined,
+                    region: region || undefined,
+                    postal_code: postalCode || undefined
+                }}
+                initialFunnelData={funnel}
+                visitorId={vid} // Passamos o VID se existir
+                searchParams={search} // Passamos os params para o cliente usar
+            />
+        </>
     );
 }

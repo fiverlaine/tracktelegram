@@ -17,6 +17,8 @@ interface ClientTrackingProps {
     ip?: string;
     geo?: GeoData;
     initialFunnelData?: any;
+    visitorId?: string;
+    searchParams?: any;
 }
 
 interface FacebookParams {
@@ -25,343 +27,194 @@ interface FacebookParams {
     fbp: string | null;
 }
 
-export default function ClientTracking({ slug, ip, geo, initialFunnelData }: ClientTrackingProps) {
+export default function ClientTracking({ slug, ip, geo, initialFunnelData, visitorId: serverVid, searchParams }: ClientTrackingProps) {
     const [loading, setLoading] = useState(true);
     const [funnel, setFunnel] = useState<any>(initialFunnelData || null);
     const [error, setError] = useState<string | null>(null);
-    const [visitorId, setVisitorId] = useState<string>("");
+    const [visitorId, setVisitorId] = useState<string>(serverVid || "");
     const [fbParams, setFbParams] = useState<FacebookParams>({ fbclid: null, fbc: null, fbp: null });
-    const [redirectStatus, setRedirectStatus] = useState<string>("Preparando seu acesso...");
+    const [redirectStatus, setRedirectStatus] = useState<string>("Iniciando redirecionamento...");
+    const [manualLink, setManualLink] = useState<string | null>(null);
     const supabase = createClient();
 
     useEffect(() => {
         async function init() {
-            // 1. Generate/Get Visitor ID
-            const vid = getOrCreateVisitorId();
-            setVisitorId(vid);
-
-            // 2. Capture Facebook Parameters
-            const fb = captureFacebookParams();
-            setFbParams(fb);
-
-            let data = funnel;
-
-            // 3. Fetch Funnel Details (ONLY if not provided)
-            if (!data) {
-                const { data: fetchedData, error } = await supabase
-                    .from("funnels")
-                    .select(`
-                        *,
-                        pixels:pixels!funnels_pixel_id_fkey(*),
-                        telegram_bots:telegram_bots!funnels_bot_id_fkey(
-                            id,
-                            name,
-                            username,
-                            channel_link
-                        )
-                    `)
-                    .eq("slug", slug)
-                    .single();
-
-                if (error || !fetchedData) {
-                    console.error("Erro ao buscar funil:", error);
-                    setError("Link inválido ou expirado.");
-                    setLoading(false);
-                    return;
+            try {
+                // 1. Visitor ID (Server ou Local)
+                let vid = serverVid;
+                if (!vid) {
+                    vid = getOrCreateVisitorId();
                 }
-                data = fetchedData;
-                setFunnel(data);
-            }
+                setVisitorId(vid);
 
+                // 2. Facebook Params
+                const fbp = getCookie("_fbp");
+                const fbc = getCookie("_fbc") || (searchParams?.fbclid ? `fb.1.${Date.now()}.${searchParams.fbclid}` : null);
+                setFbParams({
+                    fbclid: searchParams?.fbclid || null,
+                    fbc,
+                    fbp
+                });
 
+                // 3. Funnel Data (Se não veio do server)
+                let currentFunnel = funnel;
+                if (!currentFunnel) {
+                    setRedirectStatus("Carregando funil...");
+                    const { data, error } = await supabase
+                        .from("funnels")
+                        .select(`
+                            *,
+                            pixels:pixels!funnels_pixel_id_fkey(*),
+                            telegram_bots:telegram_bots!funnels_bot_id_fkey(*)
+                        `)
+                        .eq("slug", slug)
+                        .single();
 
-            // Validar se o funil tem bot configurado
-            if (!data.bot_id) {
-                setError("Este funil não possui um canal configurado. Configure um canal na página de Funis.");
+                    if (error || !data) throw new Error("Funil não encontrado");
+                    currentFunnel = data;
+                    setFunnel(data);
+                }
+
+                // 4. Disparar Pixel (Client-Side para garantir execução)
+                if (currentFunnel.pixels?.facebook_pixel_id) {
+                    initFacebookPixel(currentFunnel.pixels.facebook_pixel_id);
+                    trackFacebookEvent("PageView");
+                }
+
+                // 5. Gerar Link e Redirecionar (Client-Side)
+                setRedirectStatus("Gerando seu acesso exclusivo...");
+
+                // Preparar metadados para o clique
+                const clickMetadata = {
+                    timestamp: new Date().toISOString(),
+                    fbclid: searchParams?.fbclid || null,
+                    fbc: fbc,
+                    fbp: fbp,
+                    user_agent: navigator.userAgent,
+                    page_url: window.location.href,
+                    utm_source: searchParams?.utm_source || null,
+                    utm_medium: searchParams?.utm_medium || null,
+                    utm_campaign: searchParams?.utm_campaign || null,
+                    utm_content: searchParams?.utm_content || null,
+                    utm_term: searchParams?.utm_term || null,
+                    ip_address: ip,
+                    city: geo?.city,
+                    country: geo?.country,
+                    region: geo?.region,
+                    postal_code: geo?.postal_code
+                };
+
+                // Chamar API de Invite
+                const response = await fetch("/api/invite", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        funnel_id: currentFunnel.id,
+                        visitor_id: vid,
+                        metadata: clickMetadata
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.invite_link) {
+                    setRedirectStatus("Redirecionando para o Telegram...");
+                    setManualLink(result.invite_link);
+
+                    // Pequeno delay para o usuário ver a animação (UX)
+                    setTimeout(() => {
+                        window.location.href = result.invite_link;
+                    }, 500);
+                } else {
+                    throw new Error(result.error || "Erro ao gerar link");
+                }
+
+            } catch (err: any) {
+                console.error("Erro no fluxo:", err);
+                setError(err.message || "Erro desconhecido");
                 setLoading(false);
-                return;
             }
-
-            if (!data.telegram_bots) {
-                setError("Canal associado a este funil não foi encontrado. Verifique as configurações.");
-                setLoading(false);
-                return;
-            }
-
-            // 4. Track PageView (internal + prepare for CAPI)
-            await trackPageView(data, vid, fb);
-            setLoading(false);
         }
 
         init();
-    }, [slug]);
+    }, [slug, serverVid]); // Executa uma vez (ou se slug/vid mudar)
 
-    /**
-     * Captura parâmetros do Facebook para atribuição
-     */
-    function captureFacebookParams(): FacebookParams {
-        const urlParams = new URLSearchParams(window.location.search);
-
-        let fbclid = urlParams.get("fbclid");
-        let fbc = urlParams.get("fbc");
-        let fbp = urlParams.get("fbp");
-
-        // 1. Prioridade: Parâmetros explícitos na URL (vindos do script externo)
-        if (fbc) {
-            setCookie("_fbc", fbc, 90);
-        } else {
-            // 2. Fallback: Tentar ler do cookie
-            fbc = getCookie("_fbc");
-            // 3. Fallback: Gerar se tiver fbclid
-            if (!fbc && fbclid) {
-                fbc = `fb.1.${Date.now()}.${fbclid}`;
-                setCookie("_fbc", fbc, 90);
-            }
-        }
-
-        if (fbp) {
-            setCookie("_fbp", fbp, 90);
-        } else {
-            fbp = getCookie("_fbp");
-            if (!fbp) {
-                fbp = `fb.1.${Date.now()}.${Math.floor(Math.random() * 10000000000)}`;
-                setCookie("_fbp", fbp, 90);
-            }
-        }
-
-        return { fbclid, fbc, fbp };
-    }
-
-    /**
-     * Gera ou recupera visitor_id único
-     */
-    function getOrCreateVisitorId(): string {
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlVid = urlParams.get("vid");
-
-        if (urlVid) {
-            // Se veio da URL (script externo), usamos este como verdade absoluta
-            localStorage.setItem("track_vid", urlVid);
-            return urlVid;
-        }
-
-        let vid = localStorage.getItem("track_vid");
+    // Helpers
+    function getOrCreateVisitorId() {
+        let vid = localStorage.getItem("visitor_id");
         if (!vid) {
             vid = crypto.randomUUID();
-            localStorage.setItem("track_vid", vid);
+            localStorage.setItem("visitor_id", vid);
         }
         return vid;
     }
 
-    /**
-     * Helper: Get Cookie
-     */
-    function getCookie(name: string): string | null {
+    function getCookie(name: string) {
         const value = `; ${document.cookie}`;
         const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) {
-            return parts.pop()?.split(";").shift() || null;
-        }
+        if (parts.length === 2) return parts.pop()?.split(";").shift() || null;
         return null;
     }
 
-    /**
-     * Helper: Set Cookie
-     */
-    function setCookie(name: string, value: string, days: number) {
-        const date = new Date();
-        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-        const expires = `expires=${date.toUTCString()}`;
-        const domain = window.location.hostname.replace(/^www\./, "");
-        document.cookie = `${name}=${value};${expires};path=/;domain=.${domain};SameSite=Lax`;
+    function initFacebookPixel(pixelId: string) {
+        if (typeof window !== 'undefined' && !(window as any).fbq) {
+            const n = (window as any).fbq = function () {
+                n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments)
+            };
+            if (!(window as any)._fbq) (window as any)._fbq = n;
+            n.push = n;
+            n.loaded = true;
+            n.version = '2.0';
+            n.queue = [];
+            const t = document.createElement('script');
+            t.async = true;
+            t.src = 'https://connect.facebook.net/en_US/fbevents.js';
+            const s = document.getElementsByTagName('script')[0];
+            s.parentNode?.insertBefore(t, s);
+        }
+        (window as any).fbq('init', pixelId);
     }
 
-    /**
-     * Rastreia PageView interno e prepara dados para CAPI
-     */
-    async function trackPageView(funnelData: any, vid: string, fb: FacebookParams) {
-        // Coletar dados do usuário para melhor Event Match Quality
-        const userData = {
-            user_agent: navigator.userAgent,
-            referrer: document.referrer,
-            page_url: window.location.href,
-            fbclid: fb.fbclid,
-            fbc: fb.fbc,
-            fbp: fb.fbp,
-            // Capturar UTMs para análise
-            utm_source: new URLSearchParams(window.location.search).get("utm_source"),
-            utm_medium: new URLSearchParams(window.location.search).get("utm_medium"),
-            utm_campaign: new URLSearchParams(window.location.search).get("utm_campaign"),
-            utm_content: new URLSearchParams(window.location.search).get("utm_content"),
-            utm_term: new URLSearchParams(window.location.search).get("utm_term"),
-            ip_address: ip, // IP capturado via Server Component
-            city: geo?.city,
-            country: geo?.country,
-            region: geo?.region,
-            postal_code: geo?.postal_code,
-        };
-
-        // A. Internal Tracking - Via API Server-Side (Mais seguro e performático)
-        try {
-            await fetch("/api/track", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    visitor_id: vid,
-                    event_type: "pageview",
-                    domain_id: funnelData.domain_id, // Se disponível
-                    metadata: userData
-                })
-            });
-        } catch (e) {
-            console.error("Erro ao registrar pageview via API:", e);
-        }
-
-        // B. Facebook Browser Pixel (fallback client-side)
-        if (funnelData.pixels?.pixel_id) {
-            try {
-                const ReactPixel = (await import("react-facebook-pixel")).default;
-                ReactPixel.init(funnelData.pixels.pixel_id, undefined, {
-                    autoConfig: true,
-                    debug: false,
-                });
-                ReactPixel.pageView();
-            } catch (e) {
-                console.warn("Facebook Pixel não carregado:", e);
-            }
-        }
-    }
-
-    useEffect(() => {
-        if (funnel && visitorId) {
-            autoRedirect();
-        }
-    }, [funnel, visitorId]);
-
-    /**
-     * Redireciona automaticamente para o Canal (FLUXO DIRETO)
-     * Gera um link de convite único e redireciona diretamente
-     */
-    async function autoRedirect() {
-        if (!funnel || !visitorId) return;
-
-        setRedirectStatus("Registrando acesso...");
-
-        // Capturar UTMs da URL atual
-        const urlParams = new URLSearchParams(window.location.search);
-
-        // 1. Internal Click Track com dados completos (incluindo UTMs)
-        const clickData = {
-            timestamp: new Date().toISOString(),
-            fbclid: fbParams.fbclid,
-            fbc: fbParams.fbc,
-            fbp: fbParams.fbp,
-            user_agent: navigator.userAgent,
-            page_url: window.location.href,
-            // UTMs
-            utm_source: urlParams.get("utm_source"),
-            utm_medium: urlParams.get("utm_medium"),
-            utm_campaign: urlParams.get("utm_campaign"),
-            utm_content: urlParams.get("utm_content"),
-            utm_term: urlParams.get("utm_term"),
-            ip_address: ip, // IP capturado via Server Component
-            city: geo?.city,
-            country: geo?.country,
-            region: geo?.region,
-            postal_code: geo?.postal_code,
-        };
-
-        // 3. NOVO FLUXO: Gerar link de convite e registrar CLICK em uma única requisição
-        try {
-            const response = await fetch("/api/invite", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    funnel_id: funnel.id,
-                    visitor_id: visitorId,
-                    metadata: clickData
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.invite_link) {
-                setRedirectStatus("Redirecionando para o canal...");
-
-                // Redireciona DIRETO para o canal
-                window.location.href = data.invite_link;
-                return;
-            }
-        } catch (error) {
-            console.error("Erro ao gerar invite link:", error);
-        }
-
-        // 4. FALLBACK: Se falhar, usar link estático do canal
-        const bot = funnel.telegram_bots;
-        const channelLink = bot?.channel_link;
-
-        if (channelLink) {
-            setRedirectStatus("Redirecionando...");
-            window.location.href = channelLink;
-        } else {
-            setError("Não foi possível gerar o link de acesso. Tente novamente.");
+    function trackFacebookEvent(eventName: string, params?: any) {
+        if ((window as any).fbq) {
+            (window as any).fbq('track', eventName, params);
         }
     }
 
     if (error) {
         return (
-            <div className="text-center space-y-4">
-                <div className="text-red-500 font-bold text-lg">{error}</div>
-                <p className="text-muted-foreground text-sm">
-                    Verifique se o link está correto ou entre em contato com o anunciante.
-                </p>
+            <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-4">
+                <div className="text-red-500 mb-4">⚠️ Erro ao processar solicitação</div>
+                <div className="text-sm text-gray-400">{error}</div>
             </div>
         );
     }
 
-    // --- UI: REDIRECT OVERLAY (Inspirado no Concorrente) ---
-    // Se estiver carregando ou já tiver o link (status de redirect), mostra o overlay
-    if (loading || redirectStatus) {
-        return (
-            <div className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm animate-in fade-in duration-300">
-                {/* Spinner Grande */}
-                <div className="w-20 h-20 mb-8 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+    // UI "Redirecionando" (Estilo Concorrente)
+    return (
+        <div className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-black/85 backdrop-blur-md font-sans animate-in fade-in duration-300">
+            {/* Spinner Grande */}
+            <div className="w-20 h-20 border-4 border-white/20 border-t-white rounded-full animate-spin mb-8"></div>
 
-                {/* Texto Principal */}
-                <div className="mb-6 text-2xl font-bold tracking-[3px] text-white uppercase animate-pulse drop-shadow-lg">
-                    REDIRECIONANDO
-                </div>
+            {/* Texto Principal */}
+            <div className="text-white text-2xl font-bold tracking-[3px] uppercase mb-6 drop-shadow-lg animate-pulse">
+                REDIRECIONANDO
+            </div>
 
-                {/* Status Secundário (Opcional, para debug ou feedback) */}
-                <p className="mb-8 text-sm text-white/60 font-light">
-                    {redirectStatus === "Preparando seu acesso..." ? "Aguarde um instante..." : redirectStatus}
-                </p>
-
-                {/* Link Manual (Só aparece se demorar muito ou se já tivermos o link mas o redirect falhou) */}
-                <button
-                    onClick={() => {
-                        if (redirectStatus.includes("Redirecionando") || redirectStatus.includes("Canal")) {
-                            // Se já tentamos redirecionar, tenta de novo
-                            autoRedirect();
-                        } else {
-                            // Se travou, recarrega
-                            window.location.reload();
-                        }
-                    }}
-                    className="px-4 py-2 text-sm text-white/70 transition-all rounded-lg bg-white/10 hover:bg-white/20 hover:text-white cursor-pointer"
+            {/* Link Manual */}
+            {manualLink && (
+                <a
+                    href={manualLink}
+                    className="text-white/70 text-sm no-underline px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 hover:text-white transition-all duration-200 cursor-pointer"
                 >
                     Não foi redirecionado? Clique aqui
-                </button>
+                </a>
+            )}
 
-                <style jsx global>{`
-                    @keyframes spin {
-                        to { transform: rotate(360deg); }
-                    }
-                `}</style>
+            {/* Status discreto para debug/feedback */}
+            <div className="absolute bottom-10 text-white/30 text-xs">
+                {redirectStatus}
             </div>
-        );
-    }
-
-    // Fallback (nunca deve chegar aqui se o redirect funcionar)
-    return null;
+        </div>
+    );
 }
