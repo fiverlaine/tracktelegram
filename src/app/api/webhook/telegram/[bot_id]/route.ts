@@ -293,9 +293,9 @@ export async function POST(
                             .eq("bot_id", bot_id);
 
                         const botFunnelIds = botFunnels?.map(f => f.id) || [];
-                        
+
                         // Filtrar clicks que pertencem a funis deste bot
-                        const relevantClicks = recentClicks.filter(click => 
+                        const relevantClicks = recentClicks.filter(click =>
                             click.funnel_id && botFunnelIds.includes(click.funnel_id)
                         );
 
@@ -319,7 +319,7 @@ export async function POST(
                             }
                         }
                     }
-                    
+
                     if (!visitorId) {
                         console.log(`[Webhook] ❌ Nenhum click recente encontrado para vincular ao telegram_user_id: ${telegramUserId}`);
                     }
@@ -504,7 +504,7 @@ export async function POST(
                     // Usar busca em cascata para garantir que encontre o registro correto
                     // mesmo se o chat_join_request já tiver atualizado o registro
                     let linkDataForWelcome = null;
-                    
+
                     // MÉTODO 1: Tentar usar o invite_name (mais preciso)
                     if (inviteName) {
                         if (inviteName.startsWith("v_")) {
@@ -532,7 +532,7 @@ export async function POST(
                             console.log(`[Webhook] Busca por invite_name (pool_): ${linkDataForWelcome ? 'encontrado' : 'não encontrado'}`);
                         }
                     }
-                    
+
                     // MÉTODO 2: Fallback - buscar por telegram_user_id (caso o chat_member chegue após chat_join_request)
                     if (!linkDataForWelcome && telegramUserId) {
                         const { data } = await supabase
@@ -546,7 +546,7 @@ export async function POST(
                         linkDataForWelcome = data;
                         console.log(`[Webhook] Busca por telegram_user_id: ${linkDataForWelcome ? 'encontrado' : 'não encontrado'}`);
                     }
-                    
+
                     // MÉTODO 3: Último fallback - buscar por visitor_id e funnel_id
                     if (!linkDataForWelcome && visitorId) {
                         const { data } = await supabase
@@ -877,7 +877,7 @@ export async function POST(
                             .order("linked_at", { ascending: false })
                             .limit(1)
                             .maybeSingle();
-                        
+
                         if (fallbackLinkData) {
                             linkData = fallbackLinkData;
                             funnelId = fallbackLinkData.funnel_id;
@@ -885,11 +885,11 @@ export async function POST(
                             console.log(`[Webhook] Join Request - ✅ Fallback encontrado: visitor_id=${visitorId}, funnel_id=${funnelId}`);
                         } else {
                             console.log(`[Webhook] Join Request - ❌ Fallback também não encontrou registro para telegram_user_id=${telegramUserId}`);
-                            
+
                             // Último fallback: buscar click recente dos últimos 10 minutos
                             console.log(`[Webhook] Join Request - Tentando último fallback: buscar click recente...`);
                             const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-                            
+
                             const { data: recentClicks } = await supabase
                                 .from("events")
                                 .select("visitor_id, funnel_id, created_at")
@@ -897,23 +897,23 @@ export async function POST(
                                 .gte("created_at", tenMinutesAgo)
                                 .order("created_at", { ascending: false })
                                 .limit(5);
-                            
+
                             if (recentClicks && recentClicks.length > 0) {
                                 // Buscar funis do bot_id atual
                                 const { data: botFunnels } = await supabase
                                     .from("funnels")
                                     .select("id")
                                     .eq("bot_id", bot_id);
-                                
+
                                 const botFunnelIds = botFunnels?.map(f => f.id) || [];
-                                
+
                                 // Pegar o click mais recente que pertence a um funil deste bot
                                 for (const click of recentClicks) {
                                     if (click.funnel_id && botFunnelIds.includes(click.funnel_id)) {
                                         visitorId = click.visitor_id;
                                         funnelId = click.funnel_id;
                                         console.log(`[Webhook] Join Request - ✅ Fallback por click recente: visitor_id=${visitorId}, funnel_id=${funnelId}`);
-                                        
+
                                         // Criar registro temporário para poder enviar mensagem
                                         if (!linkData) {
                                             linkData = {
@@ -932,7 +932,7 @@ export async function POST(
                 }
 
                 if (botData?.bot_token && botData?.chat_id) {
-                    // 1. Vincular o usuário imediatamente (Importante para o evento chat_member que virá depois)
+                    // 1. Vincular o usuário imediatamente
                     if (linkData) {
                         await supabase
                             .from("visitor_telegram_links")
@@ -950,42 +950,15 @@ export async function POST(
                         console.log(`[Webhook] Usuário ${telegramUserId} vinculado ao visitor_id ${linkData.visitor_id} via Join Request`);
                     }
 
-                    // 2. Aprovar Entrada
-                    await fetch(`https://api.telegram.org/bot${botData.bot_token}/approveChatJoinRequest`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            chat_id: botData.chat_id,
-                            user_id: telegramUserId
-                        })
-                    });
-                    console.log(`[Webhook] Auto-aprovado user ${telegramUserId}`);
-
-                    // 3. Revogar o Link de Convite (Limpeza)
-                    if (inviteLink?.invite_link) {
-                        try {
-                            await fetch(`https://api.telegram.org/bot${botData.bot_token}/revokeChatInviteLink`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    chat_id: botData.chat_id,
-                                    invite_link: inviteLink.invite_link
-                                })
-                            });
-                            console.log(`[Webhook] Link de convite revogado após aprovação.`);
-                        } catch (e) {
-                            console.error(`[Webhook] Erro ao revogar link:`, e);
-                        }
-                    }
-
-                    // 4. Enviar Mensagem de Boas-vindas (se tiver funil e não tiver sido enviada)
+                    // 2. Enviar Mensagem de Boas-vindas (ANTES DE APROVAR)
+                    // Isso garante que temos permissão para enviar msg para quem pediu para entrar
                     console.log(`[Webhook] Join Request - Verificando condições para enviar boas-vindas:`, {
                         funnelId: funnelId || 'null',
                         linkDataFound: !!linkData,
                         welcomeSentAt: linkData?.welcome_sent_at || 'null'
                     });
 
-                    // Buscar registro atualizado para verificar welcome_sent_at (pode ter sido atualizado)
+                    // Buscar registro atualizado para verificar welcome_sent_at
                     let currentLinkData = linkData;
                     if (linkData?.id) {
                         const { data: updatedLinkData } = await supabase
@@ -1001,38 +974,12 @@ export async function POST(
                     if (funnelId && !currentLinkData?.welcome_sent_at) {
                         console.log(`[Webhook] Join Request - Condições atendidas. Buscando configurações de boas-vindas para funil ${funnelId}...`);
                         try {
-                            // Primeiro, buscar SEM filtro de is_active para ver se existe configuração
-                            const { data: allWelcomeSettings } = await supabase
-                                .from("funnel_welcome_settings")
-                                .select("*")
-                                .eq("funnel_id", funnelId)
-                                .maybeSingle();
-
-                            console.log(`[Webhook] Join Request - Todas as welcome settings encontradas:`, {
-                                exists: !!allWelcomeSettings,
-                                isActive: allWelcomeSettings?.is_active,
-                                hasMessage: !!allWelcomeSettings?.message_text,
-                                messageLength: allWelcomeSettings?.message_text?.length || 0
-                            });
-
-                            // Agora buscar apenas as ativas
                             const { data: welcomeSettings, error: welcomeError } = await supabase
                                 .from("funnel_welcome_settings")
                                 .select("*")
                                 .eq("funnel_id", funnelId)
                                 .eq("is_active", true)
                                 .maybeSingle();
-
-                            if (welcomeError) {
-                                console.error(`[Webhook] Erro ao buscar welcome settings:`, welcomeError);
-                            }
-
-                            console.log(`[Webhook] Join Request - Welcome settings ATIVAS:`, {
-                                found: !!welcomeSettings,
-                                isActive: welcomeSettings?.is_active,
-                                hasMessage: !!welcomeSettings?.message_text,
-                                messagePreview: welcomeSettings?.message_text?.substring(0, 50) || 'N/A'
-                            });
 
                             if (welcomeSettings) {
                                 let messageText = welcomeSettings.message_text || "";
@@ -1045,15 +992,7 @@ export async function POST(
                                     { text: btn.label, url: btn.url }
                                 ])) || [];
 
-                                // Pequeno delay para garantir que o Telegram processou a aprovação
-                                await new Promise(resolve => setTimeout(resolve, 1500));
-
-                                console.log(`[Webhook] Join Request - Tentando enviar mensagem para telegram_user_id: ${telegramUserId}`);
-                                console.log(`[Webhook] Join Request - Payload:`, {
-                                    chat_id: telegramUserId,
-                                    text_length: messageText.length,
-                                    has_keyboard: inlineKeyboard.length > 0
-                                });
+                                console.log(`[Webhook] Join Request - Enviando mensagem PRE-APROVAÇÃO para: ${telegramUserId}`);
 
                                 const response = await fetch(`https://api.telegram.org/bot${botData.bot_token}/sendMessage`, {
                                     method: 'POST',
@@ -1066,39 +1005,25 @@ export async function POST(
                                 });
 
                                 const result = await response.json();
-                                console.log(`[Webhook] Join Request - Resposta completa da API Telegram:`, JSON.stringify(result, null, 2));
 
                                 if (result.ok) {
-                                    // Marcar como enviado usando o ID do registro encontrado
+                                    // Marcar como enviado
                                     const linkIdToUpdate = currentLinkData?.id || linkData?.id;
                                     if (linkIdToUpdate) {
                                         await supabase
                                             .from("visitor_telegram_links")
                                             .update({ welcome_sent_at: new Date().toISOString() })
                                             .eq("id", linkIdToUpdate);
-                                        console.log(`[Webhook] ✅ Mensagem de boas-vindas enviada após aprovação e marcada como enviada (link_id: ${linkIdToUpdate}).`);
                                     } else if (visitorId && funnelId) {
-                                        // Se não tiver ID, tentar atualizar por visitor_id e funnel_id
                                         await supabase
                                             .from("visitor_telegram_links")
                                             .update({ welcome_sent_at: new Date().toISOString() })
                                             .eq("visitor_id", visitorId)
                                             .eq("funnel_id", funnelId);
-                                        console.log(`[Webhook] ✅ Mensagem de boas-vindas enviada após aprovação e marcada como enviada (por visitor_id + funnel_id).`);
-                                    } else {
-                                        console.log(`[Webhook] ⚠️ Não foi possível marcar welcome_sent_at: falta link_id, visitor_id ou funnel_id`);
                                     }
+                                    console.log(`[Webhook] ✅ Mensagem de boas-vindas enviada com sucesso (Pré-Aprovação).`);
                                 } else {
-                                    console.error(`[Webhook] ❌ Erro ao enviar mensagem de boas-vindas após aprovação:`, {
-                                        error_code: result.error_code,
-                                        description: result.description,
-                                        parameters: result.parameters
-                                    });
-                                    
-                                    // Se o erro for "bot blocked by user" ou similar, logar mas não falhar
-                                    if (result.error_code === 403) {
-                                        console.error(`[Webhook] ⚠️ Bot bloqueado pelo usuário ou usuário não iniciou conversa com o bot`);
-                                    }
+                                    console.error(`[Webhook] ❌ Erro ao enviar mensagem (Pré-Aprovação):`, result.description);
                                 }
 
                                 // Logar envio
@@ -1111,18 +1036,37 @@ export async function POST(
                                     status: result.ok ? 'sent' : 'failed',
                                     error_message: result.ok ? null : result.description
                                 });
-                                console.log(`[Webhook] Mensagem de boas-vindas enviada após aprovação. Status: ${result.ok ? 'success' : 'failed'}`);
-                            } else {
-                                console.log(`[Webhook] ⚠️ Join Request - Welcome settings não encontrado ou inativo para funil ${funnelId}`);
                             }
                         } catch (err) {
-                            console.error("[Webhook] ❌ Erro ao enviar boas-vindas na aprovação:", err);
+                            console.error("[Webhook] ❌ Erro ao processar boas-vindas:", err);
                         }
-                    } else {
-                        if (!funnelId) {
-                            console.log(`[Webhook] ⚠️ Join Request - funnelId não encontrado, não é possível enviar boas-vindas`);
-                        } else if (currentLinkData?.welcome_sent_at) {
-                            console.log(`[Webhook] ⚠️ Join Request - Mensagem já foi enviada anteriormente em ${currentLinkData.welcome_sent_at}`);
+                    }
+
+                    // 3. Aprovar Entrada (AGORA SIM)
+                    await fetch(`https://api.telegram.org/bot${botData.bot_token}/approveChatJoinRequest`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            chat_id: botData.chat_id,
+                            user_id: telegramUserId
+                        })
+                    });
+                    console.log(`[Webhook] Auto-aprovado user ${telegramUserId}`);
+
+                    // 4. Revogar o Link de Convite (Limpeza)
+                    if (inviteLink?.invite_link) {
+                        try {
+                            await fetch(`https://api.telegram.org/bot${botData.bot_token}/revokeChatInviteLink`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    chat_id: botData.chat_id,
+                                    invite_link: inviteLink.invite_link
+                                })
+                            });
+                            console.log(`[Webhook] Link de convite revogado após aprovação.`);
+                        } catch (e) {
+                            console.error(`[Webhook] Erro ao revogar link:`, e);
                         }
                     }
                 }
