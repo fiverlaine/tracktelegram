@@ -157,7 +157,8 @@ export async function POST(
                 ['member', 'creator', 'administrator'].includes(oldStatus);
 
             if (isJoin) {
-                console.log(`[Webhook] User ${telegramUserId} JOINED! invite_name: ${inviteName}`);
+                const chatType = chatMember.chat?.type || 'unknown';
+                console.log(`[Webhook] User ${telegramUserId} JOINED! invite_name: ${inviteName || 'N/A'}, chat_type: ${chatType}, chat_id: ${chatId}`);
 
                 let visitorId: string | null = null;
                 let funnelId: string | null = null;
@@ -241,52 +242,128 @@ export async function POST(
                     }
                 }
 
-                // MÉTODO 2: Fallback - buscar por telegram_user_id (se já foi vinculado via /start)
-                if (!visitorId) {
+                // MÉTODO 2: Fallback - buscar por telegram_user_id (se já foi vinculado via /start ou chat_join_request)
+                // IMPORTANTE: Para grupos, o invite_link pode não estar presente no chat_member,
+                // então precisamos confiar neste fallback
+                if (!visitorId && telegramUserId) {
+                    console.log(`[Webhook] Tentando fallback por telegram_user_id: ${telegramUserId}`);
                     const { data: linkData } = await supabase
                         .from("visitor_telegram_links")
-                        .select("visitor_id, funnel_id")
+                        .select("visitor_id, funnel_id, bot_id, welcome_sent_at")
                         .eq("telegram_user_id", telegramUserId)
                         .order("linked_at", { ascending: false })
                         .limit(1)
-                        .single();
+                        .maybeSingle();
 
                     if (linkData) {
-                        visitorId = linkData.visitor_id;
-                        funnelId = linkData.funnel_id;
-                        console.log(`[Webhook] Fallback: encontrado via telegram_user_id`);
+                        // Verificar se o bot_id corresponde (importante para evitar conflitos)
+                        if (!bot_id || linkData.bot_id === bot_id) {
+                            visitorId = linkData.visitor_id;
+                            funnelId = linkData.funnel_id;
+                            console.log(`[Webhook] ✅ Fallback: encontrado via telegram_user_id - visitor_id: ${visitorId}, funnel_id: ${funnelId}, welcome_sent_at: ${linkData.welcome_sent_at || 'null'}`);
+                        } else {
+                            console.log(`[Webhook] ⚠️ Registro encontrado mas bot_id não corresponde (${linkData.bot_id} != ${bot_id})`);
+                        }
+                    } else {
+                        console.log(`[Webhook] ❌ Nenhum registro encontrado para telegram_user_id: ${telegramUserId}`);
                     }
                 }
 
                 // MÉTODO 3: Fallback - buscar click mais recente sem vínculo (menos preciso)
+                // IMPORTANTE: Para grupos sem invite_link, este pode ser o único método que funciona
                 if (!visitorId) {
-                    // Buscar o click mais recente dos últimos 5 minutos que não tem join
-                    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+                    // Aumentar janela de tempo para 10 minutos (grupos podem ter delay maior)
+                    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+                    console.log(`[Webhook] Tentando fallback por click recente (últimos 10 minutos)...`);
 
-                    const { data: recentClick } = await supabase
+                    // Buscar clicks recentes do mesmo bot_id (via funis)
+                    const { data: recentClicks } = await supabase
                         .from("events")
-                        .select("visitor_id, funnel_id")
+                        .select("visitor_id, funnel_id, created_at")
                         .eq("event_type", "click")
-                        .gte("created_at", fiveMinutesAgo)
+                        .gte("created_at", tenMinutesAgo)
                         .order("created_at", { ascending: false })
-                        .limit(1)
-                        .single();
+                        .limit(10); // Buscar mais registros para filtrar depois
 
-                    if (recentClick) {
-                        // Verificar se esse visitor_id já tem um join
-                        const { data: existingJoin } = await supabase
-                            .from("events")
+                    if (recentClicks && recentClicks.length > 0) {
+                        // Buscar funis do bot_id atual
+                        const { data: botFunnels } = await supabase
+                            .from("funnels")
                             .select("id")
-                            .eq("visitor_id", recentClick.visitor_id)
-                            .eq("event_type", "join")
-                            .limit(1)
-                            .single();
+                            .eq("bot_id", bot_id);
 
-                        if (!existingJoin) {
-                            visitorId = recentClick.visitor_id;
-                            funnelId = recentClick.funnel_id;
-                            console.log(`[Webhook] Fallback timing: usando click recente`);
+                        const botFunnelIds = botFunnels?.map(f => f.id) || [];
+                        
+                        // Filtrar clicks que pertencem a funis deste bot
+                        const relevantClicks = recentClicks.filter(click => 
+                            click.funnel_id && botFunnelIds.includes(click.funnel_id)
+                        );
+
+                        if (relevantClicks.length > 0) {
+                            // Pegar o click mais recente que não tem join ainda
+                            for (const click of relevantClicks) {
+                                const { data: existingJoin } = await supabase
+                                    .from("events")
+                                    .select("id")
+                                    .eq("visitor_id", click.visitor_id)
+                                    .eq("event_type", "join")
+                                    .limit(1)
+                                    .maybeSingle();
+
+                                if (!existingJoin) {
+                                    visitorId = click.visitor_id;
+                                    funnelId = click.funnel_id;
+                                    console.log(`[Webhook] ✅ Fallback timing: usando click recente - visitor_id: ${visitorId}, funnel_id: ${funnelId}`);
+                                    break;
+                                }
+                            }
                         }
+                    }
+                    
+                    if (!visitorId) {
+                        console.log(`[Webhook] ❌ Nenhum click recente encontrado para vincular ao telegram_user_id: ${telegramUserId}`);
+                    }
+                }
+
+                // Se encontrou visitor_id mas ainda não está vinculado ao telegram_user_id, vincular agora
+                if (visitorId && funnelId && telegramUserId) {
+                    const { data: existingLink } = await supabase
+                        .from("visitor_telegram_links")
+                        .select("id, telegram_user_id")
+                        .eq("visitor_id", visitorId)
+                        .eq("funnel_id", funnelId)
+                        .maybeSingle();
+
+                    // Se o registro existe mas não tem telegram_user_id vinculado, atualizar
+                    if (existingLink && (!existingLink.telegram_user_id || existingLink.telegram_user_id === 0)) {
+                        await supabase
+                            .from("visitor_telegram_links")
+                            .update({
+                                telegram_user_id: telegramUserId,
+                                telegram_username: telegramUsername,
+                                linked_at: new Date().toISOString()
+                            })
+                            .eq("id", existingLink.id);
+                        console.log(`[Webhook] ✅ Vinculado telegram_user_id ${telegramUserId} ao visitor_id ${visitorId} durante chat_member`);
+                    }
+                    // Se não existe registro, criar um novo
+                    else if (!existingLink) {
+                        await supabase
+                            .from("visitor_telegram_links")
+                            .upsert({
+                                visitor_id: visitorId,
+                                funnel_id: funnelId,
+                                bot_id: bot_id,
+                                telegram_user_id: telegramUserId,
+                                telegram_username: telegramUsername,
+                                linked_at: new Date().toISOString(),
+                                metadata: {
+                                    linked_via: "chat_member_fallback",
+                                    chat_id: chatId,
+                                    chat_title: chatTitle
+                                }
+                            }, { onConflict: "visitor_id,telegram_user_id" });
+                        console.log(`[Webhook] ✅ Criado novo registro vinculando telegram_user_id ${telegramUserId} ao visitor_id ${visitorId}`);
                     }
                 }
 
@@ -730,16 +807,20 @@ export async function POST(
             }
         }
 
-        // 3. Handle Chat Join Request (para canais com aprovação)
+        // 3. Handle Chat Join Request (para grupos e canais com aprovação)
         if (update.chat_join_request) {
             const request = update.chat_join_request;
             const telegramUserId = request.from?.id;
             const inviteLink = request.invite_link;
             const inviteName = inviteLink?.name;
 
-            console.log(`[Webhook] Chat Join Request:`, {
+            const chatType = request.chat?.type || 'unknown';
+            const chatId = request.chat?.id;
+            console.log(`[Webhook] Chat Join Request recebido:`, {
                 telegramUserId,
-                inviteName
+                inviteName: inviteName || 'N/A',
+                chatType,
+                chatId
             });
 
             // Auto-aprovar se tiver invite_link válido
@@ -759,20 +840,25 @@ export async function POST(
                     const partialVisitorId = inviteName.substring(2);
                     const { data } = await supabase
                         .from("visitor_telegram_links")
-                        .select("id, funnel_id, visitor_id, metadata, welcome_sent_at")
+                        .select("id, funnel_id, visitor_id, metadata, welcome_sent_at, bot_id")
                         .like("visitor_id", `${partialVisitorId}%`)
-                        .limit(1)
-                        .maybeSingle();
-                    linkData = data;
-                } else if (inviteName.startsWith("pool_")) {
-                    const { data } = await supabase
-                        .from("visitor_telegram_links")
-                        .select("id, funnel_id, visitor_id, metadata, welcome_sent_at")
-                        .eq("metadata->>invite_name", inviteName)
+                        .eq("bot_id", bot_id) // Filtrar por bot_id para evitar conflitos
                         .order("linked_at", { ascending: false })
                         .limit(1)
                         .maybeSingle();
                     linkData = data;
+                    console.log(`[Webhook] Join Request - Busca por invite_name (v_): ${linkData ? 'encontrado' : 'não encontrado'}`);
+                } else if (inviteName.startsWith("pool_")) {
+                    const { data } = await supabase
+                        .from("visitor_telegram_links")
+                        .select("id, funnel_id, visitor_id, metadata, welcome_sent_at, bot_id")
+                        .eq("metadata->>invite_name", inviteName)
+                        .eq("bot_id", bot_id) // Filtrar por bot_id para evitar conflitos
+                        .order("linked_at", { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+                    linkData = data;
+                    console.log(`[Webhook] Join Request - Busca por invite_name (pool_): ${linkData ? 'encontrado' : 'não encontrado'}`);
                 }
 
                 if (linkData) {
