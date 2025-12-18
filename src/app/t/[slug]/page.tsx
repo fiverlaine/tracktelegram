@@ -2,13 +2,14 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import ClientTracking from "./client-tracking";
 import { createClient } from "@supabase/supabase-js";
-import { generateTelegramInvite } from "@/lib/telegram-service";
 
 // Supabase client para o Server Component
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = (supabaseUrl && supabaseKey)
+    ? createClient(supabaseUrl, supabaseKey)
+    : null;
 
 interface PageProps {
     params: Promise<{ slug: string }>;
@@ -36,22 +37,32 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
     // --- FETCH FUNNEL SERVER SIDE (Always) ---
     // Usamos Service Role se disponível para garantir acesso, ou Anon se não tiver
     // Isso evita problemas de RLS no client-side para visitantes anônimos
-    const { data: funnel } = await supabase
-        .from("funnels")
-        .select(`
-            *,
-            pixels:pixels!funnels_pixel_id_fkey(*),
-            telegram_bots:telegram_bots!funnels_bot_id_fkey(
-                id,
-                name,
-                username,
-                channel_link,
-                bot_token,
-                chat_id
-            )
-        `)
-        .eq("slug", slug)
-        .single();
+
+    let funnel = null;
+
+    if (supabase) {
+        try {
+            const { data, error } = await supabase
+                .from("funnels")
+                .select(`
+                    *,
+                    pixels(*),
+                    telegram_bots(*)
+                `)
+                .eq("slug", slug)
+                .maybeSingle();
+
+            if (error) {
+                console.error("Supabase Error fetching funnel:", error);
+            } else {
+                funnel = data;
+            }
+        } catch (err) {
+            console.error("Unexpected error fetching funnel:", err);
+        }
+    } else {
+        console.error("Supabase client not initialized (missing env vars)");
+    }
 
     // --- MODO CLIENT-SIDE REDIRECT (Para mostrar UI de Loading) ---
     // Não fazemos redirect no servidor para permitir que o componente ClientTracking
