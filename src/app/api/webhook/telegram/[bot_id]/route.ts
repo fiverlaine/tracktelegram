@@ -610,10 +610,7 @@ export async function POST(
                                         { text: btn.label, url: btn.url }
                                     ])) || [];
 
-                                    // Tentar enviar mensagem privada primeiro
-                                    let messageSent = false;
-                                    let sendError = null;
-                                    
+                                    // Enviar Mensagem
                                     const response = await fetch(`https://api.telegram.org/bot${botData.bot_token}/sendMessage`, {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
@@ -625,10 +622,8 @@ export async function POST(
                                     });
 
                                     const result = await response.json();
-                                    console.log(`[Webhook] Chat Member - Resposta completa da API Telegram (privado):`, JSON.stringify(result, null, 2));
 
                                     if (result.ok) {
-                                        messageSent = true;
                                         // Marcar como enviado usando o ID do registro encontrado (mais preciso)
                                         if (linkDataForWelcome?.id) {
                                             await supabase
@@ -643,80 +638,20 @@ export async function POST(
                                                 .eq("visitor_id", visitorId)
                                                 .eq("funnel_id", funnelId);
                                         }
-                                        console.log(`[Webhook] ✅ Mensagem de boas-vindas enviada no PRIVADO e marcada como enviada.`);
+                                        console.log(`[Webhook] ✅ Mensagem de boas-vindas enviada e marcada como enviada.`);
                                     } else {
-                                        sendError = result;
-                                        console.error(`[Webhook] ❌ Erro ao enviar mensagem PRIVADA de boas-vindas:`, {
-                                            error_code: result.error_code,
-                                            description: result.description
-                                        });
-                                        
-                                        // Se o erro for "bot can't initiate conversation", tentar enviar no grupo
-                                        if (result.error_code === 403 && result.description?.includes("can't initiate conversation")) {
-                                            console.log(`[Webhook] ⚠️ Bot não pode iniciar conversa privada. Tentando enviar no GRUPO...`);
-                                            
-                                            // Buscar chat_id do grupo
-                                            const { data: botInfo } = await supabase
-                                                .from("telegram_bots")
-                                                .select("chat_id")
-                                                .eq("id", bot_id)
-                                                .single();
-                                            
-                                            // Tentar enviar no grupo/canal
-                                            if (botInfo?.chat_id) {
-                                                const firstName = chatMember.new_chat_member?.user?.first_name || "Visitante";
-                                                const groupResponse = await fetch(`https://api.telegram.org/bot${botData.bot_token}/sendMessage`, {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({
-                                                        chat_id: botInfo.chat_id,
-                                                        text: `👋 ${firstName}, ${messageText}`,
-                                                        reply_markup: inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined
-                                                    })
-                                                });
-                                                
-                                                const groupResult = await groupResponse.json();
-                                                console.log(`[Webhook] Chat Member - Resposta ao enviar no GRUPO:`, JSON.stringify(groupResult, null, 2));
-                                                
-                                                if (groupResult.ok) {
-                                                    messageSent = true;
-                                                    // Marcar como enviado mesmo tendo sido enviado no grupo
-                                                    if (linkDataForWelcome?.id) {
-                                                        await supabase
-                                                            .from("visitor_telegram_links")
-                                                            .update({ welcome_sent_at: new Date().toISOString() })
-                                                            .eq("id", linkDataForWelcome.id);
-                                                    } else {
-                                                        await supabase
-                                                            .from("visitor_telegram_links")
-                                                            .update({ welcome_sent_at: new Date().toISOString() })
-                                                            .eq("visitor_id", visitorId)
-                                                            .eq("funnel_id", funnelId);
-                                                    }
-                                                    console.log(`[Webhook] ✅ Mensagem de boas-vindas enviada no GRUPO após falha no privado.`);
-                                                } else {
-                                                    console.error(`[Webhook] ❌ Também falhou ao enviar no grupo:`, groupResult.description);
-                                                }
-                                            } else {
-                                                console.error(`[Webhook] ❌ chat_id não disponível para enviar no grupo como fallback`);
-                                            }
-                                        }
-                                    }
-                                    
-                                    // Atualizar status final
-                                    if (!messageSent && sendError) {
-                                        console.error(`[Webhook] ❌ Não foi possível enviar mensagem de boas-vindas (nem no privado nem no grupo)`);
+                                        console.error(`[Webhook] ❌ Erro ao enviar mensagem de boas-vindas:`, result.description);
                                     }
 
-                                    // Logar envio (usar status correto baseado em messageSent)
+                                    // Logar envio
                                     await supabase.from("telegram_message_logs").insert({
                                         funnel_id: funnelId,
-                                        telegram_chat_id: messageSent ? telegramUserId.toString() : (chatId?.toString() || telegramUserId.toString()),
+                                        telegram_chat_id: telegramUserId.toString(),
                                         telegram_user_name: username || firstName,
                                         direction: 'outbound',
                                         message_content: messageText,
-                                        status: messageSent ? 'sent' : 'failed',
-                                        error_message: messageSent ? null : (sendError?.description || 'Erro desconhecido')
+                                        status: result.ok ? 'sent' : 'failed',
+                                        error_message: result.ok ? null : result.description
                                     });
                                 }
                             }
@@ -1120,10 +1055,6 @@ export async function POST(
                                     has_keyboard: inlineKeyboard.length > 0
                                 });
 
-                                // Tentar enviar mensagem privada primeiro
-                                let messageSent = false;
-                                let sendError = null;
-                                
                                 const response = await fetch(`https://api.telegram.org/bot${botData.bot_token}/sendMessage`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
@@ -1135,10 +1066,9 @@ export async function POST(
                                 });
 
                                 const result = await response.json();
-                                console.log(`[Webhook] Join Request - Resposta completa da API Telegram (privado):`, JSON.stringify(result, null, 2));
+                                console.log(`[Webhook] Join Request - Resposta completa da API Telegram:`, JSON.stringify(result, null, 2));
 
                                 if (result.ok) {
-                                    messageSent = true;
                                     // Marcar como enviado usando o ID do registro encontrado
                                     const linkIdToUpdate = currentLinkData?.id || linkData?.id;
                                     if (linkIdToUpdate) {
@@ -1146,7 +1076,7 @@ export async function POST(
                                             .from("visitor_telegram_links")
                                             .update({ welcome_sent_at: new Date().toISOString() })
                                             .eq("id", linkIdToUpdate);
-                                        console.log(`[Webhook] ✅ Mensagem de boas-vindas enviada no PRIVADO após aprovação e marcada como enviada (link_id: ${linkIdToUpdate}).`);
+                                        console.log(`[Webhook] ✅ Mensagem de boas-vindas enviada após aprovação e marcada como enviada (link_id: ${linkIdToUpdate}).`);
                                     } else if (visitorId && funnelId) {
                                         // Se não tiver ID, tentar atualizar por visitor_id e funnel_id
                                         await supabase
@@ -1154,78 +1084,34 @@ export async function POST(
                                             .update({ welcome_sent_at: new Date().toISOString() })
                                             .eq("visitor_id", visitorId)
                                             .eq("funnel_id", funnelId);
-                                        console.log(`[Webhook] ✅ Mensagem de boas-vindas enviada no PRIVADO após aprovação e marcada como enviada (por visitor_id + funnel_id).`);
+                                        console.log(`[Webhook] ✅ Mensagem de boas-vindas enviada após aprovação e marcada como enviada (por visitor_id + funnel_id).`);
                                     } else {
                                         console.log(`[Webhook] ⚠️ Não foi possível marcar welcome_sent_at: falta link_id, visitor_id ou funnel_id`);
                                     }
                                 } else {
-                                    sendError = result;
-                                    console.error(`[Webhook] ❌ Erro ao enviar mensagem PRIVADA de boas-vindas:`, {
+                                    console.error(`[Webhook] ❌ Erro ao enviar mensagem de boas-vindas após aprovação:`, {
                                         error_code: result.error_code,
-                                        description: result.description
+                                        description: result.description,
+                                        parameters: result.parameters
                                     });
                                     
-                                    // Se o erro for "bot can't initiate conversation", tentar enviar no grupo
-                                    if (result.error_code === 403 && result.description?.includes("can't initiate conversation")) {
-                                        console.log(`[Webhook] ⚠️ Bot não pode iniciar conversa privada. Tentando enviar no GRUPO...`);
-                                        
-                                        // Tentar enviar no grupo/canal
-                                        if (botData.chat_id) {
-                                            const groupResponse = await fetch(`https://api.telegram.org/bot${botData.bot_token}/sendMessage`, {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({
-                                                    chat_id: botData.chat_id,
-                                                    text: `👋 ${firstName}, ${messageText}`,
-                                                    reply_markup: inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined
-                                                })
-                                            });
-                                            
-                                            const groupResult = await groupResponse.json();
-                                            console.log(`[Webhook] Join Request - Resposta ao enviar no GRUPO:`, JSON.stringify(groupResult, null, 2));
-                                            
-                                            if (groupResult.ok) {
-                                                messageSent = true;
-                                                // Marcar como enviado mesmo tendo sido enviado no grupo
-                                                const linkIdToUpdate = currentLinkData?.id || linkData?.id;
-                                                if (linkIdToUpdate) {
-                                                    await supabase
-                                                        .from("visitor_telegram_links")
-                                                        .update({ welcome_sent_at: new Date().toISOString() })
-                                                        .eq("id", linkIdToUpdate);
-                                                } else if (visitorId && funnelId) {
-                                                    await supabase
-                                                        .from("visitor_telegram_links")
-                                                        .update({ welcome_sent_at: new Date().toISOString() })
-                                                        .eq("visitor_id", visitorId)
-                                                        .eq("funnel_id", funnelId);
-                                                }
-                                                console.log(`[Webhook] ✅ Mensagem de boas-vindas enviada no GRUPO após falha no privado.`);
-                                            } else {
-                                                console.error(`[Webhook] ❌ Também falhou ao enviar no grupo:`, groupResult.description);
-                                            }
-                                        } else {
-                                            console.error(`[Webhook] ❌ chat_id não disponível para enviar no grupo como fallback`);
-                                        }
+                                    // Se o erro for "bot blocked by user" ou similar, logar mas não falhar
+                                    if (result.error_code === 403) {
+                                        console.error(`[Webhook] ⚠️ Bot bloqueado pelo usuário ou usuário não iniciou conversa com o bot`);
                                     }
                                 }
-                                
-                                // Atualizar status final
-                                if (!messageSent && sendError) {
-                                    console.error(`[Webhook] ❌ Não foi possível enviar mensagem de boas-vindas (nem no privado nem no grupo)`);
-                                }
 
-                                // Logar envio (usar status correto baseado em messageSent)
+                                // Logar envio
                                 await supabase.from("telegram_message_logs").insert({
                                     funnel_id: funnelId,
-                                    telegram_chat_id: messageSent ? telegramUserId.toString() : (botData.chat_id?.toString() || telegramUserId.toString()),
+                                    telegram_chat_id: telegramUserId.toString(),
                                     telegram_user_name: username || firstName,
                                     direction: 'outbound',
                                     message_content: messageText,
-                                    status: messageSent ? 'sent' : 'failed',
-                                    error_message: messageSent ? null : (sendError?.description || 'Erro desconhecido')
+                                    status: result.ok ? 'sent' : 'failed',
+                                    error_message: result.ok ? null : result.description
                                 });
-                                console.log(`[Webhook] Mensagem de boas-vindas enviada após aprovação. Status: ${messageSent ? 'success' : 'failed'}`);
+                                console.log(`[Webhook] Mensagem de boas-vindas enviada após aprovação. Status: ${result.ok ? 'success' : 'failed'}`);
                             } else {
                                 console.log(`[Webhook] ⚠️ Join Request - Welcome settings não encontrado ou inativo para funil ${funnelId}`);
                             }
