@@ -424,16 +424,68 @@ export async function POST(
 
                     // --- NOVA LÓGICA: Enviar Mensagem de Boas-vindas ---
                     // Verificar se já foi enviada recentemente para este visitor_id
-                    const { data: linkDataForWelcome } = await supabase
-                        .from("visitor_telegram_links")
-                        .select("welcome_sent_at")
-                        .eq("visitor_id", visitorId)
-                        .eq("funnel_id", funnelId)
-                        .order("linked_at", { ascending: false })
-                        .limit(1)
-                        .maybeSingle();
+                    // Usar busca em cascata para garantir que encontre o registro correto
+                    // mesmo se o chat_join_request já tiver atualizado o registro
+                    let linkDataForWelcome = null;
+                    
+                    // MÉTODO 1: Tentar usar o invite_name (mais preciso)
+                    if (inviteName) {
+                        if (inviteName.startsWith("v_")) {
+                            const partialVisitorId = inviteName.substring(2);
+                            const { data } = await supabase
+                                .from("visitor_telegram_links")
+                                .select("id, welcome_sent_at, telegram_user_id")
+                                .like("visitor_id", `${partialVisitorId}%`)
+                                .eq("funnel_id", funnelId)
+                                .order("linked_at", { ascending: false })
+                                .limit(1)
+                                .maybeSingle();
+                            linkDataForWelcome = data;
+                            console.log(`[Webhook] Busca por invite_name (v_): ${linkDataForWelcome ? 'encontrado' : 'não encontrado'}`);
+                        } else if (inviteName.startsWith("pool_")) {
+                            const { data } = await supabase
+                                .from("visitor_telegram_links")
+                                .select("id, welcome_sent_at, telegram_user_id")
+                                .eq("metadata->>invite_name", inviteName)
+                                .eq("funnel_id", funnelId)
+                                .order("linked_at", { ascending: false })
+                                .limit(1)
+                                .maybeSingle();
+                            linkDataForWelcome = data;
+                            console.log(`[Webhook] Busca por invite_name (pool_): ${linkDataForWelcome ? 'encontrado' : 'não encontrado'}`);
+                        }
+                    }
+                    
+                    // MÉTODO 2: Fallback - buscar por telegram_user_id (caso o chat_member chegue após chat_join_request)
+                    if (!linkDataForWelcome && telegramUserId) {
+                        const { data } = await supabase
+                            .from("visitor_telegram_links")
+                            .select("id, welcome_sent_at, telegram_user_id")
+                            .eq("telegram_user_id", telegramUserId)
+                            .eq("funnel_id", funnelId)
+                            .order("linked_at", { ascending: false })
+                            .limit(1)
+                            .maybeSingle();
+                        linkDataForWelcome = data;
+                        console.log(`[Webhook] Busca por telegram_user_id: ${linkDataForWelcome ? 'encontrado' : 'não encontrado'}`);
+                    }
+                    
+                    // MÉTODO 3: Último fallback - buscar por visitor_id e funnel_id
+                    if (!linkDataForWelcome && visitorId) {
+                        const { data } = await supabase
+                            .from("visitor_telegram_links")
+                            .select("id, welcome_sent_at, telegram_user_id")
+                            .eq("visitor_id", visitorId)
+                            .eq("funnel_id", funnelId)
+                            .order("linked_at", { ascending: false })
+                            .limit(1)
+                            .maybeSingle();
+                        linkDataForWelcome = data;
+                        console.log(`[Webhook] Busca por visitor_id + funnel_id: ${linkDataForWelcome ? 'encontrado' : 'não encontrado'}`);
+                    }
 
                     if (!linkDataForWelcome?.welcome_sent_at) {
+                        console.log(`[Webhook] Mensagem de boas-vindas NÃO foi enviada ainda. Enviando agora...`);
                         try {
                             // Buscar token do bot para enviar msg ou revogar link
                             const { data: botData } = await supabase
@@ -495,12 +547,23 @@ export async function POST(
                                     const result = await response.json();
 
                                     if (result.ok) {
-                                        // Marcar como enviado
-                                        await supabase
-                                            .from("visitor_telegram_links")
-                                            .update({ welcome_sent_at: new Date().toISOString() })
-                                            .eq("visitor_id", visitorId)
-                                            .eq("funnel_id", funnelId);
+                                        // Marcar como enviado usando o ID do registro encontrado (mais preciso)
+                                        if (linkDataForWelcome?.id) {
+                                            await supabase
+                                                .from("visitor_telegram_links")
+                                                .update({ welcome_sent_at: new Date().toISOString() })
+                                                .eq("id", linkDataForWelcome.id);
+                                        } else {
+                                            // Fallback: usar visitor_id e funnel_id se não tiver ID
+                                            await supabase
+                                                .from("visitor_telegram_links")
+                                                .update({ welcome_sent_at: new Date().toISOString() })
+                                                .eq("visitor_id", visitorId)
+                                                .eq("funnel_id", funnelId);
+                                        }
+                                        console.log(`[Webhook] ✅ Mensagem de boas-vindas enviada e marcada como enviada.`);
+                                    } else {
+                                        console.error(`[Webhook] ❌ Erro ao enviar mensagem de boas-vindas:`, result.description);
                                     }
 
                                     // Logar envio
@@ -801,11 +864,14 @@ export async function POST(
                                 const result = await response.json();
 
                                 if (result.ok) {
-                                    // Marcar como enviado
+                                    // Marcar como enviado usando o ID do registro encontrado
                                     await supabase
                                         .from("visitor_telegram_links")
                                         .update({ welcome_sent_at: new Date().toISOString() })
                                         .eq("id", linkData.id);
+                                    console.log(`[Webhook] ✅ Mensagem de boas-vindas enviada após aprovação e marcada como enviada.`);
+                                } else {
+                                    console.error(`[Webhook] ❌ Erro ao enviar mensagem de boas-vindas após aprovação:`, result.description);
                                 }
 
                                 // Logar envio
