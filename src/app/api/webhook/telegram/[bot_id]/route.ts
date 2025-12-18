@@ -422,7 +422,7 @@ export async function POST(
 
                     // --- NOVA LÓGICA: Enviar Mensagem de Boas-vindas ---
                     // Se use_join_request for true, a mensagem já foi enviada no evento chat_join_request
-                    if (funnelData && !funnelData.use_join_request) {
+                    if (!funnelData?.use_join_request) {
                         try {
                             // Buscar token do bot para enviar msg ou revogar link
                             const { data: botData } = await supabase
@@ -670,18 +670,12 @@ export async function POST(
                 // Tentar descobrir o Funnel ID pelo visitor_id parcial
                 const { data: linkData } = await supabase
                     .from("visitor_telegram_links")
-                    .select("id, funnel_id, visitor_id, metadata")
+                    .select("funnel_id, visitor_id")
                     .like("visitor_id", `${partialVisitorId}%`)
                     .limit(1)
                     .single();
 
                 const funnelId = linkData?.funnel_id;
-
-                // Check for duplicate processing (Idempotency via Metadata)
-                if (linkData?.metadata?.welcome_sent) {
-                    console.log(`[Webhook] Welcome message already sent (metadata check). Skipping.`);
-                    return NextResponse.json({ success: true });
-                }
 
                 if (botData?.bot_token && botData?.chat_id) {
                     // 1. Aprovar Entrada
@@ -694,20 +688,6 @@ export async function POST(
                         })
                     });
                     console.log(`[Webhook] Auto-aprovado user ${telegramUserId}`);
-
-                    // Mark as approved/welcome sent immediately to prevent race conditions
-                    if (linkData) {
-                        await supabase
-                            .from("visitor_telegram_links")
-                            .update({
-                                metadata: {
-                                    ...linkData.metadata,
-                                    welcome_sent: true,
-                                    approved_at: new Date().toISOString()
-                                }
-                            })
-                            .eq("id", linkData.id);
-                    }
 
                     // 2. Revogar o Link de Convite (Limpeza)
                     if (inviteLink?.invite_link) {
