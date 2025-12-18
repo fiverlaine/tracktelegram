@@ -158,7 +158,7 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData, visit
 
     function initFacebookPixel(pixelId: string) {
         if (typeof window !== 'undefined' && !(window as any).fbq) {
-            const n = (window as any).fbq = function () {
+            const n: any = function () {
                 n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments)
             };
             if (!(window as any)._fbq) (window as any)._fbq = n;
