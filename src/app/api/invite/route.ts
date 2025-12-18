@@ -44,7 +44,7 @@ export async function GET(request: Request) {
         // 1. Buscar dados do funil e suas configurações de boas-vindas (Manual Join)
         const { data: funnelData, error: funnelError } = await supabase
             .from("funnels")
-            .select("id, name, bot_id")
+            .select("id, name, bot_id, use_join_request")
             .eq("id", funnelId)
             .single();
 
@@ -82,7 +82,7 @@ export async function GET(request: Request) {
 
         // const bot = funnel.telegram_bots as any; // REMOVED: Already defined above
         const welcomeSettings = funnel.funnel_welcome_settings?.[0]; // Supabase returns array for relations
-        const shouldUseJoinRequest = welcomeSettings?.is_active || false;
+        const shouldUseJoinRequest = welcomeSettings?.is_active || funnelData.use_join_request || false;
 
         if (!bot?.bot_token) {
             return NextResponse.json(
@@ -228,7 +228,7 @@ export async function POST(request: Request) {
         // 2. Buscar dados do funil e gerar link (On-Demand) - Manual Join
         const { data: funnelData, error: funnelError } = await supabase
             .from("funnels")
-            .select("id, name, bot_id")
+            .select("id, name, bot_id, use_join_request")
             .eq("id", funnel_id)
             .single();
 
@@ -262,7 +262,7 @@ export async function POST(request: Request) {
 
         // const bot = funnel.telegram_bots as any; // REMOVED: Already defined
         const welcomeSettings = funnel.funnel_welcome_settings?.[0]; // Supabase returns array for relations
-        const shouldUseJoinRequest = welcomeSettings?.is_active || false;
+        const shouldUseJoinRequest = welcomeSettings?.is_active || funnelData.use_join_request || false;
 
         if (!bot?.bot_token) {
             return NextResponse.json({ error: "Bot não configurado" }, { status: 400 });
