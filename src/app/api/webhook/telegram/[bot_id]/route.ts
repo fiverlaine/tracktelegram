@@ -171,7 +171,7 @@ export async function POST(
 
                         const { data: linkData, error: linkError } = await supabase
                             .from("visitor_telegram_links")
-                            .select("id, visitor_id, funnel_id, metadata")
+                            .select("id, visitor_id, funnel_id, metadata, welcome_sent_at")
                             .like("visitor_id", `${partialVisitorId}%`)
                             .order("linked_at", { ascending: false })
                             .limit(1)
@@ -180,7 +180,8 @@ export async function POST(
                         if (linkData) {
                             visitorId = linkData.visitor_id;
                             funnelId = linkData.funnel_id;
-                            console.log(`[Webhook] Encontrado visitor_id (On-Demand): ${visitorId}`);
+                            const welcomeSentAt = linkData.welcome_sent_at;
+                            console.log(`[Webhook] Encontrado visitor_id (On-Demand): ${visitorId}, welcome_sent_at: ${welcomeSentAt}`);
 
                             // Atualizar registro
                             await supabase
@@ -207,7 +208,7 @@ export async function POST(
                         // O invite_name está salvo dentro do JSONB metadata -> invite_name
                         const { data: linkData, error: linkError } = await supabase
                             .from("visitor_telegram_links")
-                            .select("id, visitor_id, funnel_id, metadata")
+                            .select("id, visitor_id, funnel_id, metadata, welcome_sent_at")
                             .eq("metadata->>invite_name", inviteName)
                             .order("linked_at", { ascending: false })
                             .limit(1)
@@ -216,7 +217,8 @@ export async function POST(
                         if (linkData) {
                             visitorId = linkData.visitor_id;
                             funnelId = linkData.funnel_id;
-                            console.log(`[Webhook] Encontrado visitor_id (Pool): ${visitorId}`);
+                            const welcomeSentAt = linkData.welcome_sent_at;
+                            console.log(`[Webhook] Encontrado visitor_id (Pool): ${visitorId}, welcome_sent_at: ${welcomeSentAt}`);
 
                             // Atualizar registro
                             await supabase
@@ -421,8 +423,17 @@ export async function POST(
 
 
                     // --- NOVA LÓGICA: Enviar Mensagem de Boas-vindas ---
-                    // Se use_join_request for true, a mensagem já foi enviada no evento chat_join_request
-                    if (!funnelData?.use_join_request) {
+                    // Verificar se já foi enviada recentemente para este visitor_id
+                    const { data: linkDataForWelcome } = await supabase
+                        .from("visitor_telegram_links")
+                        .select("welcome_sent_at")
+                        .eq("visitor_id", visitorId)
+                        .eq("funnel_id", funnelId)
+                        .order("linked_at", { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (!linkDataForWelcome?.welcome_sent_at) {
                         try {
                             // Buscar token do bot para enviar msg ou revogar link
                             const { data: botData } = await supabase
@@ -483,6 +494,15 @@ export async function POST(
 
                                     const result = await response.json();
 
+                                    if (result.ok) {
+                                        // Marcar como enviado
+                                        await supabase
+                                            .from("visitor_telegram_links")
+                                            .update({ welcome_sent_at: new Date().toISOString() })
+                                            .eq("visitor_id", visitorId)
+                                            .eq("funnel_id", funnelId);
+                                    }
+
                                     // Logar envio
                                     await supabase.from("telegram_message_logs").insert({
                                         funnel_id: funnelId,
@@ -490,13 +510,16 @@ export async function POST(
                                         telegram_user_name: username || firstName,
                                         direction: 'outbound',
                                         message_content: messageText,
-                                        status: result.ok ? 'sent' : 'failed'
+                                        status: result.ok ? 'sent' : 'failed',
+                                        error_message: result.ok ? null : result.description
                                     });
                                 }
                             }
                         } catch (err) {
                             console.error("[Webhook] Erro ao processar boas-vindas/revogação:", err);
                         }
+                    } else {
+                        console.log(`[Webhook] Mensagem de boas-vindas já enviada anteriormente em ${linkDataForWelcome.welcome_sent_at}`);
                     }
                     // ---------------------------------------------------
                 } else {
@@ -670,7 +693,7 @@ export async function POST(
                 // Tentar descobrir o Funnel ID pelo visitor_id parcial
                 const { data: linkData } = await supabase
                     .from("visitor_telegram_links")
-                    .select("funnel_id, visitor_id")
+                    .select("id, funnel_id, visitor_id, metadata, welcome_sent_at")
                     .like("visitor_id", `${partialVisitorId}%`)
                     .limit(1)
                     .single();
@@ -678,7 +701,25 @@ export async function POST(
                 const funnelId = linkData?.funnel_id;
 
                 if (botData?.bot_token && botData?.chat_id) {
-                    // 1. Aprovar Entrada
+                    // 1. Vincular o usuário imediatamente (Importante para o evento chat_member que virá depois)
+                    if (linkData) {
+                        await supabase
+                            .from("visitor_telegram_links")
+                            .update({
+                                telegram_user_id: telegramUserId,
+                                telegram_username: request.from?.username,
+                                linked_at: new Date().toISOString(),
+                                metadata: {
+                                    ...linkData.metadata,
+                                    linked_via: "join_request",
+                                    chat_id: botData.chat_id,
+                                }
+                            })
+                            .eq("id", linkData.id);
+                        console.log(`[Webhook] Usuário ${telegramUserId} vinculado ao visitor_id ${linkData.visitor_id} via Join Request`);
+                    }
+
+                    // 2. Aprovar Entrada
                     await fetch(`https://api.telegram.org/bot${botData.bot_token}/approveChatJoinRequest`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -689,7 +730,7 @@ export async function POST(
                     });
                     console.log(`[Webhook] Auto-aprovado user ${telegramUserId}`);
 
-                    // 2. Revogar o Link de Convite (Limpeza)
+                    // 3. Revogar o Link de Convite (Limpeza)
                     if (inviteLink?.invite_link) {
                         try {
                             await fetch(`https://api.telegram.org/bot${botData.bot_token}/revokeChatInviteLink`, {
@@ -706,8 +747,8 @@ export async function POST(
                         }
                     }
 
-                    // 3. Enviar Mensagem de Boas-vindas (se tiver funil)
-                    if (funnelId) {
+                    // 4. Enviar Mensagem de Boas-vindas (se tiver funil e não tiver sido enviada)
+                    if (funnelId && !linkData?.welcome_sent_at) {
                         try {
                             const { data: welcomeSettings } = await supabase
                                 .from("funnel_welcome_settings")
@@ -739,6 +780,14 @@ export async function POST(
 
                                 const result = await response.json();
 
+                                if (result.ok) {
+                                    // Marcar como enviado
+                                    await supabase
+                                        .from("visitor_telegram_links")
+                                        .update({ welcome_sent_at: new Date().toISOString() })
+                                        .eq("id", linkData.id);
+                                }
+
                                 // Logar envio
                                 await supabase.from("telegram_message_logs").insert({
                                     funnel_id: funnelId,
@@ -746,9 +795,10 @@ export async function POST(
                                     telegram_user_name: username || firstName,
                                     direction: 'outbound',
                                     message_content: messageText,
-                                    status: result.ok ? 'sent' : 'failed'
+                                    status: result.ok ? 'sent' : 'failed',
+                                    error_message: result.ok ? null : result.description
                                 });
-                                console.log(`[Webhook] Mensagem de boas-vindas enviada após aprovação.`);
+                                console.log(`[Webhook] Mensagem de boas-vindas enviada após aprovação. Status: ${result.ok ? 'success' : 'failed'}`);
                             }
                         } catch (err) {
                             console.error("[Webhook] Erro ao enviar boas-vindas na aprovação:", err);
