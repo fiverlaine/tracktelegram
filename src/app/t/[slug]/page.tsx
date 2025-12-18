@@ -42,6 +42,7 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
 
     if (supabase) {
         try {
+            console.log(`[TrackingPage] Fetching funnel for slug: ${slug}`);
             const { data, error } = await supabase
                 .from("funnels")
                 .select(`
@@ -53,15 +54,20 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
                 .maybeSingle();
 
             if (error) {
-                console.error("Supabase Error fetching funnel:", error);
+                console.error("[TrackingPage] Supabase Error fetching funnel:", error);
             } else {
+                if (!data) {
+                    console.warn(`[TrackingPage] Funnel not found for slug: ${slug}`);
+                } else {
+                    console.log(`[TrackingPage] Funnel found: ${data.id}`);
+                }
                 funnel = data;
             }
         } catch (err) {
-            console.error("Unexpected error fetching funnel:", err);
+            console.error("[TrackingPage] Unexpected error fetching funnel:", err);
         }
     } else {
-        console.error("Supabase client not initialized (missing env vars)");
+        console.error("[TrackingPage] Supabase client not initialized (missing env vars). Check SUPABASE_SERVICE_ROLE_KEY.");
     }
 
     // --- MODO CLIENT-SIDE REDIRECT (Para mostrar UI de Loading) ---

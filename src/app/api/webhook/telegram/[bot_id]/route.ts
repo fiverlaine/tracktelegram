@@ -298,7 +298,7 @@ export async function POST(
                             name, 
                             pixel_id,
                             use_join_request,
-                            pixels:pixels!funnels_pixel_id_fkey (id, pixel_id, access_token),
+                            pixels:pixels (id, pixel_id, access_token),
                             funnel_pixels (
                                 pixels (id, pixel_id, access_token)
                             )
@@ -554,7 +554,7 @@ export async function POST(
                             id, 
                             name, 
                             pixel_id,
-                            pixels:pixels!funnels_pixel_id_fkey (id, pixel_id, access_token),
+                            pixels:pixels (id, pixel_id, access_token),
                             funnel_pixels (
                                 pixels (id, pixel_id, access_token)
                             )

@@ -82,7 +82,7 @@ export default function FunnelsPage() {
             .from("funnels")
             .select(`
             *,
-            pixels:pixels!funnels_pixel_id_fkey (name),
+            pixels:pixels (name),
             telegram_bots (name),
             funnel_pixels (
                 pixel_id,

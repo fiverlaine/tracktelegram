@@ -64,8 +64,8 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData, visit
                         .from("funnels")
                         .select(`
                             *,
-                            pixels:pixels!funnels_pixel_id_fkey(*),
-                            telegram_bots:telegram_bots!funnels_bot_id_fkey(*)
+                            pixels(*),
+                            telegram_bots(*)
                         `)
                         .eq("slug", slug)
                         .single();
