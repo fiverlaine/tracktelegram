@@ -123,16 +123,16 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
   }
 
   // 2. Identify / Create Visitor
-  let vid = localStorage.getItem('track_vid');
+  let vid = localStorage.getItem('visitor_id');
   let urlVid = getUrlParam('vid');
   
   // Prioridade: URL > LocalStorage
   if (urlVid) {
     vid = urlVid;
-    localStorage.setItem('track_vid', vid);
+    localStorage.setItem('visitor_id', vid);
   } else if (!vid) {
     vid = generateUUID();
-    localStorage.setItem('track_vid', vid);
+    localStorage.setItem('visitor_id', vid);
   }
 
   // 3. Facebook Parameters (FBC & FBP)

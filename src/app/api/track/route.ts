@@ -15,38 +15,41 @@ export async function OPTIONS() {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { visitor_id, event_type, metadata, domain_id } = body;
+        const { visitor_id, event_type, metadata, domain_id, funnel_id } = body;
 
         if (!visitor_id || !event_type) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
         // --- FILTRO DE TRÁFEGO PAGO ---
-        // Só processar eventos que tenham origem confirmada do Facebook (fbclid na URL ou cookie fbc)
-        // Isso evita "sujar" o banco com tráfego orgânico/direto que não queremos rastrear neste sistema.
         const hasAdOrigin = metadata?.fbclid || metadata?.fbc;
-
-        // --- MUDANÇA: Capturar orgânico no DB, mas não no CAPI ---
-        // Removido o bloqueio anterior. Agora todos passam para o DB.
-        // A filtragem será feita apenas no momento de chamar o sendCAPIEvent
-
-        // --------------------------------
 
         const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         );
 
-        // Deduplicação: Verificar se já existe evento recente (5 min)
+        // 1. Buscar Pixels vinculados ao dominio ou funil (Multi-Pixel Support)
+        let pixelsToFire: any[] = [];
+        let finalFunnelId: string | null = funnel_id || null;
+
+        // Deduplicação: Verificar se já existe evento idêntico recente (5 min)
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
-        const { data: recentEvents } = await supabase
+        let query = supabase
             .from("events")
             .select("id")
             .eq("visitor_id", visitor_id)
             .eq("event_type", event_type)
-            .gte("created_at", fiveMinutesAgo)
-            .limit(1);
+            .gte("created_at", fiveMinutesAgo);
+
+        if (finalFunnelId) {
+            query = query.eq("funnel_id", finalFunnelId);
+        } else if (domain_id) {
+            query = query.eq("metadata->>domain_id", domain_id);
+        }
+
+        const { data: recentEvents } = await query.limit(1);
 
         if (recentEvents && recentEvents.length > 0) {
             // Evento duplicado recente, não gravar
@@ -54,10 +57,6 @@ export async function POST(request: Request) {
                 headers: { "Access-Control-Allow-Origin": "*" }
             });
         }
-
-        // 1. Buscar Pixels vinculados ao dominio (Multi-Pixel Support)
-        let pixelsToFire: any[] = [];
-        let funnelId: string | null = null;
 
         if (domain_id) {
             const { data: domain } = await supabase
@@ -83,7 +82,7 @@ export async function POST(request: Request) {
             if (domain) {
                 // 0. Set Funnel ID if available
                 if (domain.funnel_id) {
-                    funnelId = domain.funnel_id;
+                    finalFunnelId = domain.funnel_id;
                 }
 
                 // 1. Legacy/Primary Pixel
@@ -110,11 +109,11 @@ export async function POST(request: Request) {
         const { error } = await supabase.from("events").insert({
             visitor_id,
             event_type,
-            funnel_id: funnelId, // Agora usamos o ID do funil associado ao domínio
+            funnel_id: finalFunnelId, // Agora usamos o ID do funil associado ao domínio ou passado no body
             metadata: {
                 ...metadata,
                 domain_id,
-                source: "external_script"
+                source: metadata?.source || "external_script"
             }
         });
 

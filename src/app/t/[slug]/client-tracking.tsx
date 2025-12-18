@@ -127,6 +127,35 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData, visit
                     trackFacebookEvent("PageView");
                 }
 
+                // 4.1 Registrar PageView no Supabase
+                fetch("/api/track", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        funnel_id: currentFunnel.id,
+                        visitor_id: vid,
+                        event_type: "pageview",
+                        metadata: {
+                            fbclid: searchParams?.fbclid || fbParams.fbclid || null,
+                            fbc: fbc || null,
+                            fbp: fbp || null,
+                            user_agent: navigator.userAgent,
+                            page_url: window.location.href,
+                            utm_source: searchParams?.utm_source || null,
+                            utm_medium: searchParams?.utm_medium || null,
+                            utm_campaign: searchParams?.utm_campaign || null,
+                            utm_content: searchParams?.utm_content || null,
+                            utm_term: searchParams?.utm_term || null,
+                            ip_address: ip,
+                            city: geo?.city || null,
+                            country: geo?.country || null,
+                            region: geo?.region || null,
+                            postal_code: geo?.postal_code || null,
+                            source: "internal_tracking_page"
+                        }
+                    })
+                }).catch(err => console.error("Erro ao salvar pageview:", err));
+
                 // 5. Gerar Link e Redirecionar (Client-Side)
                 setRedirectStatus("Gerando seu acesso exclusivo...");
 
