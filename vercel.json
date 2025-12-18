@@ -1,7 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "regions": ["gru1"],
+  "regions": [
+    "gru1"
+  ],
   "headers": [
     {
       "source": "/api/(.*)",
@@ -25,6 +27,12 @@
     {
       "source": "/t/:slug",
       "destination": "/t/:slug"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/generate-pool",
+      "schedule": "*/10 * * * *"
     }
   ]
 }
