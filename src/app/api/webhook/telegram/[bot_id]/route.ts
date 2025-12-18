@@ -680,8 +680,10 @@ export async function POST(
             });
 
             // Auto-aprovar se tiver invite_link válido
-            if (inviteName && inviteName.startsWith("v_")) {
-                const partialVisitorId = inviteName.substring(2);
+            if (inviteName && (inviteName.startsWith("v_") || inviteName.startsWith("pool_"))) {
+                let visitorId: string | null = null;
+                let funnelId: string | null = null;
+                let linkData: any = null;
 
                 // Buscar bot_token e dados do funil
                 const { data: botData } = await supabase
@@ -690,15 +692,30 @@ export async function POST(
                     .eq("id", bot_id)
                     .single();
 
-                // Tentar descobrir o Funnel ID pelo visitor_id parcial
-                const { data: linkData } = await supabase
-                    .from("visitor_telegram_links")
-                    .select("id, funnel_id, visitor_id, metadata, welcome_sent_at")
-                    .like("visitor_id", `${partialVisitorId}%`)
-                    .limit(1)
-                    .maybeSingle();
+                if (inviteName.startsWith("v_")) {
+                    const partialVisitorId = inviteName.substring(2);
+                    const { data } = await supabase
+                        .from("visitor_telegram_links")
+                        .select("id, funnel_id, visitor_id, metadata, welcome_sent_at")
+                        .like("visitor_id", `${partialVisitorId}%`)
+                        .limit(1)
+                        .maybeSingle();
+                    linkData = data;
+                } else if (inviteName.startsWith("pool_")) {
+                    const { data } = await supabase
+                        .from("visitor_telegram_links")
+                        .select("id, funnel_id, visitor_id, metadata, welcome_sent_at")
+                        .eq("metadata->>invite_name", inviteName)
+                        .order("linked_at", { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+                    linkData = data;
+                }
 
-                const funnelId = linkData?.funnel_id;
+                if (linkData) {
+                    funnelId = linkData.funnel_id;
+                    visitorId = linkData.visitor_id;
+                }
 
                 if (botData?.bot_token && botData?.chat_id) {
                     // 1. Vincular o usuário imediatamente (Importante para o evento chat_member que virá depois)
@@ -767,6 +784,9 @@ export async function POST(
                                 const inlineKeyboard = welcomeSettings.buttons_config?.map((btn: any) => ([
                                     { text: btn.label, url: btn.url }
                                 ])) || [];
+
+                                // Pequeno delay para garantir que o Telegram processou a aprovação
+                                await new Promise(resolve => setTimeout(resolve, 1500));
 
                                 const response = await fetch(`https://api.telegram.org/bot${botData.bot_token}/sendMessage`, {
                                     method: 'POST',
