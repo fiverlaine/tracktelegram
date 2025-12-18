@@ -305,9 +305,12 @@ export async function POST(request: Request) {
 
         const telegramData = await telegramResponse.json();
 
+        console.log("[DEBUG] Telegram Response:", JSON.stringify(telegramData));
+
         if (!telegramData.ok) {
             console.error("Erro Telegram API (POST invite):", telegramData);
             if (bot?.channel_link) {
+                console.log("[DEBUG] Falling back to static link:", bot.channel_link);
                 return NextResponse.json({
                     invite_link: bot.channel_link,
                     is_dynamic: false,
