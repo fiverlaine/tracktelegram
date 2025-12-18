@@ -864,6 +864,71 @@ export async function POST(
                 if (linkData) {
                     funnelId = linkData.funnel_id;
                     visitorId = linkData.visitor_id;
+                    console.log(`[Webhook] Join Request - linkData encontrado: visitor_id=${visitorId}, funnel_id=${funnelId}`);
+                } else {
+                    // Fallback: tentar buscar por telegram_user_id (caso o usuário já tenha sido vinculado antes)
+                    console.log(`[Webhook] Join Request - linkData não encontrado por invite_name. Tentando fallback por telegram_user_id...`);
+                    if (telegramUserId) {
+                        const { data: fallbackLinkData } = await supabase
+                            .from("visitor_telegram_links")
+                            .select("id, funnel_id, visitor_id, welcome_sent_at, bot_id")
+                            .eq("telegram_user_id", telegramUserId)
+                            .eq("bot_id", bot_id)
+                            .order("linked_at", { ascending: false })
+                            .limit(1)
+                            .maybeSingle();
+                        
+                        if (fallbackLinkData) {
+                            linkData = fallbackLinkData;
+                            funnelId = fallbackLinkData.funnel_id;
+                            visitorId = fallbackLinkData.visitor_id;
+                            console.log(`[Webhook] Join Request - ✅ Fallback encontrado: visitor_id=${visitorId}, funnel_id=${funnelId}`);
+                        } else {
+                            console.log(`[Webhook] Join Request - ❌ Fallback também não encontrou registro para telegram_user_id=${telegramUserId}`);
+                            
+                            // Último fallback: buscar click recente dos últimos 10 minutos
+                            console.log(`[Webhook] Join Request - Tentando último fallback: buscar click recente...`);
+                            const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+                            
+                            const { data: recentClicks } = await supabase
+                                .from("events")
+                                .select("visitor_id, funnel_id, created_at")
+                                .eq("event_type", "click")
+                                .gte("created_at", tenMinutesAgo)
+                                .order("created_at", { ascending: false })
+                                .limit(5);
+                            
+                            if (recentClicks && recentClicks.length > 0) {
+                                // Buscar funis do bot_id atual
+                                const { data: botFunnels } = await supabase
+                                    .from("funnels")
+                                    .select("id")
+                                    .eq("bot_id", bot_id);
+                                
+                                const botFunnelIds = botFunnels?.map(f => f.id) || [];
+                                
+                                // Pegar o click mais recente que pertence a um funil deste bot
+                                for (const click of recentClicks) {
+                                    if (click.funnel_id && botFunnelIds.includes(click.funnel_id)) {
+                                        visitorId = click.visitor_id;
+                                        funnelId = click.funnel_id;
+                                        console.log(`[Webhook] Join Request - ✅ Fallback por click recente: visitor_id=${visitorId}, funnel_id=${funnelId}`);
+                                        
+                                        // Criar registro temporário para poder enviar mensagem
+                                        if (!linkData) {
+                                            linkData = {
+                                                id: null,
+                                                visitor_id: visitorId,
+                                                funnel_id: funnelId,
+                                                welcome_sent_at: null
+                                            };
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 if (botData?.bot_token && botData?.chat_id) {
@@ -914,14 +979,60 @@ export async function POST(
                     }
 
                     // 4. Enviar Mensagem de Boas-vindas (se tiver funil e não tiver sido enviada)
-                    if (funnelId && !linkData?.welcome_sent_at) {
+                    console.log(`[Webhook] Join Request - Verificando condições para enviar boas-vindas:`, {
+                        funnelId: funnelId || 'null',
+                        linkDataFound: !!linkData,
+                        welcomeSentAt: linkData?.welcome_sent_at || 'null'
+                    });
+
+                    // Buscar registro atualizado para verificar welcome_sent_at (pode ter sido atualizado)
+                    let currentLinkData = linkData;
+                    if (linkData?.id) {
+                        const { data: updatedLinkData } = await supabase
+                            .from("visitor_telegram_links")
+                            .select("id, welcome_sent_at")
+                            .eq("id", linkData.id)
+                            .maybeSingle();
+                        if (updatedLinkData) {
+                            currentLinkData = { ...linkData, welcome_sent_at: updatedLinkData.welcome_sent_at };
+                        }
+                    }
+
+                    if (funnelId && !currentLinkData?.welcome_sent_at) {
+                        console.log(`[Webhook] Join Request - Condições atendidas. Buscando configurações de boas-vindas para funil ${funnelId}...`);
                         try {
-                            const { data: welcomeSettings } = await supabase
+                            // Primeiro, buscar SEM filtro de is_active para ver se existe configuração
+                            const { data: allWelcomeSettings } = await supabase
+                                .from("funnel_welcome_settings")
+                                .select("*")
+                                .eq("funnel_id", funnelId)
+                                .maybeSingle();
+
+                            console.log(`[Webhook] Join Request - Todas as welcome settings encontradas:`, {
+                                exists: !!allWelcomeSettings,
+                                isActive: allWelcomeSettings?.is_active,
+                                hasMessage: !!allWelcomeSettings?.message_text,
+                                messageLength: allWelcomeSettings?.message_text?.length || 0
+                            });
+
+                            // Agora buscar apenas as ativas
+                            const { data: welcomeSettings, error: welcomeError } = await supabase
                                 .from("funnel_welcome_settings")
                                 .select("*")
                                 .eq("funnel_id", funnelId)
                                 .eq("is_active", true)
-                                .single();
+                                .maybeSingle();
+
+                            if (welcomeError) {
+                                console.error(`[Webhook] Erro ao buscar welcome settings:`, welcomeError);
+                            }
+
+                            console.log(`[Webhook] Join Request - Welcome settings ATIVAS:`, {
+                                found: !!welcomeSettings,
+                                isActive: welcomeSettings?.is_active,
+                                hasMessage: !!welcomeSettings?.message_text,
+                                messagePreview: welcomeSettings?.message_text?.substring(0, 50) || 'N/A'
+                            });
 
                             if (welcomeSettings) {
                                 let messageText = welcomeSettings.message_text || "";
@@ -937,6 +1048,13 @@ export async function POST(
                                 // Pequeno delay para garantir que o Telegram processou a aprovação
                                 await new Promise(resolve => setTimeout(resolve, 1500));
 
+                                console.log(`[Webhook] Join Request - Tentando enviar mensagem para telegram_user_id: ${telegramUserId}`);
+                                console.log(`[Webhook] Join Request - Payload:`, {
+                                    chat_id: telegramUserId,
+                                    text_length: messageText.length,
+                                    has_keyboard: inlineKeyboard.length > 0
+                                });
+
                                 const response = await fetch(`https://api.telegram.org/bot${botData.bot_token}/sendMessage`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
@@ -948,16 +1066,39 @@ export async function POST(
                                 });
 
                                 const result = await response.json();
+                                console.log(`[Webhook] Join Request - Resposta completa da API Telegram:`, JSON.stringify(result, null, 2));
 
                                 if (result.ok) {
                                     // Marcar como enviado usando o ID do registro encontrado
-                                    await supabase
-                                        .from("visitor_telegram_links")
-                                        .update({ welcome_sent_at: new Date().toISOString() })
-                                        .eq("id", linkData.id);
-                                    console.log(`[Webhook] ✅ Mensagem de boas-vindas enviada após aprovação e marcada como enviada.`);
+                                    const linkIdToUpdate = currentLinkData?.id || linkData?.id;
+                                    if (linkIdToUpdate) {
+                                        await supabase
+                                            .from("visitor_telegram_links")
+                                            .update({ welcome_sent_at: new Date().toISOString() })
+                                            .eq("id", linkIdToUpdate);
+                                        console.log(`[Webhook] ✅ Mensagem de boas-vindas enviada após aprovação e marcada como enviada (link_id: ${linkIdToUpdate}).`);
+                                    } else if (visitorId && funnelId) {
+                                        // Se não tiver ID, tentar atualizar por visitor_id e funnel_id
+                                        await supabase
+                                            .from("visitor_telegram_links")
+                                            .update({ welcome_sent_at: new Date().toISOString() })
+                                            .eq("visitor_id", visitorId)
+                                            .eq("funnel_id", funnelId);
+                                        console.log(`[Webhook] ✅ Mensagem de boas-vindas enviada após aprovação e marcada como enviada (por visitor_id + funnel_id).`);
+                                    } else {
+                                        console.log(`[Webhook] ⚠️ Não foi possível marcar welcome_sent_at: falta link_id, visitor_id ou funnel_id`);
+                                    }
                                 } else {
-                                    console.error(`[Webhook] ❌ Erro ao enviar mensagem de boas-vindas após aprovação:`, result.description);
+                                    console.error(`[Webhook] ❌ Erro ao enviar mensagem de boas-vindas após aprovação:`, {
+                                        error_code: result.error_code,
+                                        description: result.description,
+                                        parameters: result.parameters
+                                    });
+                                    
+                                    // Se o erro for "bot blocked by user" ou similar, logar mas não falhar
+                                    if (result.error_code === 403) {
+                                        console.error(`[Webhook] ⚠️ Bot bloqueado pelo usuário ou usuário não iniciou conversa com o bot`);
+                                    }
                                 }
 
                                 // Logar envio
@@ -971,9 +1112,17 @@ export async function POST(
                                     error_message: result.ok ? null : result.description
                                 });
                                 console.log(`[Webhook] Mensagem de boas-vindas enviada após aprovação. Status: ${result.ok ? 'success' : 'failed'}`);
+                            } else {
+                                console.log(`[Webhook] ⚠️ Join Request - Welcome settings não encontrado ou inativo para funil ${funnelId}`);
                             }
                         } catch (err) {
-                            console.error("[Webhook] Erro ao enviar boas-vindas na aprovação:", err);
+                            console.error("[Webhook] ❌ Erro ao enviar boas-vindas na aprovação:", err);
+                        }
+                    } else {
+                        if (!funnelId) {
+                            console.log(`[Webhook] ⚠️ Join Request - funnelId não encontrado, não é possível enviar boas-vindas`);
+                        } else if (currentLinkData?.welcome_sent_at) {
+                            console.log(`[Webhook] ⚠️ Join Request - Mensagem já foi enviada anteriormente em ${currentLinkData.welcome_sent_at}`);
                         }
                     }
                 }
