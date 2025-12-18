@@ -28,11 +28,5 @@
       "source": "/t/:slug",
       "destination": "/t/:slug"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/generate-pool",
-      "schedule": "*/10 * * * *"
-    }
   ]
 }
