@@ -579,20 +579,6 @@ export async function POST(
                     .single();
 
                 if (linkData) {
-                    await supabase.from("events").insert({
-                        funnel_id: linkData.funnel_id,
-                        visitor_id: linkData.visitor_id,
-                        event_type: "leave",
-                        metadata: {
-                            source: "telegram_webhook",
-                            telegram_user_id: telegramUserId,
-                            chat_id: chatId,
-                            chat_title: chatTitle
-                        }
-                    });
-                    console.log(`[Webhook] Evento LEAVE registrado`);
-
-                    // --- CAPI SAÍDA (CUSTOM EVENT) ---
                     // 1. Buscar Pixels do Funil
                     const { data: funnelData } = await supabase
                         .from("funnels")
@@ -621,8 +607,7 @@ export async function POST(
                         }
                     }
                     const uniquePixels = Array.from(new Map(pixelsToFire.map(p => [p.pixel_id, p])).values());
-
-                    // 2. Buscar Metadata (fbc, fbp, ip, geo) do Vistor
+                    // 2. Buscar Metadata (fbc, fbp, ip, geo, utms) do Vistor
                     // Buscar os últimos 5 eventos para garantir que pegamos metadados completos
                     const { data: eventsList } = await supabase
                         .from("events")
@@ -645,8 +630,29 @@ export async function POST(
                             if (!metadata.region && m.region) metadata.region = m.region;
                             if (!metadata.country && m.country) metadata.country = m.country;
                             if (!metadata.postal_code && m.postal_code) metadata.postal_code = m.postal_code;
+                            
+                            // UTMs
+                            if (!metadata.utm_source && m.utm_source) metadata.utm_source = m.utm_source;
+                            if (!metadata.utm_medium && m.utm_medium) metadata.utm_medium = m.utm_medium;
+                            if (!metadata.utm_campaign && m.utm_campaign) metadata.utm_campaign = m.utm_campaign;
+                            if (!metadata.utm_content && m.utm_content) metadata.utm_content = m.utm_content;
+                            if (!metadata.utm_term && m.utm_term) metadata.utm_term = m.utm_term;
                         }
                     }
+
+                    await supabase.from("events").insert({
+                        funnel_id: linkData.funnel_id,
+                        visitor_id: linkData.visitor_id,
+                        event_type: "leave",
+                        metadata: {
+                            ...metadata,
+                            source: "telegram_webhook",
+                            telegram_user_id: telegramUserId,
+                            chat_id: chatId,
+                            chat_title: chatTitle
+                        }
+                    });
+                    console.log(`[Webhook] Evento LEAVE registrado`);
 
                     // 3. Disparar CAPI "SaidaDeCanal"
                     if (uniquePixels.length > 0) {
@@ -1065,8 +1071,17 @@ async function processLeadConversion(
                 if (!metadata.region && m.region) metadata.region = m.region;
                 if (!metadata.country && m.country) metadata.country = m.country;
                 if (!metadata.postal_code && m.postal_code) metadata.postal_code = m.postal_code;
-                // Se já encontramos fbc e fbp, podemos parar
-                if (metadata.fbc && metadata.fbp) break;
+                
+                // UTMs
+                if (!metadata.utm_source && m.utm_source) metadata.utm_source = m.utm_source;
+                if (!metadata.utm_medium && m.utm_medium) metadata.utm_medium = m.utm_medium;
+                if (!metadata.utm_campaign && m.utm_campaign) metadata.utm_campaign = m.utm_campaign;
+                if (!metadata.utm_content && m.utm_content) metadata.utm_content = m.utm_content;
+                if (!metadata.utm_term && m.utm_term) metadata.utm_term = m.utm_term;
+
+                // Se já encontramos fbc e fbp, podemos parar (mas continuamos se faltar UTMs importantes?)
+                // Para garantir a melhor atribuição, vamos continuar o loop até o fim ou até ter tudo
+                if (metadata.fbc && metadata.fbp && metadata.utm_source) break;
             }
         }
 
