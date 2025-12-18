@@ -60,6 +60,17 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData, visit
                 
                 // FBC - Click ID (gerar se não existir mas tiver fbclid)
                 let fbc = getCookie("_fbc");
+                
+                // 1. Tentar pegar do URL (prioridade se veio de redirecionamento)
+                if (!fbc && searchParams?.fbc) {
+                    fbc = searchParams.fbc;
+                    // Salvar cookie _fbc (90 dias)
+                    const d = new Date();
+                    d.setTime(d.getTime() + (90 * 24 * 60 * 60 * 1000));
+                    document.cookie = `_fbc=${fbc};expires=${d.toUTCString()};path=/;SameSite=Lax`;
+                }
+
+                // 2. Se ainda não tem, gerar a partir do fbclid
                 if (!fbc && searchParams?.fbclid) {
                     fbc = `fb.1.${Date.now()}.${searchParams.fbclid}`;
                     // Salvar cookie _fbc (90 dias)
@@ -123,9 +134,9 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData, visit
                 // Garantir que fbc e fbp sejam sempre strings válidas (não null)
                 const clickMetadata = {
                     timestamp: new Date().toISOString(),
-                    fbclid: searchParams?.fbclid || null,
-                    fbc: fbc || null, // Pode ser null se não houver fbclid
-                    fbp: fbp || null, // Sempre deve existir (gerado acima)
+                    fbclid: searchParams?.fbclid || fbParams.fbclid || null,
+                    fbc: fbc || null, 
+                    fbp: fbp || null,
                     user_agent: navigator.userAgent,
                     page_url: window.location.href,
                     utm_source: searchParams?.utm_source || null,
