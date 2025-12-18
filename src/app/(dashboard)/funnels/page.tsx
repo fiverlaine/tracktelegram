@@ -64,37 +64,109 @@ export default function FunnelsPage() {
     }, []);
 
     async function fetchOptions() {
-        const { data: pixelsData } = await supabase.from("pixels").select("id, name");
-        if (pixelsData) setPixels(pixelsData);
+        try {
+            const { data: pixelsData } = await supabase.from("pixels").select("id, name");
+            if (pixelsData) setPixels(pixelsData);
 
-        const { data: botsData } = await supabase.from("telegram_bots").select("id, name");
-        if (botsData) setBots(botsData);
+            const { data: botsData } = await supabase.from("telegram_bots").select("id, name");
+            if (botsData) setBots(botsData);
 
-        const { data: domainsData } = await supabase.from("domains").select("id, verified").eq("verified", true).limit(1);
-        if (domainsData && domainsData.length > 0) {
-            setHasVerifiedDomain(true);
+            const { data: domainsData, error: domainError } = await supabase.from("domains").select("id, verified").eq("verified", true);
+
+            if (domainError) {
+                console.error("Erro ao buscar domínios:", domainError);
+                // toast.error("Erro ao verificar domínios: " + domainError.message);
+            }
+
+            if (domainsData && domainsData.length > 0) {
+                setHasVerifiedDomain(true);
+                console.log("Domínio verificado encontrado:", domainsData);
+            } else {
+                console.log("Nenhum domínio verificado encontrado.");
+            }
+        } catch (err) {
+            console.error("Erro fatal em fetchOptions:", err);
         }
     }
 
     async function fetchFunnels() {
         setLoading(true);
-        const { data, error } = await supabase
-            .from("funnels")
-            .select(`
-            *,
-            pixels:pixels (name),
-            telegram_bots (name),
-            funnel_pixels (
-                pixel_id,
-                pixels (name)
-            )
-        `)
-            .order("created_at", { ascending: false });
+        try {
+            // 1. Buscar Funis (Sem Joins para evitar erros de FK)
+            const { data: funnelsData, error: funnelsError } = await supabase
+                .from("funnels")
+                .select("*")
+                .order("created_at", { ascending: false });
 
-        if (error) {
-            console.error(error);
-        } else {
-            setFunnels(data || []);
+            if (funnelsError) throw funnelsError;
+            if (!funnelsData) {
+                setFunnels([]);
+                setLoading(false);
+                return;
+            }
+
+            // 2. Coletar IDs para buscar relacionamentos
+            const pixelIds = new Set<string>();
+            const botIds = new Set<string>();
+            const funnelIds = funnelsData.map(f => f.id);
+
+            funnelsData.forEach(f => {
+                if (f.pixel_id) pixelIds.add(f.pixel_id);
+                if (f.bot_id) botIds.add(f.bot_id);
+            });
+
+            // 3. Buscar Funnel Pixels (Many-to-Many)
+            const { data: funnelPixelsData } = await supabase
+                .from("funnel_pixels")
+                .select("funnel_id, pixel_id")
+                .in("funnel_id", funnelIds);
+
+            if (funnelPixelsData) {
+                funnelPixelsData.forEach(fp => pixelIds.add(fp.pixel_id));
+            }
+
+            // 4. Buscar Pixels e Bots
+            let pixelsMap: Record<string, string> = {};
+            let botsMap: Record<string, string> = {};
+
+            if (pixelIds.size > 0) {
+                const { data: pixels } = await supabase
+                    .from("pixels")
+                    .select("id, name")
+                    .in("id", Array.from(pixelIds));
+                pixels?.forEach(p => pixelsMap[p.id] = p.name);
+            }
+
+            if (botIds.size > 0) {
+                const { data: bots } = await supabase
+                    .from("telegram_bots")
+                    .select("id, name")
+                    .in("id", Array.from(botIds));
+                bots?.forEach(b => botsMap[b.id] = b.name);
+            }
+
+            // 5. Montar Objeto Final
+            const enrichedFunnels = funnelsData.map(f => {
+                // Pixels do Many-to-Many
+                const relatedFunnelPixels = funnelPixelsData?.filter(fp => fp.funnel_id === f.id) || [];
+                const mappedFunnelPixels = relatedFunnelPixels.map(fp => ({
+                    pixel_id: fp.pixel_id,
+                    pixels: { name: pixelsMap[fp.pixel_id] || "Desconhecido" }
+                }));
+
+                return {
+                    ...f,
+                    pixels: f.pixel_id ? { name: pixelsMap[f.pixel_id] || "Desconhecido" } : undefined,
+                    telegram_bots: f.bot_id ? { name: botsMap[f.bot_id] || "Desconhecido" } : undefined,
+                    funnel_pixels: mappedFunnelPixels
+                };
+            });
+
+            setFunnels(enrichedFunnels);
+
+        } catch (error: any) {
+            console.error("Erro ao buscar funis:", error);
+            toast.error("Erro ao carregar funis: " + error.message);
         }
         setLoading(false);
     }
