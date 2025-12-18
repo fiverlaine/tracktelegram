@@ -97,8 +97,8 @@ O TrackGram captura os parâmetros de rastreamento (fbclid, fbc, fbp, user_agent
 │              FLUXO DIRETO (SEM BOT INTERMEDIÁRIO) v3.1+ - CAPI              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  1. Facebook Ads → Landing Page Externa (com tracking-script.js)   
-│ 
+│  1. Facebook Ads → Landing Page Externa (com tracking-script.js)
+│
 │      botao da pagina com funil: seusite.com/t/{slug}?fbclid=xyz             │
 │                                                                             │
 │                                                                             │
@@ -159,7 +159,7 @@ O TrackGram captura os parâmetros de rastreamento (fbclid, fbc, fbp, user_agent
 - **Framework**: Next.js 16.0.8 (App Router)
 - **React**: 19.2.1
 - **TypeScript**: 5.x
-- **Styling**: 
+- **Styling**:
   - Tailwind CSS 4
   - Shadcn/UI (componentes)
   - Radix UI (primitivos)
@@ -199,6 +199,8 @@ track-gram/
 │   │   ├── (dashboard)/              # Grupo de rotas protegidas
 │   │   │   ├── layout.tsx           # Layout do dashboard (sidebar)
 │   │   │   ├── page.tsx             # Dashboard principal
+│   │   │   ├── leads/               # Gestão de Leads (Novo)
+│   │   │   │   └── page.tsx
 │   │   │   ├── channels/            # Gerenciar bots Telegram
 │   │   │   │   └── page.tsx
 │   │   │   ├── pixels/              # Gerenciar pixels Facebook
@@ -390,20 +392,20 @@ track-gram/
 
 ### Bot API Endpoints Utilizados
 
-| Endpoint | Método | Uso |
-|----------|--------|-----|
-| `getMe` | GET | Validar token do bot |
-| `getChat` | GET | Verificar conexão com canal |
-| `getChatMember` | GET | Verificar se bot é admin |
-| `getChatAdministrators` | GET | Listar admins do canal |
-| `getChatMemberCount` | GET | Contar membros |
-| `createChatInviteLink` | POST | Gerar link único |
-| `revokeChatInviteLink` | POST | Revogar link após uso |
-| `setWebhook` | POST | Configurar webhook |
-| `getWebhookInfo` | GET | Verificar status webhook |
-| `deleteWebhook` | POST | Remover webhook |
-| `sendMessage` | POST | Enviar mensagens |
-| `approveChatJoinRequest` | POST | Aprovar entrada (join request) |
+| Endpoint                 | Método | Uso                            |
+| ------------------------ | ------ | ------------------------------ |
+| `getMe`                  | GET    | Validar token do bot           |
+| `getChat`                | GET    | Verificar conexão com canal    |
+| `getChatMember`          | GET    | Verificar se bot é admin       |
+| `getChatAdministrators`  | GET    | Listar admins do canal         |
+| `getChatMemberCount`     | GET    | Contar membros                 |
+| `createChatInviteLink`   | POST   | Gerar link único               |
+| `revokeChatInviteLink`   | POST   | Revogar link após uso          |
+| `setWebhook`             | POST   | Configurar webhook             |
+| `getWebhookInfo`         | GET    | Verificar status webhook       |
+| `deleteWebhook`          | POST   | Remover webhook                |
+| `sendMessage`            | POST   | Enviar mensagens               |
+| `approveChatJoinRequest` | POST   | Aprovar entrada (join request) |
 
 ### Configuração de Webhook
 
@@ -415,9 +417,9 @@ const webhookUrl = `${NEXT_PUBLIC_APP_URL}/api/webhook/telegram/${bot_id}`;
 
 // Configuração
 await fetch(`https://api.telegram.org/bot${bot_token}/setWebhook`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ url: webhookUrl })
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ url: webhookUrl }),
 });
 ```
 
@@ -434,17 +436,20 @@ await fetch(`https://api.telegram.org/bot${bot_token}/setWebhook`, {
 ### Clientes Supabase
 
 #### 1. Browser Client (`lib/supabase/client.ts`)
+
 - Usa `createBrowserClient` do `@supabase/ssr`
 - Configura cookies com domínio personalizado
 - Max age: 1 ano
 - Secure em produção
 
 #### 2. Server Client (`lib/supabase/server.ts`)
+
 - Usa `createServerClient` do `@supabase/ssr`
 - Integra com cookies do Next.js
 - Usado em Server Components e Server Actions
 
 #### 3. Service Role Client
+
 - Criado inline quando necessário (API Routes)
 - Bypassa RLS para operações administrativas
 - Usado em:
@@ -460,8 +465,16 @@ O middleware (`src/middleware.ts`) protege rotas autenticadas:
 ```typescript
 // Rotas protegidas
 const protectedRoutes = [
-  "/channels", "/domains", "/funnels", "/logs",
-  "/messages", "/pixels", "/postbacks", "/subscription", "/utms", "/"
+  "/channels",
+  "/domains",
+  "/funnels",
+  "/logs",
+  "/messages",
+  "/pixels",
+  "/postbacks",
+  "/subscription",
+  "/utms",
+  "/",
 ];
 
 // Se não autenticado, redireciona para /login
@@ -480,6 +493,7 @@ Todas as tabelas principais têm RLS habilitado:
 - ✅ **subscriptions**: Usuários só veem sua própria assinatura
 
 **Exceções:**
+
 - Tabela `events` permite leitura pública para eventos sem `funnel_id` (tracking externo)
 - Tabela `funnels` permite leitura pública para buscar por slug (tracking page)
 
@@ -490,15 +504,16 @@ Todas as tabelas principais têm RLS habilitado:
 ### Modelo de Dados Completo
 
 #### 1. `profiles`
+
 Perfis de usuários (espelha `auth.users`).
 
-| Coluna | Tipo | Descrição | Constraints |
-|--------|------|-----------|-------------|
-| `id` | UUID | ID do usuário | PK, FK → auth.users.id |
-| `email` | TEXT | Email | Nullable |
-| `full_name` | TEXT | Nome completo | Nullable |
-| `avatar_url` | TEXT | URL do avatar | Nullable |
-| `created_at` | TIMESTAMPTZ | Data de criação | Default: now() |
+| Coluna       | Tipo        | Descrição       | Constraints            |
+| ------------ | ----------- | --------------- | ---------------------- |
+| `id`         | UUID        | ID do usuário   | PK, FK → auth.users.id |
+| `email`      | TEXT        | Email           | Nullable               |
+| `full_name`  | TEXT        | Nome completo   | Nullable               |
+| `avatar_url` | TEXT        | URL do avatar   | Nullable               |
+| `created_at` | TIMESTAMPTZ | Data de criação | Default: now()         |
 
 **RLS**: ✅ Habilitado - Usuários só veem/editam seu próprio perfil
 
@@ -507,76 +522,85 @@ Perfis de usuários (espelha `auth.users`).
 ---
 
 #### 2. `pixels`
+
 Configurações de pixels do Facebook.
 
-| Coluna | Tipo | Descrição | Constraints |
-|--------|------|-----------|-------------|
-| `id` | UUID | ID único | PK, Default: uuid_generate_v4() |
-| `user_id` | UUID | Usuário | FK → profiles.id, NOT NULL |
-| `name` | TEXT | Nome identificador | NOT NULL |
-| `pixel_id` | TEXT | ID do Pixel Facebook | NOT NULL |
-| `access_token` | TEXT | Token CAPI | NOT NULL |
-| `created_at` | TIMESTAMPTZ | Data de criação | Default: now() |
+| Coluna         | Tipo        | Descrição            | Constraints                     |
+| -------------- | ----------- | -------------------- | ------------------------------- |
+| `id`           | UUID        | ID único             | PK, Default: uuid_generate_v4() |
+| `user_id`      | UUID        | Usuário              | FK → profiles.id, NOT NULL      |
+| `name`         | TEXT        | Nome identificador   | NOT NULL                        |
+| `pixel_id`     | TEXT        | ID do Pixel Facebook | NOT NULL                        |
+| `access_token` | TEXT        | Token CAPI           | NOT NULL                        |
+| `created_at`   | TIMESTAMPTZ | Data de criação      | Default: now()                  |
 
 **RLS**: ✅ Habilitado - Usuários só veem/editam seus próprios pixels
 
 **Índices**:
+
 - `idx_pixels_user_id` (user_id)
 
 **Relacionamentos**:
+
 - Um pixel pode estar em múltiplos funis (via `funnel_pixels`)
 - Um pixel pode estar em múltiplos domínios (via `domain_pixels`)
 
 ---
 
 #### 3. `telegram_bots`
+
 Bots do Telegram configurados.
 
-| Coluna | Tipo | Descrição | Constraints |
-|--------|------|-----------|-------------|
-| `id` | UUID | ID único | PK, Default: uuid_generate_v4() |
-| `user_id` | UUID | Usuário | FK → profiles.id, NOT NULL |
-| `name` | TEXT | Nome identificador | NOT NULL |
-| `bot_token` | TEXT | Token do bot (BotFather) | NOT NULL |
-| `username` | TEXT | Username do bot | Nullable |
-| `channel_link` | TEXT | Link de convite do canal | Nullable |
-| `chat_id` | TEXT | ID numérico do chat/canal | Nullable |
-| `created_at` | TIMESTAMPTZ | Data de criação | Default: now() |
+| Coluna         | Tipo        | Descrição                 | Constraints                     |
+| -------------- | ----------- | ------------------------- | ------------------------------- |
+| `id`           | UUID        | ID único                  | PK, Default: uuid_generate_v4() |
+| `user_id`      | UUID        | Usuário                   | FK → profiles.id, NOT NULL      |
+| `name`         | TEXT        | Nome identificador        | NOT NULL                        |
+| `bot_token`    | TEXT        | Token do bot (BotFather)  | NOT NULL                        |
+| `username`     | TEXT        | Username do bot           | Nullable                        |
+| `channel_link` | TEXT        | Link de convite do canal  | Nullable                        |
+| `chat_id`      | TEXT        | ID numérico do chat/canal | Nullable                        |
+| `created_at`   | TIMESTAMPTZ | Data de criação           | Default: now()                  |
 
 **RLS**: ✅ Habilitado - Usuários só veem/editam seus próprios bots
 
 **Índices**:
+
 - `idx_telegram_bots_user_id` (user_id)
 - `idx_telegram_bots_bot_token` (bot_token)
 
 **Relacionamentos**:
+
 - Um bot pode estar em múltiplos funis
 
 ---
 
 #### 4. `funnels`
+
 Funis de rastreamento (conectam Pixel + Bot).
 
-| Coluna | Tipo | Descrição | Constraints |
-|--------|------|-----------|-------------|
-| `id` | UUID | ID único | PK, Default: uuid_generate_v4() |
-| `user_id` | UUID | Usuário | FK → profiles.id, NOT NULL |
-| `name` | TEXT | Nome da campanha | NOT NULL |
-| `slug` | TEXT | Slug único para URL | NOT NULL, UNIQUE |
-| `pixel_id` | UUID | Pixel primário (legacy) | FK → pixels.id, Nullable |
-| `bot_id` | UUID | Bot/Canal de destino | FK → telegram_bots.id, Nullable |
-| `use_join_request` | BOOLEAN | Usar join request | Default: false |
-| `created_at` | TIMESTAMPTZ | Data de criação | Default: now() |
+| Coluna             | Tipo        | Descrição               | Constraints                     |
+| ------------------ | ----------- | ----------------------- | ------------------------------- |
+| `id`               | UUID        | ID único                | PK, Default: uuid_generate_v4() |
+| `user_id`          | UUID        | Usuário                 | FK → profiles.id, NOT NULL      |
+| `name`             | TEXT        | Nome da campanha        | NOT NULL                        |
+| `slug`             | TEXT        | Slug único para URL     | NOT NULL, UNIQUE                |
+| `pixel_id`         | UUID        | Pixel primário (legacy) | FK → pixels.id, Nullable        |
+| `bot_id`           | UUID        | Bot/Canal de destino    | FK → telegram_bots.id, Nullable |
+| `use_join_request` | BOOLEAN     | Usar join request       | Default: false                  |
+| `created_at`       | TIMESTAMPTZ | Data de criação         | Default: now()                  |
 
 **RLS**: ✅ Habilitado - Usuários só veem/editam seus próprios funis
 
 **Índices**:
+
 - `idx_funnels_user_id` (user_id)
 - `idx_funnels_slug` (slug) - UNIQUE
 - `idx_funnels_pixel_id` (pixel_id)
 - `idx_funnels_bot_id` (bot_id)
 
 **Relacionamentos**:
+
 - **Many-to-Many com pixels**: Via tabela `funnel_pixels`
 - Um funil pode ter múltiplos pixels (multi-pixel support)
 - Um funil tem um bot/canal de destino
@@ -584,37 +608,41 @@ Funis de rastreamento (conectam Pixel + Bot).
 ---
 
 #### 5. `funnel_pixels`
+
 Tabela de junção (Many-to-Many: Funis ↔ Pixels).
 
-| Coluna | Tipo | Descrição | Constraints |
-|--------|------|-----------|-------------|
-| `funnel_id` | UUID | Funil | PK, FK → funnels.id |
-| `pixel_id` | UUID | Pixel | PK, FK → pixels.id |
-| `created_at` | TIMESTAMPTZ | Data de criação | Default: now() |
+| Coluna       | Tipo        | Descrição       | Constraints         |
+| ------------ | ----------- | --------------- | ------------------- |
+| `funnel_id`  | UUID        | Funil           | PK, FK → funnels.id |
+| `pixel_id`   | UUID        | Pixel           | PK, FK → pixels.id  |
+| `created_at` | TIMESTAMPTZ | Data de criação | Default: now()      |
 
 **RLS**: ✅ Habilitado - Usuários só veem pixels de seus próprios funis
 
 **Índices**:
+
 - `funnel_pixels_pkey` (funnel_id, pixel_id) - UNIQUE
 - `funnel_pixels_pixel_id_idx` (pixel_id)
 
 ---
 
 #### 6. `events`
+
 Todos os eventos rastreados.
 
-| Coluna | Tipo | Descrição | Constraints |
-|--------|------|-----------|-------------|
-| `id` | UUID | ID único | PK, Default: uuid_generate_v4() |
-| `funnel_id` | UUID | Funil | FK → funnels.id, Nullable |
-| `visitor_id` | TEXT | ID único do visitante | NOT NULL |
-| `event_type` | TEXT | Tipo do evento | NOT NULL, CHECK: pageview|click|join|leave|join_request |
-| `metadata` | JSONB | Dados adicionais | Default: '{}' |
-| `created_at` | TIMESTAMPTZ | Data do evento | Default: now() |
+| Coluna       | Tipo        | Descrição             | Constraints                     |
+| ------------ | ----------- | --------------------- | ------------------------------- | ----- | ---- | ----- | ------------ |
+| `id`         | UUID        | ID único              | PK, Default: uuid_generate_v4() |
+| `funnel_id`  | UUID        | Funil                 | FK → funnels.id, Nullable       |
+| `visitor_id` | TEXT        | ID único do visitante | NOT NULL                        |
+| `event_type` | TEXT        | Tipo do evento        | NOT NULL, CHECK: pageview       | click | join | leave | join_request |
+| `metadata`   | JSONB       | Dados adicionais      | Default: '{}'                   |
+| `created_at` | TIMESTAMPTZ | Data do evento        | Default: now()                  |
 
 **RLS**: ✅ Habilitado - Usuários veem eventos de seus funis OU eventos sem funnel_id (tracking externo)
 
 **Índices**:
+
 - `idx_events_visitor_id` (visitor_id)
 - `idx_events_funnel_id` (funnel_id)
 - `idx_events_event_type` (event_type)
@@ -623,6 +651,7 @@ Todos os eventos rastreados.
 - `events_dedup_idx` (visitor_id, event_type, created_at)
 
 **Estrutura do metadata**:
+
 ```json
 {
   "fbclid": "string",
@@ -653,22 +682,24 @@ Todos os eventos rastreados.
 ---
 
 #### 7. `visitor_telegram_links`
+
 Vinculação entre visitor_id (página) e telegram_user_id.
 
-| Coluna | Tipo | Descrição | Constraints |
-|--------|------|-----------|-------------|
-| `id` | UUID | ID único | PK, Default: uuid_generate_v4() |
-| `visitor_id` | TEXT | ID do visitante | NOT NULL |
-| `telegram_user_id` | BIGINT | ID do usuário no Telegram | NOT NULL, Default: 0 |
-| `telegram_username` | TEXT | Username no Telegram | Nullable |
-| `funnel_id` | UUID | Funil | FK → funnels.id, Nullable |
-| `bot_id` | UUID | Bot | FK → telegram_bots.id, Nullable |
-| `linked_at` | TIMESTAMPTZ | Data da vinculação | Default: now() |
-| `metadata` | JSONB | Dados adicionais | Default: '{}' |
+| Coluna              | Tipo        | Descrição                 | Constraints                     |
+| ------------------- | ----------- | ------------------------- | ------------------------------- |
+| `id`                | UUID        | ID único                  | PK, Default: uuid_generate_v4() |
+| `visitor_id`        | TEXT        | ID do visitante           | NOT NULL                        |
+| `telegram_user_id`  | BIGINT      | ID do usuário no Telegram | NOT NULL, Default: 0            |
+| `telegram_username` | TEXT        | Username no Telegram      | Nullable                        |
+| `funnel_id`         | UUID        | Funil                     | FK → funnels.id, Nullable       |
+| `bot_id`            | UUID        | Bot                       | FK → telegram_bots.id, Nullable |
+| `linked_at`         | TIMESTAMPTZ | Data da vinculação        | Default: now()                  |
+| `metadata`          | JSONB       | Dados adicionais          | Default: '{}'                   |
 
 **RLS**: ✅ Habilitado - Usuários veem links de seus próprios funis
 
 **Índices**:
+
 - `idx_visitor_telegram_links_visitor_id` (visitor_id)
 - `idx_visitor_telegram_links_telegram_user_id` (telegram_user_id)
 - `idx_visitor_telegram_links_funnel_id` (funnel_id)
@@ -676,6 +707,7 @@ Vinculação entre visitor_id (página) e telegram_user_id.
 - `visitor_telegram_links_visitor_id_telegram_user_id_key` (visitor_id, telegram_user_id) - UNIQUE
 
 **Estrutura do metadata**:
+
 ```json
 {
   "invite_link": "https://t.me/+AbCdEfGh...",
@@ -692,43 +724,48 @@ Vinculação entre visitor_id (página) e telegram_user_id.
 ---
 
 #### 8. `domains`
+
 Domínios personalizados para tracking externo.
 
-| Coluna | Tipo | Descrição | Constraints |
-|--------|------|-----------|-------------|
-| `id` | UUID | ID único | PK, Default: uuid_generate_v4() |
-| `user_id` | UUID | Usuário | FK → profiles.id, NOT NULL |
-| `domain` | TEXT | Domínio (ex: meusite.com) | NOT NULL |
-| `verified` | BOOLEAN | Domínio verificado | Default: false |
-| `verification_token` | TEXT | Token de verificação | Nullable |
-| `pixel_id` | UUID | Pixel primário (legacy) | FK → pixels.id, Nullable |
-| `funnel_id` | UUID | Funil associado | FK → funnels.id, Nullable |
-| `created_at` | TIMESTAMPTZ | Data de criação | Default: now() |
+| Coluna               | Tipo        | Descrição                 | Constraints                     |
+| -------------------- | ----------- | ------------------------- | ------------------------------- |
+| `id`                 | UUID        | ID único                  | PK, Default: uuid_generate_v4() |
+| `user_id`            | UUID        | Usuário                   | FK → profiles.id, NOT NULL      |
+| `domain`             | TEXT        | Domínio (ex: meusite.com) | NOT NULL                        |
+| `verified`           | BOOLEAN     | Domínio verificado        | Default: false                  |
+| `verification_token` | TEXT        | Token de verificação      | Nullable                        |
+| `pixel_id`           | UUID        | Pixel primário (legacy)   | FK → pixels.id, Nullable        |
+| `funnel_id`          | UUID        | Funil associado           | FK → funnels.id, Nullable       |
+| `created_at`         | TIMESTAMPTZ | Data de criação           | Default: now()                  |
 
 **RLS**: ✅ Habilitado - Usuários só veem seus próprios domínios
 
 **Índices**:
+
 - `idx_domains_user_id` (user_id)
 - `domains_pixel_id_idx` (pixel_id)
 
 **Relacionamentos**:
+
 - **Many-to-Many com pixels**: Via tabela `domain_pixels`
 - Um domínio pode ter múltiplos pixels
 
 ---
 
 #### 9. `domain_pixels`
+
 Tabela de junção (Many-to-Many: Domínios ↔ Pixels).
 
-| Coluna | Tipo | Descrição | Constraints |
-|--------|------|-----------|-------------|
-| `domain_id` | UUID | Domínio | PK, FK → domains.id |
-| `pixel_id` | UUID | Pixel | PK, FK → pixels.id |
-| `created_at` | TIMESTAMPTZ | Data de criação | Default: now() |
+| Coluna       | Tipo        | Descrição       | Constraints         |
+| ------------ | ----------- | --------------- | ------------------- |
+| `domain_id`  | UUID        | Domínio         | PK, FK → domains.id |
+| `pixel_id`   | UUID        | Pixel           | PK, FK → pixels.id  |
+| `created_at` | TIMESTAMPTZ | Data de criação | Default: now()      |
 
 **RLS**: ✅ Habilitado - Usuários só veem pixels de seus próprios domínios
 
 **Índices**:
+
 - `domain_pixels_pkey` (domain_id, pixel_id) - UNIQUE
 - `domain_pixels_domain_id_idx` (domain_id)
 - `domain_pixels_pixel_id_idx` (pixel_id)
@@ -736,24 +773,26 @@ Tabela de junção (Many-to-Many: Domínios ↔ Pixels).
 ---
 
 #### 10. `capi_logs`
+
 Logs de envio para Facebook CAPI.
 
-| Coluna | Tipo | Descrição | Constraints |
-|--------|------|-----------|-------------|
-| `id` | UUID | ID único | PK, Default: gen_random_uuid() |
-| `visitor_id` | TEXT | ID do visitante | Nullable |
-| `funnel_id` | UUID | Funil | FK → funnels.id, Nullable |
-| `event_name` | TEXT | Nome do evento | NOT NULL |
-| `pixel_id` | TEXT | ID do pixel | Nullable |
-| `status` | TEXT | success|error|skipped | NOT NULL |
-| `request_payload` | JSONB | Payload enviado | Nullable |
-| `response_payload` | JSONB | Resposta do Facebook | Nullable |
-| `error_message` | TEXT | Mensagem de erro | Nullable |
-| `created_at` | TIMESTAMPTZ | Data do log | Default: now() |
+| Coluna             | Tipo        | Descrição            | Constraints                    |
+| ------------------ | ----------- | -------------------- | ------------------------------ | ------- | -------- |
+| `id`               | UUID        | ID único             | PK, Default: gen_random_uuid() |
+| `visitor_id`       | TEXT        | ID do visitante      | Nullable                       |
+| `funnel_id`        | UUID        | Funil                | FK → funnels.id, Nullable      |
+| `event_name`       | TEXT        | Nome do evento       | NOT NULL                       |
+| `pixel_id`         | TEXT        | ID do pixel          | Nullable                       |
+| `status`           | TEXT        | success              | error                          | skipped | NOT NULL |
+| `request_payload`  | JSONB       | Payload enviado      | Nullable                       |
+| `response_payload` | JSONB       | Resposta do Facebook | Nullable                       |
+| `error_message`    | TEXT        | Mensagem de erro     | Nullable                       |
+| `created_at`       | TIMESTAMPTZ | Data do log          | Default: now()                 |
 
 **RLS**: ✅ Habilitado - Usuários veem logs de seus próprios funis
 
 **Índices**:
+
 - `idx_capi_logs_visitor_id` (visitor_id)
 - `idx_capi_logs_funnel_id` (funnel_id)
 - `idx_capi_logs_status` (status)
@@ -762,44 +801,48 @@ Logs de envio para Facebook CAPI.
 ---
 
 #### 11. `subscriptions`
+
 Assinaturas de usuários (integração com Cakto).
 
-| Coluna | Tipo | Descrição | Constraints |
-|--------|------|-----------|-------------|
-| `id` | UUID | ID único | PK, Default: gen_random_uuid() |
-| `user_id` | UUID | Usuário | FK → auth.users.id, NOT NULL, UNIQUE |
-| `cakto_id` | TEXT | ID da assinatura no Cakto | UNIQUE, Nullable |
-| `status` | TEXT | active|canceled|past_due|waiting_payment | NOT NULL |
-| `plan_name` | TEXT | Nome do plano | Nullable |
-| `amount` | NUMERIC | Valor | Nullable |
-| `current_period_end` | TIMESTAMPTZ | Fim do período | Nullable |
-| `created_at` | TIMESTAMPTZ | Data de criação | Default: now() |
-| `updated_at` | TIMESTAMPTZ | Data de atualização | Default: now() |
+| Coluna               | Tipo        | Descrição                 | Constraints                          |
+| -------------------- | ----------- | ------------------------- | ------------------------------------ | -------- | --------------- | -------- |
+| `id`                 | UUID        | ID único                  | PK, Default: gen_random_uuid()       |
+| `user_id`            | UUID        | Usuário                   | FK → auth.users.id, NOT NULL, UNIQUE |
+| `cakto_id`           | TEXT        | ID da assinatura no Cakto | UNIQUE, Nullable                     |
+| `status`             | TEXT        | active                    | canceled                             | past_due | waiting_payment | NOT NULL |
+| `plan_name`          | TEXT        | Nome do plano             | Nullable                             |
+| `amount`             | NUMERIC     | Valor                     | Nullable                             |
+| `current_period_end` | TIMESTAMPTZ | Fim do período            | Nullable                             |
+| `created_at`         | TIMESTAMPTZ | Data de criação           | Default: now()                       |
+| `updated_at`         | TIMESTAMPTZ | Data de atualização       | Default: now()                       |
 
 **RLS**: ✅ Habilitado - Usuários só veem sua própria assinatura
 
 **Índices**:
+
 - `subscriptions_user_id_key` (user_id) - UNIQUE
 - `subscriptions_cakto_id_key` (cakto_id) - UNIQUE
 
 ---
 
 #### 12. `funnel_welcome_settings`
+
 Configurações de mensagens de boas-vindas.
 
-| Coluna | Tipo | Descrição | Constraints |
-|--------|------|-----------|-------------|
-| `funnel_id` | UUID | Funil | PK, FK → funnels.id |
-| `is_active` | BOOLEAN | Ativo | Default: false |
-| `message_text` | TEXT | Texto da mensagem | Nullable |
-| `buttons_config` | JSONB | Configuração de botões | Default: '[]' |
-| `image_url` | TEXT | URL da imagem | Nullable |
-| `created_at` | TIMESTAMPTZ | Data de criação | Default: now() |
-| `updated_at` | TIMESTAMPTZ | Data de atualização | Default: now() |
+| Coluna           | Tipo        | Descrição              | Constraints         |
+| ---------------- | ----------- | ---------------------- | ------------------- |
+| `funnel_id`      | UUID        | Funil                  | PK, FK → funnels.id |
+| `is_active`      | BOOLEAN     | Ativo                  | Default: false      |
+| `message_text`   | TEXT        | Texto da mensagem      | Nullable            |
+| `buttons_config` | JSONB       | Configuração de botões | Default: '[]'       |
+| `image_url`      | TEXT        | URL da imagem          | Nullable            |
+| `created_at`     | TIMESTAMPTZ | Data de criação        | Default: now()      |
+| `updated_at`     | TIMESTAMPTZ | Data de atualização    | Default: now()      |
 
 **RLS**: ✅ Habilitado - Usuários só veem configurações de seus próprios funis
 
 **Estrutura do buttons_config**:
+
 ```json
 [
   {
@@ -812,18 +855,19 @@ Configurações de mensagens de boas-vindas.
 ---
 
 #### 13. `telegram_message_logs`
+
 Logs de mensagens enviadas/recebidas via Telegram.
 
-| Coluna | Tipo | Descrição | Constraints |
-|--------|------|-----------|-------------|
-| `id` | UUID | ID único | PK, Default: uuid_generate_v4() |
-| `funnel_id` | UUID | Funil | FK → funnels.id, Nullable |
-| `telegram_chat_id` | TEXT | ID do chat | NOT NULL |
-| `telegram_user_name` | TEXT | Nome do usuário | Nullable |
-| `direction` | TEXT | inbound|outbound | Nullable |
-| `message_content` | TEXT | Conteúdo da mensagem | Nullable |
-| `status` | TEXT | sent|received|failed | Default: 'sent' |
-| `created_at` | TIMESTAMPTZ | Data do log | Default: now() |
+| Coluna               | Tipo        | Descrição            | Constraints                     |
+| -------------------- | ----------- | -------------------- | ------------------------------- | -------- | --------------- |
+| `id`                 | UUID        | ID único             | PK, Default: uuid_generate_v4() |
+| `funnel_id`          | UUID        | Funil                | FK → funnels.id, Nullable       |
+| `telegram_chat_id`   | TEXT        | ID do chat           | NOT NULL                        |
+| `telegram_user_name` | TEXT        | Nome do usuário      | Nullable                        |
+| `direction`          | TEXT        | inbound              | outbound                        | Nullable |
+| `message_content`    | TEXT        | Conteúdo da mensagem | Nullable                        |
+| `status`             | TEXT        | sent                 | received                        | failed   | Default: 'sent' |
+| `created_at`         | TIMESTAMPTZ | Data do log          | Default: now()                  |
 
 **RLS**: ✅ Habilitado - Usuários veem logs de seus próprios funis
 
@@ -836,12 +880,14 @@ Logs de mensagens enviadas/recebidas via Telegram.
 **Propósito**: Retorna métricas agregadas do dashboard.
 
 **Parâmetros**:
+
 - `p_start_date` (TIMESTAMPTZ): Data inicial
 - `p_end_date` (TIMESTAMPTZ): Data final
 - `p_funnel_id` (UUID, nullable): Filtrar por funil
 - `p_pixel_id` (UUID, nullable): Filtrar por pixel
 
 **Retorno**: JSON
+
 ```json
 {
   "totals": {
@@ -863,6 +909,7 @@ Logs de mensagens enviadas/recebidas via Telegram.
 ```
 
 **Lógica**:
+
 - Agrega eventos por tipo e data
 - Suporta filtros por funil e pixel
 - Inclui eventos de domínios externos (via metadata.domain_id)
@@ -893,11 +940,13 @@ Logs de mensagens enviadas/recebidas via Telegram.
 O sistema captura os seguintes parâmetros:
 
 #### Facebook Parameters
+
 - **fbclid**: Click ID do Facebook (da URL)
 - **fbc**: Facebook Click ID (cookie `_fbc` ou gerado)
 - **fbp**: Facebook Browser ID (cookie `_fbp` ou gerado)
 
 #### UTM Parameters
+
 - **utm_source**: Origem da campanha
 - **utm_medium**: Meio da campanha
 - **utm_campaign**: Nome da campanha
@@ -905,12 +954,14 @@ O sistema captura os seguintes parâmetros:
 - **utm_term**: Termo de busca
 
 #### Geolocalização (Vercel)
+
 - **city**: Cidade (header `x-vercel-ip-city`)
 - **country**: País (header `x-vercel-ip-country`)
 - **region**: Região (header `x-vercel-ip-country-region`)
 - **postal_code**: CEP (header `x-vercel-ip-postal-code`)
 
 #### Outros
+
 - **user_agent**: User-Agent do navegador
 - **ip_address**: IP do usuário (header `x-forwarded-for`)
 - **page_url**: URL da página
@@ -919,6 +970,7 @@ O sistema captura os seguintes parâmetros:
 ### Geração de Cookies
 
 #### `_fbc` (Facebook Click ID)
+
 ```
 Formato: fb.1.{timestamp}.{fbclid}
 Exemplo: fb.1.1702123456.AbCdEfGhIj
@@ -926,6 +978,7 @@ Expiração: 90 dias
 ```
 
 #### `_fbp` (Facebook Browser ID)
+
 ```
 Formato: fb.1.{timestamp}.{random}
 Exemplo: fb.1.1702123456.1234567890
@@ -941,6 +994,7 @@ O script `/api/tracking-script.js` pode ser incluído em landing pages externas:
 ```
 
 **Funcionalidades**:
+
 - Inicializa Facebook Pixel (se configurado no domínio)
 - Captura visitor_id (localStorage ou URL)
 - Captura parâmetros Facebook e UTMs
@@ -986,6 +1040,7 @@ O middleware (`src/middleware.ts`) protege rotas autenticadas:
 Todas as tabelas principais têm RLS habilitado com políticas específicas:
 
 **Padrão de Política**:
+
 ```sql
 -- SELECT: Usuários veem apenas seus próprios registros
 CREATE POLICY "Users can view own X" ON table_name
@@ -1007,6 +1062,7 @@ CREATE POLICY "Users can delete own X" ON table_name
 ### Service Role Key
 
 A `SUPABASE_SERVICE_ROLE_KEY` é usada apenas em:
+
 - API Routes (server-side)
 - Operações que precisam bypass RLS (ex: buscar funil público)
 
@@ -1023,6 +1079,7 @@ O sistema integra com **Cakto** (plataforma de pagamentos) via webhook:
 **Webhook**: `/api/webhooks/cakto`
 
 **Eventos Processados**:
+
 - `purchase_approved` → Status: `active`
 - `subscription_renewed` → Status: `active`
 - `subscription_canceled` → Status: `canceled`
@@ -1034,28 +1091,30 @@ O sistema integra com **Cakto** (plataforma de pagamentos) via webhook:
 
 ### Planos Disponíveis
 
-| Plano | Preço | Domínios | Pixels | Canais | Funis | Leads/mês |
-|-------|-------|----------|--------|--------|-------|-----------|
-| **Starter** | R$ 97 | 2 | 2 | 1 | 5 | 20.000 |
-| **Pro Scale** | R$ 197 | 4 | 4 | 2 | 10 | 100.000 |
-| **Agency** | R$ 297 | 10 | 10 | 2 | Ilimitado | Ilimitado |
+| Plano         | Preço  | Domínios | Pixels | Canais | Funis     | Leads/mês |
+| ------------- | ------ | -------- | ------ | ------ | --------- | --------- |
+| **Starter**   | R$ 97  | 2        | 2      | 1      | 5         | 20.000    |
+| **Pro Scale** | R$ 197 | 4        | 4      | 2      | 10        | 100.000   |
+| **Agency**    | R$ 297 | 10       | 10     | 2      | Ilimitado | Ilimitado |
 
 ### Verificação de Limites
 
 Todas as ações (criar canal, pixel, funil) verificam:
+
 1. Assinatura ativa (`status = 'active'` ou `'trialing'`)
 2. Limite do plano
 3. Contagem atual de recursos
 
 **Exemplo** (criar canal):
+
 ```typescript
 const planLimits = getPlanLimits(subscription.plan_name);
 if (planLimits.channels !== 9999) {
   const { count } = await supabase
     .from("telegram_bots")
-    .select("*", { count: 'exact', head: true })
+    .select("*", { count: "exact", head: true })
     .eq("user_id", user.id);
-  
+
   if ((count || 0) >= planLimits.channels) {
     throw new Error("Limite atingido");
   }
@@ -1127,13 +1186,13 @@ CAKTO_WEBHOOK_SECRET=seu_secret_aqui
 
 Configure as seguintes variáveis no dashboard da Vercel:
 
-| Variável | Tipo | Descrição | Obrigatório |
-|----------|------|-----------|-------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Public | URL do projeto Supabase | ✅ Sim |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public | Chave anônima do Supabase | ✅ Sim |
-| `SUPABASE_SERVICE_ROLE_KEY` | Secret | Chave de serviço (server-side) | ✅ Sim |
-| `NEXT_PUBLIC_APP_URL` | Public | URL da aplicação | ✅ Sim |
-| `CAKTO_WEBHOOK_SECRET` | Secret | Secret do webhook Cakto | ❌ Opcional |
+| Variável                        | Tipo   | Descrição                      | Obrigatório |
+| ------------------------------- | ------ | ------------------------------ | ----------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Public | URL do projeto Supabase        | ✅ Sim      |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public | Chave anônima do Supabase      | ✅ Sim      |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Secret | Chave de serviço (server-side) | ✅ Sim      |
+| `NEXT_PUBLIC_APP_URL`           | Public | URL da aplicação               | ✅ Sim      |
+| `CAKTO_WEBHOOK_SECRET`          | Secret | Secret do webhook Cakto        | ❌ Opcional |
 
 ---
 
@@ -1150,6 +1209,7 @@ Configure as seguintes variáveis no dashboard da Vercel:
 ### 🔧 Melhorias Futuras
 
 #### Curto Prazo
+
 - [ ] Implementar rate limiting no webhook handler
 - [ ] Melhorar tratamento de erros na página de tracking
 - [ ] Adicionar validação de bot_token antes de gerar link
@@ -1157,6 +1217,7 @@ Configure as seguintes variáveis no dashboard da Vercel:
 - [ ] Adicionar webhook secret para Telegram
 
 #### Médio Prazo
+
 - [ ] Pool de links pré-gerados (para performance)
 - [ ] Dashboard de analytics avançado
 - [ ] Exportação de relatórios (CSV/PDF)
@@ -1164,6 +1225,7 @@ Configure as seguintes variáveis no dashboard da Vercel:
 - [ ] A/B testing de mensagens de boas-vindas
 
 #### Longo Prazo
+
 - [ ] Multi-tenant completo (organizações)
 - [ ] API pública para integrações
 - [ ] Webhooks customizados (postbacks)
@@ -1173,6 +1235,7 @@ Configure as seguintes variáveis no dashboard da Vercel:
 ### 📊 Performance
 
 **Otimizações Implementadas**:
+
 - ✅ Índices adequados em todas as tabelas
 - ✅ GIN index em campos JSONB
 - ✅ RPC function para métricas (agregação no banco)
@@ -1180,6 +1243,7 @@ Configure as seguintes variáveis no dashboard da Vercel:
 - ✅ Deduplicação de eventos (evita duplicatas)
 
 **Oportunidades de Melhoria**:
+
 - Cache de configurações de funis (Redis)
 - CDN para assets estáticos
 - Compressão de payloads CAPI
@@ -1206,15 +1270,28 @@ A documentação acima reflete o estado atual do sistema (Dezembro 2024) e deve 
 **Propósito**: Proteção de rotas e gerenciamento de sessão Supabase
 
 **Funcionalidades**:
+
 - Atualiza sessão do Supabase via `updateSession`
 - Protege rotas autenticadas (dashboard, channels, pixels, funnels, etc.)
 - Permite acesso público a `/login`, `/t/*`, `/api/*`
 - Redireciona usuários não autenticados para `/login`
 
 **Rotas Protegidas**:
+
 ```typescript
-["/channels", "/domains", "/funnels", "/logs", "/messages", 
- "/pixels", "/postbacks", "/subscription", "/utms", "/dashboard", "/"]
+[
+  "/channels",
+  "/domains",
+  "/funnels",
+  "/logs",
+  "/messages",
+  "/pixels",
+  "/postbacks",
+  "/subscription",
+  "/utms",
+  "/dashboard",
+  "/",
+];
 ```
 
 **Decisão Técnica**: Usa `@supabase/ssr` para gerenciar cookies de forma segura no Edge Runtime do Next.js.
@@ -1224,21 +1301,25 @@ A documentação acima reflete o estado atual do sistema (Dezembro 2024) e deve 
 #### 2. Clientes Supabase
 
 ##### Browser Client (`lib/supabase/client.ts`)
+
 - **Uso**: Componentes client-side (React)
 - **Configuração**: Cookies com maxAge de 1 ano, domínio personalizado opcional
 - **Segurança**: Secure em produção (`NODE_ENV === 'production'`)
 
 ##### Server Client (`lib/supabase/server.ts`)
+
 - **Uso**: Server Components e Server Actions
 - **Integração**: Usa `cookies()` do Next.js para ler/gravar cookies
 - **Tratamento de Erros**: Ignora erros de `setAll` em Server Components (normal)
 
 ##### Middleware Client (`lib/supabase/middleware.ts`)
+
 - **Uso**: Middleware do Next.js
 - **Funcionalidade**: Atualiza sessão e retorna usuário autenticado
 - **Retorno**: `{ response: NextResponse, user: User | null }`
 
 ##### Service Role Client
+
 - **Uso**: API Routes que precisam bypass RLS
 - **Criação**: Inline com `createClient(url, SERVICE_ROLE_KEY)`
 - **Locais de Uso**:
@@ -1254,6 +1335,7 @@ A documentação acima reflete o estado atual do sistema (Dezembro 2024) e deve 
 **Função Principal**: `sendCAPIEvent()`
 
 **Características**:
+
 - Hash SHA256 de dados sensíveis (external_id, geolocalização)
 - Constrói payload conforme documentação Meta
 - Gera `event_id` único: `{eventName}_{timestamp}_{visitorId}`
@@ -1261,6 +1343,7 @@ A documentação acima reflete o estado atual do sistema (Dezembro 2024) e deve 
 - Tratamento de erros robusto
 
 **Dados Enviados**:
+
 - `fbc`, `fbp` (cookies Facebook)
 - `client_user_agent`, `client_ip_address`
 - `external_id` (hasheado)
@@ -1277,6 +1360,7 @@ A documentação acima reflete o estado atual do sistema (Dezembro 2024) e deve 
 **Função Principal**: `generateTelegramInvite()`
 
 **Fluxo**:
+
 1. Busca dados do funil (se não passado)
 2. Valida bot_token e chat_id
 3. Gera invite link com nome `v_{visitorId}` (máx 28 chars)
@@ -1291,41 +1375,50 @@ A documentação acima reflete o estado atual do sistema (Dezembro 2024) e deve 
 #### 5. API Routes
 
 ##### `/api/track` (POST)
+
 **Propósito**: Receber eventos de tracking externo (script)
 
 **Funcionalidades**:
+
 - Validação de origem paga (fbclid ou fbc)
 - Deduplicação (5 minutos)
 - Busca pixels do domínio (legacy + multi-pixel)
 - Salva evento no Supabase
 - Dispara CAPI PageView (se origem paga)
 
-**Filtro de Tráfego**: 
+**Filtro de Tráfego**:
+
 - Eventos SEM origem paga são salvos no DB mas NÃO disparam CAPI
 - Isso evita "sujar" o CAPI com tráfego orgânico
 
 ##### `/api/invite` (GET/POST)
+
 **Propósito**: Gerar links de convite únicos
 
 **Métodos**:
+
 - **GET**: Busca link existente ou gera novo
 - **POST**: Gera link e salva evento "click"
 
 **Lógica de Join Request**:
+
 - Verifica `funnel_welcome_settings.is_active` OU `funnels.use_join_request`
 - Se ativo: `creates_join_request: true` (sem member_limit)
 - Se inativo: `member_limit: 1` (entrada direta)
 
 ##### `/api/webhook/telegram/[bot_id]` (POST)
+
 **Propósito**: Processar webhooks do Telegram
 
 **Eventos Processados**:
+
 1. **Mensagens de Texto** (inbound): Salva em `telegram_message_logs` se usuário trackeado
 2. **Comando /start**: Fluxo legacy de deep linking
 3. **chat_member**: Entrada/saída de membros (FLUXO PRINCIPAL)
 4. **chat_join_request**: Solicitação de entrada (canais privados)
 
 **Processamento de Join**:
+
 - Extrai `visitor_id` do `invite_link.name` (método 1)
 - Fallback por `telegram_user_id` (método 2)
 - Fallback por click recente (método 3 - janela de 10 minutos)
@@ -1334,14 +1427,17 @@ A documentação acima reflete o estado atual do sistema (Dezembro 2024) e deve 
 - Revoga link de convite após uso
 
 **Processamento de Leave**:
+
 - Busca `visitor_id` vinculado
 - Salva evento "leave"
 - Dispara CAPI "SaidaDeCanal" (custom event)
 
 ##### `/api/tracking-script.js` (GET)
+
 **Propósito**: Script JavaScript para landing pages externas
 
 **Funcionalidades**:
+
 - Inicializa Facebook Pixel (multi-pixel support)
 - Gera/recupera `visitor_id` (localStorage ou URL)
 - Captura cookies `_fbc` e `_fbp` (ou gera)
@@ -1357,11 +1453,13 @@ A documentação acima reflete o estado atual do sistema (Dezembro 2024) e deve 
 #### 6. Página de Tracking (`/t/[slug]`)
 
 ##### Server Component (`page.tsx`)
+
 - Busca funil pelo slug (Service Role para bypass RLS)
 - Captura headers: IP, User-Agent, Geo (Vercel)
 - Passa dados para Client Component
 
 ##### Client Component (`client-tracking.tsx`)
+
 - Gera/recupera `visitor_id` (localStorage ou URL)
 - Captura parâmetros Facebook (fbclid, fbc, fbp)
 - Inicializa Facebook Pixel (se configurado)
@@ -1374,6 +1472,7 @@ A documentação acima reflete o estado atual do sistema (Dezembro 2024) e deve 
 #### 7. Dashboard (`(dashboard)/page.tsx`)
 
 **Funcionalidades**:
+
 - Métricas em tempo real (pageviews, clicks, joins, leaves)
 - Gráficos de evolução temporal (Recharts)
 - Tabela de retenção diária
@@ -1381,6 +1480,7 @@ A documentação acima reflete o estado atual do sistema (Dezembro 2024) e deve 
 - RPC `get_dashboard_metrics` para agregação no banco
 
 **Métricas Calculadas**:
+
 - Taxa de Conversão: `(joins / pageviews) * 100`
 - CTR: `(clicks / pageviews) * 100`
 - Taxa de Entradas: `(joins / clicks) * 100`
@@ -1391,15 +1491,18 @@ A documentação acima reflete o estado atual do sistema (Dezembro 2024) e deve 
 #### 8. Server Actions
 
 ##### `actions/funnels.ts`
+
 - `createFunnel()`: Cria funil com verificação de limites
 - `updateFunnel()`: Atualiza funil e sincroniza pixels
 - Suporta multi-pixel (many-to-many via `funnel_pixels`)
 
 ##### `actions/channels.ts`
+
 - `createChannel()`: Cria bot com verificação de limites
 - `updateChannel()`: Atualiza configurações do bot
 
 ##### `actions/domains.ts`
+
 - `verifyDomain()`: Verifica metatag de verificação via HTTP
 - Busca metatag `<meta name="trackgram-verification" content="TOKEN">`
 - Atualiza status `verified` se encontrado
@@ -1509,7 +1612,8 @@ A documentação acima reflete o estado atual do sistema (Dezembro 2024) e deve 
 
 **Decisão**: Usar Service Role Key em API Routes e páginas públicas
 
-**Razão**: 
+**Razão**:
+
 - API Routes precisam bypass RLS para eventos públicos
 - Página `/t/[slug]` precisa buscar funil sem autenticação
 - Webhooks precisam processar eventos sem contexto de usuário
@@ -1523,6 +1627,7 @@ A documentação acima reflete o estado atual do sistema (Dezembro 2024) e deve 
 **Decisão**: Suportar múltiplos pixels por funil/domínio via tabelas de junção
 
 **Implementação**:
+
 - `funnel_pixels` (many-to-many: funnels ↔ pixels)
 - `domain_pixels` (many-to-many: domains ↔ pixels)
 - Mantém `pixel_id` legacy em `funnels` e `domains` para compatibilidade
@@ -1536,6 +1641,7 @@ A documentação acima reflete o estado atual do sistema (Dezembro 2024) e deve 
 **Decisão**: Gerar link único por visitante via Telegram API
 
 **Implementação**:
+
 - Nome do link: `v_{visitor_id}` (máx 28 chars)
 - Expiração: 24 horas
 - Member limit: 1 (ou creates_join_request)
@@ -1551,6 +1657,7 @@ A documentação acima reflete o estado atual do sistema (Dezembro 2024) e deve 
 **Decisão**: Deduplicação baseada em tempo (5 minutos)
 
 **Implementação**:
+
 ```typescript
 const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 // Busca eventos recentes com mesmo visitor_id e event_type
@@ -1565,6 +1672,7 @@ const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 **Decisão**: Filtrar eventos CAPI por origem paga (fbclid ou fbc)
 
 **Implementação**:
+
 - Eventos SEM origem paga são salvos no DB mas NÃO disparam CAPI
 - Isso evita "sujar" o CAPI com tráfego orgânico
 
@@ -1577,6 +1685,7 @@ const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 **Decisão**: Usar headers do Vercel para geolocalização
 
 **Headers Utilizados**:
+
 - `x-vercel-ip-city`
 - `x-vercel-ip-country`
 - `x-vercel-ip-country-region`
@@ -1637,19 +1746,23 @@ const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 #### Curto Prazo (Alta Prioridade)
 
 1. **Implementar Rate Limiting**
+
    - Webhook handler: máximo X requisições por segundo
    - API /api/track: máximo Y eventos por visitor_id por minuto
 
 2. **Melhorar Deduplicação**
+
    - Usar `event_id` único do Facebook
    - Armazenar event_id em `events.metadata`
    - Verificar antes de enviar CAPI
 
 3. **Adicionar Validação de Bot Token**
+
    - Validar token antes de gerar link
    - Verificar se bot é admin do canal
 
 4. **Implementar Retry Logic para CAPI**
+
    - Retry automático em caso de falha
    - Exponential backoff
    - Dead letter queue para falhas persistentes
@@ -1661,15 +1774,18 @@ const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 #### Médio Prazo
 
 1. **Pool de Links Pré-gerados**
+
    - Gerar links em batch
    - Reduzir latência na geração
 
 2. **Dashboard Avançado**
+
    - Cohort analysis
    - Funnel visualization
    - A/B testing
 
 3. **Exportação de Relatórios**
+
    - CSV/PDF export
    - Agendamento de relatórios
 
@@ -1680,14 +1796,17 @@ const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 #### Longo Prazo
 
 1. **Multi-tenant Completo**
+
    - Organizações e equipes
    - Permissões granulares
 
 2. **API Pública**
+
    - REST API documentada
    - Rate limiting por API key
 
 3. **Integrações Adicionais**
+
    - Google Ads
    - TikTok Ads
    - Outras plataformas

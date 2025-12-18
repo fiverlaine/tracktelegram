@@ -14,6 +14,7 @@ import {
   LogOut,
   FileText,
   Tags,
+  Users,
   Plug,
   ChevronDown,
   ChevronRight
@@ -37,6 +38,7 @@ type MenuItem = {
 
 const menuItems: MenuItem[] = [
   { id: "dashboard", label: "Dashboard", href: "/", icon: LayoutGrid },
+  { id: "leads", label: "Leads", href: "/leads", icon: Users },
   { id: "dominios", label: "Domínios", href: "/domains", icon: Globe },
   {
     id: "integracoes",
