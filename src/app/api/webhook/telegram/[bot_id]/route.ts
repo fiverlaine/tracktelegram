@@ -897,7 +897,7 @@ export async function POST(
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                        chat_id: telegramUserId,
+                                        chat_id: request.user_chat_id || telegramUserId,
                                         text: messageText,
                                         reply_markup: inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined
                                     })
