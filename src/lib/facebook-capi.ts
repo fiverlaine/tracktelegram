@@ -124,11 +124,20 @@ export async function sendCAPIEvent(
     // Construir user_data conforme documentação Meta
     const userData: Record<string, any> = {};
 
-    if (userDataPayload.fbc) {
-        userData.fbc = userDataPayload.fbc;
+    // fbc e fbp são críticos para Event Match Quality - incluir sempre que disponíveis
+    // Verificar se não é null/undefined e se é uma string não vazia
+    if (userDataPayload.fbc !== null && userDataPayload.fbc !== undefined && String(userDataPayload.fbc).trim() !== '') {
+        userData.fbc = String(userDataPayload.fbc).trim();
+        console.log(`[CAPI] ✅ fbc incluído: ${userData.fbc.substring(0, 20)}...`);
+    } else {
+        console.warn(`[CAPI] ⚠️ fbc não disponível ou inválido:`, userDataPayload.fbc);
     }
-    if (userDataPayload.fbp) {
-        userData.fbp = userDataPayload.fbp;
+    
+    if (userDataPayload.fbp !== null && userDataPayload.fbp !== undefined && String(userDataPayload.fbp).trim() !== '') {
+        userData.fbp = String(userDataPayload.fbp).trim();
+        console.log(`[CAPI] ✅ fbp incluído: ${userData.fbp.substring(0, 20)}...`);
+    } else {
+        console.warn(`[CAPI] ⚠️ fbp não disponível ou inválido:`, userDataPayload.fbp);
     }
     if (userDataPayload.user_agent) {
         userData.client_user_agent = userDataPayload.user_agent;

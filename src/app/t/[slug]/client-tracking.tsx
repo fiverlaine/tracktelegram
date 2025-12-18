@@ -48,12 +48,30 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData, visit
                 setVisitorId(vid);
 
                 // 2. Facebook Params
-                const fbp = getCookie("_fbp");
-                const fbc = getCookie("_fbc") || (searchParams?.fbclid ? `fb.1.${Date.now()}.${searchParams.fbclid}` : null);
+                // FBP - Browser ID (gerar se não existir)
+                let fbp = getCookie("_fbp");
+                if (!fbp) {
+                    fbp = `fb.1.${Date.now()}.${Math.floor(Math.random() * 10000000000)}`;
+                    // Salvar cookie _fbp (90 dias)
+                    const d = new Date();
+                    d.setTime(d.getTime() + (90 * 24 * 60 * 60 * 1000));
+                    document.cookie = `_fbp=${fbp};expires=${d.toUTCString()};path=/;SameSite=Lax`;
+                }
+                
+                // FBC - Click ID (gerar se não existir mas tiver fbclid)
+                let fbc = getCookie("_fbc");
+                if (!fbc && searchParams?.fbclid) {
+                    fbc = `fb.1.${Date.now()}.${searchParams.fbclid}`;
+                    // Salvar cookie _fbc (90 dias)
+                    const d = new Date();
+                    d.setTime(d.getTime() + (90 * 24 * 60 * 60 * 1000));
+                    document.cookie = `_fbc=${fbc};expires=${d.toUTCString()};path=/;SameSite=Lax`;
+                }
+                
                 setFbParams({
                     fbclid: searchParams?.fbclid || null,
-                    fbc,
-                    fbp
+                    fbc: fbc || null,
+                    fbp: fbp || null
                 });
 
                 // 3. Funnel Data (Se não veio do server)
@@ -102,11 +120,12 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData, visit
                 setRedirectStatus("Gerando seu acesso exclusivo...");
 
                 // Preparar metadados para o clique
+                // Garantir que fbc e fbp sejam sempre strings válidas (não null)
                 const clickMetadata = {
                     timestamp: new Date().toISOString(),
                     fbclid: searchParams?.fbclid || null,
-                    fbc: fbc,
-                    fbp: fbp,
+                    fbc: fbc || null, // Pode ser null se não houver fbclid
+                    fbp: fbp || null, // Sempre deve existir (gerado acima)
                     user_agent: navigator.userAgent,
                     page_url: window.location.href,
                     utm_source: searchParams?.utm_source || null,
@@ -115,11 +134,18 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData, visit
                     utm_content: searchParams?.utm_content || null,
                     utm_term: searchParams?.utm_term || null,
                     ip_address: ip,
-                    city: geo?.city,
-                    country: geo?.country,
-                    region: geo?.region,
-                    postal_code: geo?.postal_code
+                    city: geo?.city || null,
+                    country: geo?.country || null,
+                    region: geo?.region || null,
+                    postal_code: geo?.postal_code || null
                 };
+                
+                // Log para debug
+                console.log('[Tracking] Metadata preparado:', {
+                    fbc: clickMetadata.fbc ? `${clickMetadata.fbc.substring(0, 20)}...` : 'null',
+                    fbp: clickMetadata.fbp ? `${clickMetadata.fbp.substring(0, 20)}...` : 'null',
+                    fbclid: clickMetadata.fbclid ? 'presente' : 'null'
+                });
 
                 // Chamar API de Invite
                 const response = await fetch("/api/invite", {

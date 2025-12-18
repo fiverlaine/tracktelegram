@@ -1042,17 +1042,33 @@ async function processLeadConversion(
         const uniquePixels = Array.from(new Map(pixelsToFire.map(p => [p.pixel_id, p])).values());
         console.log(`[Webhook] Total pixels para disparar (${source}): ${uniquePixels.length}`);
 
-        // 3. Buscar Metadata
-        const { data: eventData } = await supabase
+        // 3. Buscar Metadata (buscar múltiplos eventos para garantir que encontramos fbc/fbp)
+        const { data: eventsList } = await supabase
             .from("events")
             .select("metadata")
             .eq("visitor_id", visitorId)
             .in("event_type", ["click", "pageview"])
             .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
+            .limit(5); // Buscar últimos 5 eventos para garantir que encontramos fbc/fbp
 
-        const metadata = eventData?.metadata || {};
+        // Agregar metadata de múltiplos eventos (priorizar valores não-nulos)
+        let metadata: any = {};
+        if (eventsList && eventsList.length > 0) {
+            for (const ev of eventsList) {
+                const m = ev.metadata || {};
+                // Priorizar valores não-nulos e não-vazios
+                if (!metadata.fbc && m.fbc) metadata.fbc = m.fbc;
+                if (!metadata.fbp && m.fbp) metadata.fbp = m.fbp;
+                if (!metadata.user_agent && m.user_agent) metadata.user_agent = m.user_agent;
+                if (!metadata.ip_address && m.ip_address) metadata.ip_address = m.ip_address;
+                if (!metadata.city && m.city) metadata.city = m.city;
+                if (!metadata.region && m.region) metadata.region = m.region;
+                if (!metadata.country && m.country) metadata.country = m.country;
+                if (!metadata.postal_code && m.postal_code) metadata.postal_code = m.postal_code;
+                // Se já encontramos fbc e fbp, podemos parar
+                if (metadata.fbc && metadata.fbp) break;
+            }
+        }
 
         // 4. Registrar Evento JOIN (se não existir recentemente)
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
@@ -1086,6 +1102,13 @@ async function processLeadConversion(
 
         // 5. Enviar CAPI
         if (uniquePixels.length > 0) {
+            // Log para debug: verificar se fbc e fbp estão presentes
+            console.log(`[Webhook] Metadata para CAPI:`, {
+                fbc: metadata?.fbc || 'NÃO ENCONTRADO',
+                fbp: metadata?.fbp || 'NÃO ENCONTRADO',
+                visitor_id: visitorId
+            });
+            
             const capiPromises = uniquePixels.map(async (pixelData: any) => {
                 if (!pixelData?.access_token || !pixelData?.pixel_id) return;
                 try {
@@ -1094,8 +1117,8 @@ async function processLeadConversion(
                         pixelData.pixel_id,
                         "Lead",
                         {
-                            fbc: metadata?.fbc,
-                            fbp: metadata?.fbp,
+                            fbc: metadata?.fbc || undefined,
+                            fbp: metadata?.fbp || undefined,
                             user_agent: metadata?.user_agent,
                             ip_address: metadata?.ip_address,
                             external_id: visitorId,

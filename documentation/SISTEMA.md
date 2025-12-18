@@ -1195,6 +1195,510 @@ A documentação acima reflete o estado atual do sistema (Dezembro 2024) e deve 
 
 ---
 
-**Última atualização**: Dezembro 2024  
+---
+
+## 🔍 ANÁLISE TÉCNICA DETALHADA
+
+### Análise de Componentes Principais
+
+#### 1. Middleware (`src/middleware.ts`)
+
+**Propósito**: Proteção de rotas e gerenciamento de sessão Supabase
+
+**Funcionalidades**:
+- Atualiza sessão do Supabase via `updateSession`
+- Protege rotas autenticadas (dashboard, channels, pixels, funnels, etc.)
+- Permite acesso público a `/login`, `/t/*`, `/api/*`
+- Redireciona usuários não autenticados para `/login`
+
+**Rotas Protegidas**:
+```typescript
+["/channels", "/domains", "/funnels", "/logs", "/messages", 
+ "/pixels", "/postbacks", "/subscription", "/utms", "/dashboard", "/"]
+```
+
+**Decisão Técnica**: Usa `@supabase/ssr` para gerenciar cookies de forma segura no Edge Runtime do Next.js.
+
+---
+
+#### 2. Clientes Supabase
+
+##### Browser Client (`lib/supabase/client.ts`)
+- **Uso**: Componentes client-side (React)
+- **Configuração**: Cookies com maxAge de 1 ano, domínio personalizado opcional
+- **Segurança**: Secure em produção (`NODE_ENV === 'production'`)
+
+##### Server Client (`lib/supabase/server.ts`)
+- **Uso**: Server Components e Server Actions
+- **Integração**: Usa `cookies()` do Next.js para ler/gravar cookies
+- **Tratamento de Erros**: Ignora erros de `setAll` em Server Components (normal)
+
+##### Middleware Client (`lib/supabase/middleware.ts`)
+- **Uso**: Middleware do Next.js
+- **Funcionalidade**: Atualiza sessão e retorna usuário autenticado
+- **Retorno**: `{ response: NextResponse, user: User | null }`
+
+##### Service Role Client
+- **Uso**: API Routes que precisam bypass RLS
+- **Criação**: Inline com `createClient(url, SERVICE_ROLE_KEY)`
+- **Locais de Uso**:
+  - `/api/track` - Eventos públicos
+  - `/api/invite` - Geração de links
+  - `/api/webhook/telegram` - Webhooks externos
+  - `/t/[slug]/page.tsx` - Buscar funil público
+
+---
+
+#### 3. Facebook CAPI (`lib/facebook-capi.ts`)
+
+**Função Principal**: `sendCAPIEvent()`
+
+**Características**:
+- Hash SHA256 de dados sensíveis (external_id, geolocalização)
+- Constrói payload conforme documentação Meta
+- Gera `event_id` único: `{eventName}_{timestamp}_{visitorId}`
+- Logs completos em `capi_logs` (request/response/erro)
+- Tratamento de erros robusto
+
+**Dados Enviados**:
+- `fbc`, `fbp` (cookies Facebook)
+- `client_user_agent`, `client_ip_address`
+- `external_id` (hasheado)
+- Geolocalização (city, state, zip, country - todos hasheados)
+
+**API Version**: v18.0
+
+**Endpoint**: `https://graph.facebook.com/v18.0/{pixelId}/events`
+
+---
+
+#### 4. Telegram Service (`lib/telegram-service.ts`)
+
+**Função Principal**: `generateTelegramInvite()`
+
+**Fluxo**:
+1. Busca dados do funil (se não passado)
+2. Valida bot_token e chat_id
+3. Gera invite link com nome `v_{visitorId}` (máx 28 chars)
+4. Configura expiração (24h) e member_limit (1) ou creates_join_request
+5. Salva mapeamento em `visitor_telegram_links`
+6. Retorna link único ou fallback estático
+
+**Fallback**: Se falhar, retorna `channel_link` estático (perde rastreamento único)
+
+---
+
+#### 5. API Routes
+
+##### `/api/track` (POST)
+**Propósito**: Receber eventos de tracking externo (script)
+
+**Funcionalidades**:
+- Validação de origem paga (fbclid ou fbc)
+- Deduplicação (5 minutos)
+- Busca pixels do domínio (legacy + multi-pixel)
+- Salva evento no Supabase
+- Dispara CAPI PageView (se origem paga)
+
+**Filtro de Tráfego**: 
+- Eventos SEM origem paga são salvos no DB mas NÃO disparam CAPI
+- Isso evita "sujar" o CAPI com tráfego orgânico
+
+##### `/api/invite` (GET/POST)
+**Propósito**: Gerar links de convite únicos
+
+**Métodos**:
+- **GET**: Busca link existente ou gera novo
+- **POST**: Gera link e salva evento "click"
+
+**Lógica de Join Request**:
+- Verifica `funnel_welcome_settings.is_active` OU `funnels.use_join_request`
+- Se ativo: `creates_join_request: true` (sem member_limit)
+- Se inativo: `member_limit: 1` (entrada direta)
+
+##### `/api/webhook/telegram/[bot_id]` (POST)
+**Propósito**: Processar webhooks do Telegram
+
+**Eventos Processados**:
+1. **Mensagens de Texto** (inbound): Salva em `telegram_message_logs` se usuário trackeado
+2. **Comando /start**: Fluxo legacy de deep linking
+3. **chat_member**: Entrada/saída de membros (FLUXO PRINCIPAL)
+4. **chat_join_request**: Solicitação de entrada (canais privados)
+
+**Processamento de Join**:
+- Extrai `visitor_id` do `invite_link.name` (método 1)
+- Fallback por `telegram_user_id` (método 2)
+- Fallback por click recente (método 3 - janela de 10 minutos)
+- Processa conversão: salva evento "join" + dispara CAPI "Lead"
+- Envia mensagem de boas-vindas (se configurado)
+- Revoga link de convite após uso
+
+**Processamento de Leave**:
+- Busca `visitor_id` vinculado
+- Salva evento "leave"
+- Dispara CAPI "SaidaDeCanal" (custom event)
+
+##### `/api/tracking-script.js` (GET)
+**Propósito**: Script JavaScript para landing pages externas
+
+**Funcionalidades**:
+- Inicializa Facebook Pixel (multi-pixel support)
+- Gera/recupera `visitor_id` (localStorage ou URL)
+- Captura cookies `_fbc` e `_fbp` (ou gera)
+- Captura UTMs da URL
+- Decora links internos com parâmetros
+- Envia eventos para `/api/track`
+- Suporta slug forçado (se configurado no domínio)
+
+**Branding**: Injeta logs no console com marca TeleTrack
+
+---
+
+#### 6. Página de Tracking (`/t/[slug]`)
+
+##### Server Component (`page.tsx`)
+- Busca funil pelo slug (Service Role para bypass RLS)
+- Captura headers: IP, User-Agent, Geo (Vercel)
+- Passa dados para Client Component
+
+##### Client Component (`client-tracking.tsx`)
+- Gera/recupera `visitor_id` (localStorage ou URL)
+- Captura parâmetros Facebook (fbclid, fbc, fbp)
+- Inicializa Facebook Pixel (se configurado)
+- Chama `/api/invite` (POST) com metadata completa
+- Redireciona para link único do Telegram
+- UI de "Redirecionando" com spinner e link manual
+
+---
+
+#### 7. Dashboard (`(dashboard)/page.tsx`)
+
+**Funcionalidades**:
+- Métricas em tempo real (pageviews, clicks, joins, leaves)
+- Gráficos de evolução temporal (Recharts)
+- Tabela de retenção diária
+- Filtros: data, funil, pixel
+- RPC `get_dashboard_metrics` para agregação no banco
+
+**Métricas Calculadas**:
+- Taxa de Conversão: `(joins / pageviews) * 100`
+- CTR: `(clicks / pageviews) * 100`
+- Taxa de Entradas: `(joins / clicks) * 100`
+- Retenção: `((joins - leaves) / joins) * 100`
+
+---
+
+#### 8. Server Actions
+
+##### `actions/funnels.ts`
+- `createFunnel()`: Cria funil com verificação de limites
+- `updateFunnel()`: Atualiza funil e sincroniza pixels
+- Suporta multi-pixel (many-to-many via `funnel_pixels`)
+
+##### `actions/channels.ts`
+- `createChannel()`: Cria bot com verificação de limites
+- `updateChannel()`: Atualiza configurações do bot
+
+##### `actions/domains.ts`
+- `verifyDomain()`: Verifica metatag de verificação via HTTP
+- Busca metatag `<meta name="trackgram-verification" content="TOKEN">`
+- Atualiza status `verified` se encontrado
+
+---
+
+### Fluxos de Dados Detalhados
+
+#### Fluxo 1: Tracking via Página `/t/[slug]`
+
+```
+1. Visitante acessa: /t/{slug}?fbclid=xyz&utm_source=facebook
+   ↓
+2. Server Component (page.tsx):
+   - Busca funil pelo slug (Service Role)
+   - Captura IP, User-Agent, Geo (headers Vercel)
+   - Passa para Client Component
+   ↓
+3. Client Component (client-tracking.tsx):
+   - Gera visitor_id (UUID) ou recupera do localStorage/URL
+   - Captura fbclid, fbc, fbp (URL ou cookies)
+   - Inicializa Facebook Pixel (se pixel_id configurado)
+   - Dispara PageView no Pixel (client-side)
+   ↓
+4. Chama /api/invite (POST):
+   {
+     funnel_id: "...",
+     visitor_id: "...",
+     metadata: {
+       fbclid, fbc, fbp,
+       user_agent, ip_address,
+       city, country, region, postal_code,
+       utm_source, utm_medium, utm_campaign, ...
+     }
+   }
+   ↓
+5. API /api/invite:
+   - Salva evento "click" no Supabase (events)
+   - Busca bot_token e chat_id do funil
+   - Chama Telegram API: createChatInviteLink
+   - Salva mapeamento em visitor_telegram_links
+   - Retorna invite_link único
+   ↓
+6. Client redireciona para t.me/+XXXXX
+```
+
+#### Fluxo 2: Webhook de Entrada (Join)
+
+```
+1. Usuário entra no canal via link único
+   ↓
+2. Telegram envia webhook:
+   POST /api/webhook/telegram/{bot_id}
+   {
+     chat_member: {
+       new_chat_member: { status: "member" },
+       invite_link: { name: "v_abc123..." }
+     }
+   }
+   ↓
+3. Webhook Handler:
+   a. Extrai invite_name: "v_abc123..."
+   b. Busca visitor_id em visitor_telegram_links
+      WHERE visitor_id LIKE 'abc123%'
+   c. Recupera metadata do evento "click"
+   d. Salva evento "join" em events
+   e. Busca pixels do funil (legacy + funnel_pixels)
+   f. Dispara CAPI "Lead" para todos os pixels (Promise.all)
+   g. Salva logs em capi_logs
+   h. Envia mensagem de boas-vindas (se configurado)
+   i. Revoga link de convite
+   ↓
+4. Retorna 200 OK
+```
+
+#### Fluxo 3: Tracking Externo (Script)
+
+```
+1. Landing page inclui:
+   <script src="https://app.com/api/tracking-script.js?id={domain_id}"></script>
+   ↓
+2. Script executa:
+   - Inicializa Facebook Pixel (multi-pixel)
+   - Gera/recupera visitor_id
+   - Captura fbc, fbp, UTMs
+   - Decora links internos
+   - Envia evento "pageview" para /api/track
+   ↓
+3. API /api/track:
+   - Valida origem paga (fbclid ou fbc)
+   - Deduplica (5 min)
+   - Busca pixels do domínio
+   - Salva evento no Supabase
+   - Dispara CAPI PageView (se origem paga)
+   ↓
+4. Usuário clica em botão:
+   - Script captura click
+   - Envia evento "click" para /api/track
+   - Redireciona para /t/{slug}?vid={visitor_id}
+```
+
+---
+
+### Decisões Técnicas e Arquiteturais
+
+#### 1. Uso de Service Role Key
+
+**Decisão**: Usar Service Role Key em API Routes e páginas públicas
+
+**Razão**: 
+- API Routes precisam bypass RLS para eventos públicos
+- Página `/t/[slug]` precisa buscar funil sem autenticação
+- Webhooks precisam processar eventos sem contexto de usuário
+
+**Segurança**: Service Role Key nunca exposta no client-side, apenas server-side
+
+---
+
+#### 2. Multi-Pixel Support
+
+**Decisão**: Suportar múltiplos pixels por funil/domínio via tabelas de junção
+
+**Implementação**:
+- `funnel_pixels` (many-to-many: funnels ↔ pixels)
+- `domain_pixels` (many-to-many: domains ↔ pixels)
+- Mantém `pixel_id` legacy em `funnels` e `domains` para compatibilidade
+
+**Vantagem**: Permite enviar eventos para múltiplos pixels simultaneamente (Promise.all)
+
+---
+
+#### 3. Links Dinâmicos vs Estáticos
+
+**Decisão**: Gerar link único por visitante via Telegram API
+
+**Implementação**:
+- Nome do link: `v_{visitor_id}` (máx 28 chars)
+- Expiração: 24 horas
+- Member limit: 1 (ou creates_join_request)
+
+**Fallback**: Se falhar, usa `channel_link` estático (perde rastreamento único)
+
+**Vantagem**: Atribuição precisa via `invite_link.name`
+
+---
+
+#### 4. Deduplicação de Eventos
+
+**Decisão**: Deduplicação baseada em tempo (5 minutos)
+
+**Implementação**:
+```typescript
+const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+// Busca eventos recentes com mesmo visitor_id e event_type
+```
+
+**Limitação**: Não usa `event_id` único do Facebook (poderia melhorar)
+
+---
+
+#### 5. Filtro de Tráfego Pago
+
+**Decisão**: Filtrar eventos CAPI por origem paga (fbclid ou fbc)
+
+**Implementação**:
+- Eventos SEM origem paga são salvos no DB mas NÃO disparam CAPI
+- Isso evita "sujar" o CAPI com tráfego orgânico
+
+**Razão**: Melhorar qualidade dos dados enviados ao Facebook
+
+---
+
+#### 6. Geolocalização via Vercel Headers
+
+**Decisão**: Usar headers do Vercel para geolocalização
+
+**Headers Utilizados**:
+- `x-vercel-ip-city`
+- `x-vercel-ip-country`
+- `x-vercel-ip-country-region`
+- `x-vercel-ip-postal-code`
+
+**Vantagem**: Sem necessidade de API externa de geolocalização
+
+---
+
+### Análise de Segurança
+
+#### ✅ Pontos Fortes
+
+1. **RLS Habilitado**: Todas as tabelas principais têm RLS
+2. **Service Role Key**: Nunca exposta no client-side
+3. **Hashing de Dados Sensíveis**: external_id e geolocalização são hasheados antes do CAPI
+4. **Validação de Webhook**: Cakto webhook valida secret
+5. **Middleware de Proteção**: Rotas protegidas verificam autenticação
+
+#### ⚠️ Pontos de Atenção
+
+1. **Webhook Telegram**: Não valida secret (depende de URL secreta)
+2. **Rate Limiting**: Não implementado em webhooks
+3. **CORS**: Permite `*` em `/api/*` (pode ser restrito)
+4. **Deduplicação**: Baseada em tempo, não em event_id único
+
+---
+
+### Pontos Fortes do Sistema
+
+1. ✅ **Arquitetura Serverless**: Escalável automaticamente
+2. ✅ **Multi-Pixel Support**: Flexibilidade para múltiplos pixels
+3. ✅ **Links Dinâmicos**: Atribuição precisa via invite_link.name
+4. ✅ **Fallback Robusto**: Link estático se dinâmico falhar
+5. ✅ **Tracking Externo**: Script para landing pages externas
+6. ✅ **Dashboard Completo**: Métricas em tempo real
+7. ✅ **Sistema de Assinaturas**: Integração com Cakto
+8. ✅ **Mensagens de Boas-vindas**: Personalizáveis por funil
+9. ✅ **Join Request Support**: Suporta canais privados
+10. ✅ **Logs Completos**: CAPI logs e message logs
+
+---
+
+### Fragilidades Identificadas
+
+1. ⚠️ **Webhook Handler Complexo**: Múltiplos fallbacks podem gerar confusão
+2. ⚠️ **Deduplicação Limitada**: Baseada em tempo, não em event_id
+3. ⚠️ **Falta de Rate Limiting**: Webhooks podem ser sobrecarregados
+4. ⚠️ **Chat ID Manual**: Requer inserção manual em alguns casos
+5. ⚠️ **Falta de Retry Logic**: CAPI não tem retry automático
+6. ⚠️ **Falta de Validação de Bot Token**: Não valida antes de gerar link
+7. ⚠️ **CORS Aberto**: Permite `*` em todas as APIs
+
+---
+
+### Melhorias Sugeridas
+
+#### Curto Prazo (Alta Prioridade)
+
+1. **Implementar Rate Limiting**
+   - Webhook handler: máximo X requisições por segundo
+   - API /api/track: máximo Y eventos por visitor_id por minuto
+
+2. **Melhorar Deduplicação**
+   - Usar `event_id` único do Facebook
+   - Armazenar event_id em `events.metadata`
+   - Verificar antes de enviar CAPI
+
+3. **Adicionar Validação de Bot Token**
+   - Validar token antes de gerar link
+   - Verificar se bot é admin do canal
+
+4. **Implementar Retry Logic para CAPI**
+   - Retry automático em caso de falha
+   - Exponential backoff
+   - Dead letter queue para falhas persistentes
+
+5. **Restringir CORS**
+   - Permitir apenas domínios verificados
+   - Usar lista de domínios permitidos
+
+#### Médio Prazo
+
+1. **Pool de Links Pré-gerados**
+   - Gerar links em batch
+   - Reduzir latência na geração
+
+2. **Dashboard Avançado**
+   - Cohort analysis
+   - Funnel visualization
+   - A/B testing
+
+3. **Exportação de Relatórios**
+   - CSV/PDF export
+   - Agendamento de relatórios
+
+4. **Notificações**
+   - Email para novos leads
+   - Webhooks customizados
+
+#### Longo Prazo
+
+1. **Multi-tenant Completo**
+   - Organizações e equipes
+   - Permissões granulares
+
+2. **API Pública**
+   - REST API documentada
+   - Rate limiting por API key
+
+3. **Integrações Adicionais**
+   - Google Ads
+   - TikTok Ads
+   - Outras plataformas
+
+4. **Machine Learning**
+   - Otimização de conversão
+   - Predição de churn
+   - Recomendações de campanhas
+
+---
+
+**Última atualização**: Janeiro 2025  
 **Versão do Sistema**: 3.1+  
-**Autor**: Análise Técnica Completa
+**Autor**: Análise Técnica Completa e Detalhada
