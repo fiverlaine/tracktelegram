@@ -175,7 +175,7 @@ export async function POST(
                             .like("visitor_id", `${partialVisitorId}%`)
                             .order("linked_at", { ascending: false })
                             .limit(1)
-                            .single();
+                            .maybeSingle();
 
                         if (linkData) {
                             visitorId = linkData.visitor_id;
@@ -212,7 +212,7 @@ export async function POST(
                             .eq("metadata->>invite_name", inviteName)
                             .order("linked_at", { ascending: false })
                             .limit(1)
-                            .single();
+                            .maybeSingle();
 
                         if (linkData) {
                             visitorId = linkData.visitor_id;
@@ -696,7 +696,7 @@ export async function POST(
                     .select("id, funnel_id, visitor_id, metadata, welcome_sent_at")
                     .like("visitor_id", `${partialVisitorId}%`)
                     .limit(1)
-                    .single();
+                    .maybeSingle();
 
                 const funnelId = linkData?.funnel_id;
 
