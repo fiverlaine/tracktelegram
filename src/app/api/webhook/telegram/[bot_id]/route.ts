@@ -163,44 +163,79 @@ export async function POST(
                 let funnelId: string | null = null;
 
                 // MÉTODO 1: Extrair visitor_id do invite_link.name (Fluxo Direto)
-                if (inviteName && inviteName.startsWith("v_")) {
-                    // O invite_name é "v_{visitor_id}" onde visitor_id foi truncado em 28 chars
-                    const partialVisitorId = inviteName.substring(2); // Remove "v_"
+                if (inviteName) {
+                    // CASO A: Link Gerado On-Demand (v_{visitor_id})
+                    if (inviteName.startsWith("v_")) {
+                        const partialVisitorId = inviteName.substring(2); // Remove "v_"
+                        console.log(`[Webhook] Buscando por visitor_id que começa com: ${partialVisitorId}`);
 
-                    console.log(`[Webhook] Buscando por visitor_id que começa com: ${partialVisitorId}`);
-
-                    // Primeiro: Buscar por visitor_id que começa com o prefixo (sem filtrar telegram_user_id)
-                    const { data: linkData, error: linkError } = await supabase
-                        .from("visitor_telegram_links")
-                        .select("id, visitor_id, funnel_id, metadata")
-                        .like("visitor_id", `${partialVisitorId}%`)
-                        .order("linked_at", { ascending: false })
-                        .limit(1)
-                        .single();
-
-                    if (linkData) {
-                        visitorId = linkData.visitor_id;
-                        funnelId = linkData.funnel_id;
-
-                        console.log(`[Webhook] Encontrado visitor_id: ${visitorId}, funnel_id: ${funnelId}`);
-
-                        // Atualizar o registro com o telegram_user_id real
-                        await supabase
+                        const { data: linkData, error: linkError } = await supabase
                             .from("visitor_telegram_links")
-                            .update({
-                                telegram_user_id: telegramUserId,
-                                telegram_username: telegramUsername,
-                                linked_at: new Date().toISOString(),
-                                metadata: {
-                                    ...linkData.metadata,
-                                    linked_via: "dynamic_invite",
-                                    chat_id: chatId,
-                                    chat_title: chatTitle
-                                }
-                            })
-                            .eq("id", linkData.id);
-                    } else {
-                        console.log(`[Webhook] Nenhum registro encontrado para invite_name: ${inviteName}`, linkError);
+                            .select("id, visitor_id, funnel_id, metadata")
+                            .like("visitor_id", `${partialVisitorId}%`)
+                            .order("linked_at", { ascending: false })
+                            .limit(1)
+                            .single();
+
+                        if (linkData) {
+                            visitorId = linkData.visitor_id;
+                            funnelId = linkData.funnel_id;
+                            console.log(`[Webhook] Encontrado visitor_id (On-Demand): ${visitorId}`);
+
+                            // Atualizar registro
+                            await supabase
+                                .from("visitor_telegram_links")
+                                .update({
+                                    telegram_user_id: telegramUserId,
+                                    telegram_username: telegramUsername,
+                                    linked_at: new Date().toISOString(),
+                                    metadata: {
+                                        ...linkData.metadata,
+                                        linked_via: "dynamic_invite",
+                                        chat_id: chatId,
+                                        chat_title: chatTitle
+                                    }
+                                })
+                                .eq("id", linkData.id);
+                        }
+                    }
+                    // CASO B: Link do Pool (pool_{uuid})
+                    else if (inviteName.startsWith("pool_")) {
+                        console.log(`[Webhook] Detectado link do Pool: ${inviteName}`);
+
+                        // Buscar quem recebeu este invite_name específico
+                        // O invite_name está salvo dentro do JSONB metadata -> invite_name
+                        const { data: linkData, error: linkError } = await supabase
+                            .from("visitor_telegram_links")
+                            .select("id, visitor_id, funnel_id, metadata")
+                            .eq("metadata->>invite_name", inviteName)
+                            .order("linked_at", { ascending: false })
+                            .limit(1)
+                            .single();
+
+                        if (linkData) {
+                            visitorId = linkData.visitor_id;
+                            funnelId = linkData.funnel_id;
+                            console.log(`[Webhook] Encontrado visitor_id (Pool): ${visitorId}`);
+
+                            // Atualizar registro
+                            await supabase
+                                .from("visitor_telegram_links")
+                                .update({
+                                    telegram_user_id: telegramUserId,
+                                    telegram_username: telegramUsername,
+                                    linked_at: new Date().toISOString(),
+                                    metadata: {
+                                        ...linkData.metadata,
+                                        linked_via: "pool_invite",
+                                        chat_id: chatId,
+                                        chat_title: chatTitle
+                                    }
+                                })
+                                .eq("id", linkData.id);
+                        } else {
+                            console.log(`[Webhook] Link do pool não encontrado na tabela de links: ${inviteName}`);
+                        }
                     }
                 }
 

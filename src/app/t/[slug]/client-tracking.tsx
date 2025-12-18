@@ -319,20 +319,49 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData }: Cli
         );
     }
 
-    if (loading) {
+    // --- UI: REDIRECT OVERLAY (Inspirado no Concorrente) ---
+    // Se estiver carregando ou já tiver o link (status de redirect), mostra o overlay
+    if (loading || redirectStatus) {
         return (
-            <div className="min-h-screen min-w-screen bg-white flex flex-col items-center justify-center gap-3">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                <p className="text-sm text-gray-500">{redirectStatus}</p>
+            <div className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm animate-in fade-in duration-300">
+                {/* Spinner Grande */}
+                <div className="w-20 h-20 mb-8 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+
+                {/* Texto Principal */}
+                <div className="mb-6 text-2xl font-bold tracking-[3px] text-white uppercase animate-pulse drop-shadow-lg">
+                    REDIRECIONANDO
+                </div>
+
+                {/* Status Secundário (Opcional, para debug ou feedback) */}
+                <p className="mb-8 text-sm text-white/60 font-light">
+                    {redirectStatus === "Preparando seu acesso..." ? "Aguarde um instante..." : redirectStatus}
+                </p>
+
+                {/* Link Manual (Só aparece se demorar muito ou se já tivermos o link mas o redirect falhou) */}
+                <button
+                    onClick={() => {
+                        if (redirectStatus.includes("Redirecionando") || redirectStatus.includes("Canal")) {
+                            // Se já tentamos redirecionar, tenta de novo
+                            autoRedirect();
+                        } else {
+                            // Se travou, recarrega
+                            window.location.reload();
+                        }
+                    }}
+                    className="px-4 py-2 text-sm text-white/70 transition-all rounded-lg bg-white/10 hover:bg-white/20 hover:text-white cursor-pointer"
+                >
+                    Não foi redirecionado? Clique aqui
+                </button>
+
+                <style jsx global>{`
+                    @keyframes spin {
+                        to { transform: rotate(360deg); }
+                    }
+                `}</style>
             </div>
         );
     }
 
-    // Tela de loading/redirect (White Page)
-    return (
-        <div className="min-h-screen min-w-screen bg-white flex flex-col items-center justify-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-            <p className="text-sm text-gray-500">{redirectStatus}</p>
-        </div>
-    );
+    // Fallback (nunca deve chegar aqui se o redirect funcionar)
+    return null;
 }

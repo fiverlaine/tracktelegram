@@ -126,7 +126,7 @@ export async function GET(request: Request) {
 
         if (!telegramData.ok) {
             console.error("Erro Telegram API:", telegramData);
-            
+
             // Se falhar, tentar retornar o link estático como fallback
             if (bot?.channel_link) {
                 return NextResponse.json({
@@ -136,7 +136,7 @@ export async function GET(request: Request) {
                     message: "Usando link estático (falha ao gerar link dinâmico)"
                 });
             }
-            
+
             return NextResponse.json(
                 { error: `Erro ao gerar link: ${telegramData.description}` },
                 { status: 500 }
@@ -159,9 +159,9 @@ export async function GET(request: Request) {
                 type: "dynamic_invite",
                 requires_approval: shouldUseJoinRequest
             }
-        }, { 
+        }, {
             onConflict: "visitor_id,telegram_user_id",
-            ignoreDuplicates: false 
+            ignoreDuplicates: false
         });
 
         return NextResponse.json({
@@ -195,7 +195,8 @@ export async function POST(request: Request) {
 
         // 1. Registrar evento de Click (Server-Side)
         if (metadata) {
-            await supabase.from("events").insert({
+            // Fire & Forget para não bloquear
+            supabase.from("events").insert({
                 funnel_id,
                 visitor_id,
                 event_type: "click",
@@ -203,11 +204,71 @@ export async function POST(request: Request) {
                     ...metadata,
                     source: "server_api_invite"
                 }
+            }).then(({ error }) => {
+                if (error) console.error("Erro ao salvar click:", error);
             });
         }
 
+        // 2. TENTATIVA RÁPIDA: Pegar do Pool (Zero Latency)
+        // Busca 1 link disponível
+        const { data: poolLink } = await supabase
+            .from("invite_link_pool")
+            .select("id, invite_link, invite_name, funnel_id")
+            .eq("funnel_id", funnel_id)
+            .eq("status", "available")
+            .limit(1)
+            .maybeSingle();
 
-        // 2. Buscar dados do funil e gerar link (Reutilizando lógica similar ao GET)
+        if (poolLink) {
+            // Marcar como usado IMEDIATAMENTE (Atomicidade otimista)
+            const { error: updateError } = await supabase
+                .from("invite_link_pool")
+                .update({
+                    status: 'used',
+                    used_at: new Date().toISOString()
+                })
+                .eq("id", poolLink.id)
+                .eq("status", "available"); // Garante que ninguém roubou o link no meio tempo
+
+            if (!updateError) {
+                // SUCESSO! Temos um link em < 50ms
+
+                // Precisamos do bot_id para o vínculo. Buscamos rápido.
+                const { data: funnelBot } = await supabase
+                    .from("funnels")
+                    .select("telegram_bots(id)")
+                    .eq("id", funnel_id)
+                    .single();
+
+                const botId = (funnelBot?.telegram_bots as any)?.id;
+
+                // Vincular ao visitor
+                await supabase.from("visitor_telegram_links").upsert({
+                    visitor_id: visitor_id,
+                    funnel_id,
+                    bot_id: botId,
+                    telegram_user_id: 0,
+                    metadata: {
+                        invite_link: poolLink.invite_link,
+                        invite_name: poolLink.invite_name,
+                        generated_at: new Date().toISOString(),
+                        type: "pool_invite",
+                        source: "pool"
+                    }
+                }, { onConflict: "visitor_id,telegram_user_id" });
+
+                return NextResponse.json({
+                    invite_link: poolLink.invite_link,
+                    is_dynamic: true,
+                    source: "pool", // Debug info
+                    expires_in: "7d"
+                });
+            }
+        }
+
+        // 3. FALLBACK: Se não tiver no pool, gera na hora (Lógica Original)
+        console.log(`[Invite API] Pool vazio ou falha para funil ${funnel_id}. Gerando on-demand...`);
+
         const { data: funnel, error: funnelError } = await supabase
             .from("funnels")
             .select(`
