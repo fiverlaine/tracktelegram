@@ -41,26 +41,14 @@ export async function GET(request: Request) {
         }
 
 
-        // 1. Buscar dados do funil e suas configurações de boas-vindas
-        const { data: funnel, error: funnelError } = await supabase
+        // 1. Buscar dados do funil e suas configurações de boas-vindas (Manual Join)
+        const { data: funnelData, error: funnelError } = await supabase
             .from("funnels")
-            .select(`
-                id,
-                name,
-                telegram_bots (
-                    id,
-                    bot_token,
-                    chat_id,
-                    channel_link
-                ),
-                funnel_welcome_settings (
-                    is_active
-                )
-            `)
+            .select("id, name, bot_id")
             .eq("id", funnelId)
             .single();
 
-        if (funnelError || !funnel) {
+        if (funnelError || !funnelData) {
             console.error("Erro ao buscar funil:", funnelError);
             return NextResponse.json(
                 { error: "Funil não encontrado" },
@@ -68,7 +56,31 @@ export async function GET(request: Request) {
             );
         }
 
-        const bot = funnel.telegram_bots as any;
+        // Fetch Bot
+        let bot = null;
+        if (funnelData.bot_id) {
+            const { data: b } = await supabase
+                .from("telegram_bots")
+                .select("id, bot_token, chat_id, channel_link")
+                .eq("id", funnelData.bot_id)
+                .single();
+            bot = b;
+        }
+
+        // Fetch Welcome Settings
+        const { data: welcomeSettingsData } = await supabase
+            .from("funnel_welcome_settings")
+            .select("is_active")
+            .eq("funnel_id", funnelId)
+            .maybeSingle();
+
+        const funnel = {
+            ...funnelData,
+            telegram_bots: bot,
+            funnel_welcome_settings: welcomeSettingsData ? [welcomeSettingsData] : []
+        };
+
+        // const bot = funnel.telegram_bots as any; // REMOVED: Already defined above
         const welcomeSettings = funnel.funnel_welcome_settings?.[0]; // Supabase returns array for relations
         const shouldUseJoinRequest = welcomeSettings?.is_active || false;
 
@@ -213,29 +225,42 @@ export async function POST(request: Request) {
 
 
 
-        const { data: funnel, error: funnelError } = await supabase
+        // 2. Buscar dados do funil e gerar link (On-Demand) - Manual Join
+        const { data: funnelData, error: funnelError } = await supabase
             .from("funnels")
-            .select(`
-                id,
-                name,
-                telegram_bots (
-                    id,
-                    bot_token,
-                    chat_id,
-                    channel_link
-                ),
-                funnel_welcome_settings (
-                    is_active
-                )
-            `)
+            .select("id, name, bot_id")
             .eq("id", funnel_id)
             .single();
 
-        if (funnelError || !funnel) {
+        if (funnelError || !funnelData) {
             return NextResponse.json({ error: "Funil não encontrado" }, { status: 404 });
         }
 
-        const bot = funnel.telegram_bots as any;
+        // Fetch Bot
+        let bot = null;
+        if (funnelData.bot_id) {
+            const { data: b } = await supabase
+                .from("telegram_bots")
+                .select("id, bot_token, chat_id, channel_link")
+                .eq("id", funnelData.bot_id)
+                .single();
+            bot = b;
+        }
+
+        // Fetch Welcome Settings
+        const { data: welcomeSettingsData } = await supabase
+            .from("funnel_welcome_settings")
+            .select("is_active")
+            .eq("funnel_id", funnel_id)
+            .maybeSingle();
+
+        const funnel = {
+            ...funnelData,
+            telegram_bots: bot,
+            funnel_welcome_settings: welcomeSettingsData ? [welcomeSettingsData] : []
+        };
+
+        // const bot = funnel.telegram_bots as any; // REMOVED: Already defined
         const welcomeSettings = funnel.funnel_welcome_settings?.[0]; // Supabase returns array for relations
         const shouldUseJoinRequest = welcomeSettings?.is_active || false;
 

@@ -43,25 +43,51 @@ export default async function TrackingPage({ params, searchParams }: PageProps) 
     if (supabase) {
         try {
             console.log(`[TrackingPage] Fetching funnel for slug: ${slug}`);
-            const { data, error } = await supabase
+
+            // 1. Fetch Funnel Base
+            const { data: funnelData, error: funnelError } = await supabase
                 .from("funnels")
-                .select(`
-                    *,
-                    pixels(*),
-                    telegram_bots(*)
-                `)
+                .select("*")
                 .eq("slug", slug)
                 .maybeSingle();
 
-            if (error) {
-                console.error("[TrackingPage] Supabase Error fetching funnel:", error);
+            if (funnelError) {
+                console.error("[TrackingPage] Supabase Error fetching funnel:", funnelError);
+            } else if (!funnelData) {
+                console.warn(`[TrackingPage] Funnel not found for slug: ${slug}`);
             } else {
-                if (!data) {
-                    console.warn(`[TrackingPage] Funnel not found for slug: ${slug}`);
-                } else {
-                    console.log(`[TrackingPage] Funnel found: ${data.id}`);
+                console.log(`[TrackingPage] Funnel found: ${funnelData.id}`);
+
+                // 2. Manual Join for Relations
+                let pixelData = null;
+                let botData = null;
+
+                // Fetch Pixel
+                if (funnelData.pixel_id) {
+                    const { data: p } = await supabase
+                        .from("pixels")
+                        .select("*")
+                        .eq("id", funnelData.pixel_id)
+                        .single();
+                    pixelData = p;
                 }
-                funnel = data;
+
+                // Fetch Bot
+                if (funnelData.bot_id) {
+                    const { data: b } = await supabase
+                        .from("telegram_bots")
+                        .select("*")
+                        .eq("id", funnelData.bot_id)
+                        .single();
+                    botData = b;
+                }
+
+                // 3. Construct Final Object
+                funnel = {
+                    ...funnelData,
+                    pixels: pixelData,
+                    telegram_bots: botData
+                };
             }
         } catch (err) {
             console.error("[TrackingPage] Unexpected error fetching funnel:", err);

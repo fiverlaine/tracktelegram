@@ -60,19 +60,36 @@ export default function ClientTracking({ slug, ip, geo, initialFunnelData, visit
                 let currentFunnel = funnel;
                 if (!currentFunnel) {
                     setRedirectStatus("Carregando funil...");
-                    const { data, error } = await supabase
+
+                    // 1. Fetch Funnel Base
+                    const { data: funnelData, error: funnelError } = await supabase
                         .from("funnels")
-                        .select(`
-                            *,
-                            pixels(*),
-                            telegram_bots(*)
-                        `)
+                        .select("*")
                         .eq("slug", slug)
                         .single();
 
-                    if (error || !data) throw new Error("Funil não encontrado");
-                    currentFunnel = data;
-                    setFunnel(data);
+                    if (funnelError || !funnelData) throw new Error("Funil não encontrado");
+
+                    // 2. Manual Join for Relations
+                    let pixelData = null;
+                    let botData = null;
+
+                    if (funnelData.pixel_id) {
+                        const { data: p } = await supabase.from("pixels").select("*").eq("id", funnelData.pixel_id).single();
+                        pixelData = p;
+                    }
+
+                    if (funnelData.bot_id) {
+                        const { data: b } = await supabase.from("telegram_bots").select("*").eq("id", funnelData.bot_id).single();
+                        botData = b;
+                    }
+
+                    currentFunnel = {
+                        ...funnelData,
+                        pixels: pixelData,
+                        telegram_bots: botData
+                    };
+                    setFunnel(currentFunnel);
                 }
 
                 // 4. Disparar Pixel (Client-Side para garantir execução)
