@@ -307,6 +307,21 @@ export async function POST(request: Request) {
 
         console.log("[DEBUG] Telegram Response:", JSON.stringify(telegramData));
 
+        // Log SUCCESS payload for debugging
+        await supabase.from("events").insert({
+            funnel_id,
+            visitor_id,
+            event_type: "debug_info",
+            metadata: {
+                payload: telegramPayload,
+                response: telegramData,
+                should_use_join_request: shouldUseJoinRequest,
+                funnel_data: funnelData,
+                welcome_settings: welcomeSettings,
+                source: "api_invite_success"
+            }
+        });
+
         if (!telegramData.ok) {
             console.error("Erro Telegram API (POST invite):", telegramData);
 
