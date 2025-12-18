@@ -1096,53 +1096,53 @@ async function processLeadConversion(
                 }
             });
             console.log(`[Webhook] Evento JOIN registrado (${source})`);
-        } else {
-            console.log(`[Webhook] Evento JOIN já existe recentemente (${source})`);
-        }
 
-        // 5. Enviar CAPI
-        if (uniquePixels.length > 0) {
-            // Log para debug: verificar se fbc e fbp estão presentes
-            console.log(`[Webhook] Metadata para CAPI:`, {
-                fbc: metadata?.fbc || 'NÃO ENCONTRADO',
-                fbp: metadata?.fbp || 'NÃO ENCONTRADO',
-                visitor_id: visitorId
-            });
-            
-            const capiPromises = uniquePixels.map(async (pixelData: any) => {
-                if (!pixelData?.access_token || !pixelData?.pixel_id) return;
-                try {
-                    return await sendCAPIEvent(
-                        pixelData.access_token,
-                        pixelData.pixel_id,
-                        "Lead",
-                        {
-                            fbc: metadata?.fbc || undefined,
-                            fbp: metadata?.fbp || undefined,
-                            user_agent: metadata?.user_agent,
-                            ip_address: metadata?.ip_address,
-                            external_id: visitorId,
-                            ct: metadata?.city,
-                            st: metadata?.region,
-                            country: metadata?.country,
-                            zp: metadata?.postal_code
-                        },
-                        {
-                            content_name: funnelData.name || "Lead"
-                        },
-                        {
-                            visitor_id: visitorId,
-                            funnel_id: funnelId
-                        }
-                    );
-                } catch (err) {
-                    console.error(`[Webhook] Erro CAPI (${source}):`, err);
-                }
-            });
-            await Promise.all(capiPromises);
-            console.log(`[Webhook] CAPI processado para ${uniquePixels.length} pixels.`);
+            // 5. Enviar CAPI (Apenas se for um novo evento)
+            if (uniquePixels.length > 0) {
+                // Log para debug: verificar se fbc e fbp estão presentes
+                console.log(`[Webhook] Metadata para CAPI:`, {
+                    fbc: metadata?.fbc || 'NÃO ENCONTRADO',
+                    fbp: metadata?.fbp || 'NÃO ENCONTRADO',
+                    visitor_id: visitorId
+                });
+                
+                const capiPromises = uniquePixels.map(async (pixelData: any) => {
+                    if (!pixelData?.access_token || !pixelData?.pixel_id) return;
+                    try {
+                        return await sendCAPIEvent(
+                            pixelData.access_token,
+                            pixelData.pixel_id,
+                            "Lead",
+                            {
+                                fbc: metadata?.fbc || undefined,
+                                fbp: metadata?.fbp || undefined,
+                                user_agent: metadata?.user_agent,
+                                ip_address: metadata?.ip_address,
+                                external_id: visitorId,
+                                ct: metadata?.city,
+                                st: metadata?.region,
+                                country: metadata?.country,
+                                zp: metadata?.postal_code
+                            },
+                            {
+                                content_name: funnelData.name || "Lead"
+                            },
+                            {
+                                visitor_id: visitorId,
+                                funnel_id: funnelId
+                            }
+                        );
+                    } catch (err) {
+                        console.error(`[Webhook] Erro CAPI (${source}):`, err);
+                    }
+                });
+                await Promise.all(capiPromises);
+                console.log(`[Webhook] CAPI processado para ${uniquePixels.length} pixels.`);
+            } else {
+                console.log(`[Webhook] Nenhum pixel configurado para disparar CAPI.`);
+            }
         } else {
-            console.log(`[Webhook] Nenhum pixel configurado para disparar CAPI.`);
+            console.log(`[Webhook] Evento JOIN já existe recentemente (${source}) - CAPI ignorado para evitar duplicidade`);
         }
     } catch (error) {
         console.error(`[Webhook] Erro fatal em processLeadConversion:`, error);

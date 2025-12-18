@@ -13,7 +13,10 @@ import {
   Code,
   LogOut,
   FileText,
-  Tags
+  Tags,
+  Plug,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
@@ -24,17 +27,32 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-const menuItems = [
+type MenuItem = {
+  id: string;
+  label: string;
+  href?: string;
+  icon: any;
+  subItems?: MenuItem[];
+};
+
+const menuItems: MenuItem[] = [
   { id: "dashboard", label: "Dashboard", href: "/", icon: LayoutGrid },
   { id: "dominios", label: "Domínios", href: "/domains", icon: Globe },
-  { id: "pixels", label: "Pixels", href: "/pixels", icon: BarChart2 },
-  { id: "canal", label: "Canal", href: "/channels", icon: Send },
-  { id: "funis", label: "Funis", href: "/funnels", icon: Filter },
+  {
+    id: "integracoes",
+    label: "Integrações",
+    icon: Plug,
+    subItems: [
+      { id: "pixels", label: "Pixels", href: "/pixels", icon: BarChart2 },
+      { id: "canal", label: "Canal", href: "/channels", icon: Send },
+      { id: "funis", label: "Funis", href: "/funnels", icon: Filter },
+      { id: "postbacks", label: "Postbacks", href: "/postbacks", icon: Code },
+    ]
+  },
   { id: "logs", label: "Logs", href: "/logs", icon: FileText },
   { id: "utms", label: "UTMs", href: "/utms", icon: Tags },
   { id: "mensagens", label: "Mensagens", href: "/messages", icon: MessageSquare },
   { id: "assinatura", label: "Assinatura", href: "/subscription", icon: CreditCard },
-  { id: "postbacks", label: "Postbacks", href: "/postbacks", icon: Code },
 ];
 
 export function NewSidebar() {
@@ -46,10 +64,23 @@ export function NewSidebar() {
 
   // Optimistic UI for instant click feedback
   const [optimisticPath, setOptimisticPath] = useState<string | null>(null);
+  const [openGroups, setOpenGroups] = useState<string[]>([]);
 
   useEffect(() => {
     // Reset optimistic path when the real pathname updates (navigation complete)
     setOptimisticPath(null);
+  }, [pathname]);
+
+  // Auto-open groups based on active route
+  useEffect(() => {
+    menuItems.forEach(item => {
+      if (item.subItems) {
+        const hasActiveChild = item.subItems.some(sub => sub.href === pathname);
+        if (hasActiveChild) {
+          setOpenGroups(prev => prev.includes(item.id) ? prev : [...prev, item.id]);
+        }
+      }
+    });
   }, [pathname]);
 
   useEffect(() => {
@@ -73,6 +104,12 @@ export function NewSidebar() {
     router.push("/login");
   };
 
+  const toggleGroup = (id: string) => {
+    setOpenGroups(prev =>
+      prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]
+    );
+  };
+
   return (
     <nav className="fixed left-6 top-6 bottom-6 w-64 bg-white/70 dark:bg-black/70 backdrop-blur-2xl border border-neutral-200 dark:border-white/10 rounded-3xl flex flex-col py-6 z-50 shadow-2xl shadow-neutral-200/60 dark:shadow-black/60 hidden md:flex">
       {/* Logo */}
@@ -92,14 +129,72 @@ export function NewSidebar() {
       {/* Navigation Items */}
       <div className="flex-1 flex flex-col gap-1 w-full px-3 overflow-y-auto custom-scrollbar">
         {menuItems.map((item) => {
-          // Determine active state: prioritizing optimistic path if set, otherwise fallback to current pathname
-          const isActive = (optimisticPath || pathname) === item.href;
+          if (item.subItems) {
+            const isOpen = openGroups.includes(item.id);
+            // Check if any child is active
+            const hasActiveChild = item.subItems.some(sub => (optimisticPath || pathname) === sub.href);
+            const isActive = hasActiveChild; 
 
+            return (
+              <div key={item.id} className="mb-1">
+                <button
+                  onClick={() => toggleGroup(item.id)}
+                  className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 cursor-pointer group select-none
+                    ${isActive
+                      ? 'text-neutral-900 dark:text-white font-semibold'
+                      : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white'}
+                  `}
+                >
+                  <div className="flex items-center gap-3">
+                    <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} className={isActive ? "text-violet-600 dark:text-violet-400" : ""} />
+                    <span className="text-sm">{item.label}</span>
+                  </div>
+                  {isOpen ? (
+                    <ChevronDown size={14} className="text-neutral-400" />
+                  ) : (
+                    <ChevronRight size={14} className="text-neutral-400" />
+                  )}
+                </button>
+
+                {/* Subitems */}
+                {isOpen && (
+                  <div className="mt-1 ml-4 pl-4 border-l border-neutral-200 dark:border-neutral-800 flex flex-col gap-1 animate-in slide-in-from-top-2 duration-200">
+                    {item.subItems.map(subItem => {
+                      const isSubActive = (optimisticPath || pathname) === subItem.href;
+                      return (
+                        <Link
+                          key={subItem.id}
+                          href={subItem.href!}
+                          onClick={() => setOptimisticPath(subItem.href!)}
+                          className={`
+                            flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200 text-sm group
+                            ${isSubActive
+                              ? 'bg-neutral-100 text-neutral-900 dark:bg-white/10 dark:text-white font-medium'
+                              : 'text-neutral-500 hover:text-neutral-900 dark:text-gray-400 dark:hover:text-white'}
+                          `}
+                        >
+                          <subItem.icon 
+                            size={16} 
+                            strokeWidth={isSubActive ? 2.5 : 2} 
+                            className={`transition-colors ${isSubActive ? "text-violet-600 dark:text-violet-400" : "text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300"}`} 
+                          />
+                          <span>{subItem.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          // Normal Item
+          const isActive = (optimisticPath || pathname) === item.href;
           return (
             <Link
               key={item.id}
-              href={item.href}
-              onClick={() => setOptimisticPath(item.href)}
+              href={item.href!}
+              onClick={() => setOptimisticPath(item.href!)}
               className="relative group block"
             >
               <div className={`
