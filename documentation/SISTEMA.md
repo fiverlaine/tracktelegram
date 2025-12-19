@@ -498,11 +498,13 @@ await fetch(`https://api.telegram.org/bot${bot_token}/setWebhook`, {
 ### Tipos de Eventos Processados
 
 1. **chat_member**: Entrada/saída de membros (FLUXO PRINCIPAL)
+
    - Detecta quando usuário entra (status: member/administrator/creator)
    - Detecta quando usuário sai (status: left/kicked)
    - Extrai `invite_link.name` para atribuição
 
 2. **chat_join_request**: Solicitação de entrada (canais privados)
+
    - Quando canal requer aprovação
    - Processa conversão quando aprovado
    - Vincula visitor_id via invite_link.name
@@ -516,11 +518,13 @@ await fetch(`https://api.telegram.org/bot${bot_token}/setWebhook`, {
 O sistema usa 3 métodos em cascata para vincular `telegram_user_id` a `visitor_id`:
 
 1. **Método 1 (Primário)**: Via `invite_link.name`
+
    - Formato: `v_{visitor_id}` (primeiros 28 chars)
    - Busca com LIKE query: `visitor_id LIKE 'abc123%'`
    - Mais preciso e confiável
 
 2. **Método 2 (Fallback)**: Via `telegram_user_id` já vinculado
+
    - Se usuário já foi vinculado anteriormente
    - Busca registro mais recente em `visitor_telegram_links`
 
@@ -539,7 +543,7 @@ O sistema usa 3 métodos em cascata para vincular `telegram_user_id` a `visitor_
 
 - **Uso**: Componentes client-side (React)
 - **Implementação**: `createBrowserClient` do `@supabase/ssr`
-- **Configuração**: 
+- **Configuração**:
   - Cookies com maxAge de 1 ano
   - Domínio personalizado opcional (`NEXT_PUBLIC_COOKIE_DOMAIN`)
   - Secure em produção (`NODE_ENV === 'production'`)
@@ -591,6 +595,7 @@ const protectedRoutes = [
 ```
 
 **Rotas Públicas**:
+
 - `/login` - Página de login
 - `/t/*` - Páginas de tracking
 - `/api/*` - API routes (gerenciadas individualmente)
@@ -673,9 +678,11 @@ Configurações de pixels do Facebook.
 **RLS**: ✅ Habilitado - Usuários só veem/editam seus próprios pixels
 
 **Índices**:
+
 - `idx_pixels_user_id` (user_id)
 
 **Relacionamentos**:
+
 - Um pixel pode estar em múltiplos funis (via `funnel_pixels`)
 - Um pixel pode estar em múltiplos domínios (via `domain_pixels`)
 
@@ -699,10 +706,12 @@ Bots do Telegram configurados.
 **RLS**: ✅ Habilitado - Usuários só veem/editam seus próprios bots
 
 **Índices**:
+
 - `idx_telegram_bots_user_id` (user_id)
 - `idx_telegram_bots_bot_token` (bot_token) - Para busca rápida em webhooks
 
 **Relacionamentos**:
+
 - Um bot pode estar em múltiplos funis
 
 ---
@@ -725,12 +734,14 @@ Funis de rastreamento (conectam Pixel + Bot).
 **RLS**: ✅ Habilitado - Usuários só veem/editam seus próprios funis
 
 **Índices**:
+
 - `idx_funnels_user_id` (user_id)
 - `idx_funnels_slug` (slug) - UNIQUE (para busca pública)
 - `idx_funnels_pixel_id` (pixel_id)
 - `idx_funnels_bot_id` (bot_id)
 
 **Relacionamentos**:
+
 - **Many-to-Many com pixels**: Via tabela `funnel_pixels`
 - Um funil pode ter múltiplos pixels (multi-pixel support)
 - Um funil tem um bot/canal de destino
@@ -750,6 +761,7 @@ Tabela de junção (Many-to-Many: Funis ↔ Pixels).
 **RLS**: ✅ Habilitado - Usuários só veem pixels de seus próprios funis
 
 **Índices**:
+
 - `funnel_pixels_pkey` (funnel_id, pixel_id) - UNIQUE
 - `funnel_pixels_pixel_id_idx` (pixel_id)
 
@@ -759,18 +771,19 @@ Tabela de junção (Many-to-Many: Funis ↔ Pixels).
 
 Todos os eventos rastreados.
 
-| Coluna       | Tipo        | Descrição             | Constraints                     |
-| ------------ | ----------- | --------------------- | ------------------------------- |
-| `id`         | UUID        | ID único              | PK, Default: uuid_generate_v4() |
-| `funnel_id`  | UUID        | Funil                 | FK → funnels.id, Nullable       |
-| `visitor_id` | TEXT        | ID único do visitante | NOT NULL                        |
+| Coluna       | Tipo        | Descrição             | Constraints                                                         |
+| ------------ | ----------- | --------------------- | ------------------------------------------------------------------- |
+| `id`         | UUID        | ID único              | PK, Default: uuid_generate_v4()                                     |
+| `funnel_id`  | UUID        | Funil                 | FK → funnels.id, Nullable                                           |
+| `visitor_id` | TEXT        | ID único do visitante | NOT NULL                                                            |
 | `event_type` | TEXT        | Tipo do evento        | NOT NULL, CHECK: pageview \| click \| join \| leave \| join_request |
-| `metadata`   | JSONB       | Dados adicionais      | Default: '{}'                   |
-| `created_at` | TIMESTAMPTZ | Data do evento        | Default: now()                  |
+| `metadata`   | JSONB       | Dados adicionais      | Default: '{}'                                                       |
+| `created_at` | TIMESTAMPTZ | Data do evento        | Default: now()                                                      |
 
 **RLS**: ✅ Habilitado - Usuários veem eventos de seus funis OU eventos sem funnel_id (tracking externo)
 
 **Índices**:
+
 - `idx_events_visitor_id` (visitor_id)
 - `idx_events_funnel_id` (funnel_id)
 - `idx_events_event_type` (event_type)
@@ -830,6 +843,7 @@ Vinculação entre visitor_id (página) e telegram_user_id.
 **RLS**: ✅ Habilitado - Usuários veem links de seus próprios funis
 
 **Índices**:
+
 - `idx_visitor_telegram_links_visitor_id` (visitor_id)
 - `idx_visitor_telegram_links_telegram_user_id` (telegram_user_id)
 - `idx_visitor_telegram_links_funnel_id` (funnel_id)
@@ -872,10 +886,12 @@ Domínios personalizados para tracking externo.
 **RLS**: ✅ Habilitado - Usuários só veem seus próprios domínios
 
 **Índices**:
+
 - `idx_domains_user_id` (user_id)
 - `domains_pixel_id_idx` (pixel_id)
 
 **Relacionamentos**:
+
 - **Many-to-Many com pixels**: Via tabela `domain_pixels`
 - Um domínio pode ter múltiplos pixels
 
@@ -894,6 +910,7 @@ Tabela de junção (Many-to-Many: Domínios ↔ Pixels).
 **RLS**: ✅ Habilitado - Usuários só veem pixels de seus próprios domínios
 
 **Índices**:
+
 - `domain_pixels_pkey` (domain_id, pixel_id) - UNIQUE
 - `domain_pixels_domain_id_idx` (domain_id)
 - `domain_pixels_pixel_id_idx` (pixel_id)
@@ -904,22 +921,23 @@ Tabela de junção (Many-to-Many: Domínios ↔ Pixels).
 
 Logs de envio para Facebook CAPI.
 
-| Coluna             | Tipo        | Descrição            | Constraints                    |
-| ------------------ | ----------- | -------------------- | ------------------------------ |
-| `id`               | UUID        | ID único             | PK, Default: gen_random_uuid() |
-| `visitor_id`       | TEXT        | ID do visitante      | Nullable                       |
-| `funnel_id`        | UUID        | Funil                | FK → funnels.id, Nullable      |
-| `event_name`       | TEXT        | Nome do evento       | NOT NULL                       |
-| `pixel_id`         | TEXT        | ID do pixel          | Nullable                       |
-| `status`           | TEXT        | success \| error \| skipped | NOT NULL            |
-| `request_payload`  | JSONB       | Payload enviado      | Nullable                       |
-| `response_payload` | JSONB       | Resposta do Facebook | Nullable                       |
-| `error_message`    | TEXT        | Mensagem de erro     | Nullable                       |
-| `created_at`       | TIMESTAMPTZ | Data do log          | Default: now()                 |
+| Coluna             | Tipo        | Descrição                   | Constraints                    |
+| ------------------ | ----------- | --------------------------- | ------------------------------ |
+| `id`               | UUID        | ID único                    | PK, Default: gen_random_uuid() |
+| `visitor_id`       | TEXT        | ID do visitante             | Nullable                       |
+| `funnel_id`        | UUID        | Funil                       | FK → funnels.id, Nullable      |
+| `event_name`       | TEXT        | Nome do evento              | NOT NULL                       |
+| `pixel_id`         | TEXT        | ID do pixel                 | Nullable                       |
+| `status`           | TEXT        | success \| error \| skipped | NOT NULL                       |
+| `request_payload`  | JSONB       | Payload enviado             | Nullable                       |
+| `response_payload` | JSONB       | Resposta do Facebook        | Nullable                       |
+| `error_message`    | TEXT        | Mensagem de erro            | Nullable                       |
+| `created_at`       | TIMESTAMPTZ | Data do log                 | Default: now()                 |
 
 **RLS**: ✅ Habilitado - Usuários veem logs de seus próprios funis
 
 **Índices**:
+
 - `idx_capi_logs_visitor_id` (visitor_id)
 - `idx_capi_logs_funnel_id` (funnel_id)
 - `idx_capi_logs_status` (status)
@@ -931,21 +949,22 @@ Logs de envio para Facebook CAPI.
 
 Assinaturas de usuários (integração com Cakto).
 
-| Coluna               | Tipo        | Descrição                 | Constraints                          |
-| -------------------- | ----------- | ------------------------- | ------------------------------------ |
-| `id`                 | UUID        | ID único                  | PK, Default: gen_random_uuid()       |
-| `user_id`            | UUID        | Usuário                   | FK → auth.users.id, NOT NULL, UNIQUE |
-| `cakto_id`           | TEXT        | ID da assinatura no Cakto | UNIQUE, Nullable                     |
-| `status`             | TEXT        | active \| canceled \| past_due \| waiting_payment | NOT NULL |
-| `plan_name`          | TEXT        | Nome do plano             | Nullable                             |
-| `amount`             | NUMERIC     | Valor                     | Nullable                             |
-| `current_period_end` | TIMESTAMPTZ | Fim do período            | Nullable                             |
-| `created_at`         | TIMESTAMPTZ | Data de criação           | Default: now()                       |
-| `updated_at`         | TIMESTAMPTZ | Data de atualização       | Default: now()                       |
+| Coluna               | Tipo        | Descrição                                         | Constraints                          |
+| -------------------- | ----------- | ------------------------------------------------- | ------------------------------------ |
+| `id`                 | UUID        | ID único                                          | PK, Default: gen_random_uuid()       |
+| `user_id`            | UUID        | Usuário                                           | FK → auth.users.id, NOT NULL, UNIQUE |
+| `cakto_id`           | TEXT        | ID da assinatura no Cakto                         | UNIQUE, Nullable                     |
+| `status`             | TEXT        | active \| canceled \| past_due \| waiting_payment | NOT NULL                             |
+| `plan_name`          | TEXT        | Nome do plano                                     | Nullable                             |
+| `amount`             | NUMERIC     | Valor                                             | Nullable                             |
+| `current_period_end` | TIMESTAMPTZ | Fim do período                                    | Nullable                             |
+| `created_at`         | TIMESTAMPTZ | Data de criação                                   | Default: now()                       |
+| `updated_at`         | TIMESTAMPTZ | Data de atualização                               | Default: now()                       |
 
 **RLS**: ✅ Habilitado - Usuários só veem sua própria assinatura
 
 **Índices**:
+
 - `subscriptions_user_id_key` (user_id) - UNIQUE
 - `subscriptions_cakto_id_key` (cakto_id) - UNIQUE
 
@@ -984,16 +1003,16 @@ Configurações de mensagens de boas-vindas.
 
 Logs de mensagens enviadas/recebidas via Telegram.
 
-| Coluna               | Tipo        | Descrição            | Constraints                     |
-| -------------------- | ----------- | -------------------- | ------------------------------- |
-| `id`                 | UUID        | ID único             | PK, Default: uuid_generate_v4() |
-| `funnel_id`          | UUID        | Funil                | FK → funnels.id, Nullable       |
-| `telegram_chat_id`   | TEXT        | ID do chat           | NOT NULL                        |
-| `telegram_user_name` | TEXT        | Nome do usuário      | Nullable                        |
-| `direction`          | TEXT        | inbound \| outbound  | Nullable                        |
-| `message_content`    | TEXT        | Conteúdo da mensagem | Nullable                        |
-| `status`             | TEXT        | sent \| received \| failed | Default: 'sent'           |
-| `created_at`         | TIMESTAMPTZ | Data do log          | Default: now()                  |
+| Coluna               | Tipo        | Descrição                  | Constraints                     |
+| -------------------- | ----------- | -------------------------- | ------------------------------- |
+| `id`                 | UUID        | ID único                   | PK, Default: uuid_generate_v4() |
+| `funnel_id`          | UUID        | Funil                      | FK → funnels.id, Nullable       |
+| `telegram_chat_id`   | TEXT        | ID do chat                 | NOT NULL                        |
+| `telegram_user_name` | TEXT        | Nome do usuário            | Nullable                        |
+| `direction`          | TEXT        | inbound \| outbound        | Nullable                        |
+| `message_content`    | TEXT        | Conteúdo da mensagem       | Nullable                        |
+| `status`             | TEXT        | sent \| received \| failed | Default: 'sent'                 |
+| `created_at`         | TIMESTAMPTZ | Data do log                | Default: now()                  |
 
 **RLS**: ✅ Habilitado - Usuários veem logs de seus próprios funis
 
@@ -1006,6 +1025,7 @@ Logs de mensagens enviadas/recebidas via Telegram.
 **Propósito**: Retorna métricas agregadas do dashboard.
 
 **Parâmetros**:
+
 - `p_start_date` (TIMESTAMPTZ): Data inicial
 - `p_end_date` (TIMESTAMPTZ): Data final
 - `p_funnel_id` (UUID, nullable): Filtrar por funil
@@ -1034,6 +1054,7 @@ Logs de mensagens enviadas/recebidas via Telegram.
 ```
 
 **Lógica**:
+
 - Agrega eventos por tipo e data
 - Suporta filtros por funil e pixel
 - Inclui eventos de domínios externos (via metadata.domain_id)
@@ -1118,6 +1139,7 @@ O script `/api/tracking-script.js` pode ser incluído em landing pages externas:
 ```
 
 **Funcionalidades**:
+
 - Inicializa Facebook Pixel (multi-pixel support)
 - Captura visitor_id (localStorage ou URL)
 - Captura parâmetros Facebook e UTMs
@@ -1166,6 +1188,7 @@ Todas as tabelas principais têm RLS habilitado com políticas específicas. Vej
 ### Service Role Key
 
 A `SUPABASE_SERVICE_ROLE_KEY` é usada apenas em:
+
 - API Routes (server-side)
 - Operações que precisam bypass RLS (ex: buscar funil público)
 
@@ -1189,6 +1212,7 @@ O sistema integra com **Cakto** (plataforma de pagamentos) via webhook:
 **Webhook**: `/api/webhooks/cakto`
 
 **Eventos Processados**:
+
 - `purchase_approved` → Status: `active`
 - `subscription_renewed` → Status: `active`
 - `subscription_canceled` → Status: `canceled`
@@ -1328,14 +1352,116 @@ Configure as seguintes variáveis no dashboard da Vercel:
 7. **Webhook Telegram**: Não valida secret (depende de URL secreta `bot_id`)
 8. **Rate Limiting**: Não implementado em webhooks (recomendado para produção)
 
+---
+
+## Integração com Pushcut
+
+### Visão Geral
+
+O TrackGram oferece integração nativa com o **Pushcut** para envio de notificações push em tempo real para dispositivos iOS. Essa funcionalidade permite que os usuários recebam alertas instantâneos sobre eventos importantes.
+
+### Eventos Suportados
+
+| Evento         | Descrição                       | Variáveis Disponíveis                                                    |
+| -------------- | ------------------------------- | ------------------------------------------------------------------------ |
+| `new_lead`     | Novo lead entrou no grupo/canal | `{username}`, `{channel}`, `{funnel}`, `{date}`, `{time}`                |
+| `member_join`  | Membro entrou no grupo          | `{username}`, `{user_id}`, `{channel}`, `{funnel}`, `{date}`, `{time}`   |
+| `member_leave` | Membro saiu do grupo            | `{username}`, `{user_id}`, `{channel}`, `{funnel}`, `{date}`, `{time}`   |
+| `pageview`     | Pageview registrado             | `{visitor_id}`, `{page_url}`, `{funnel}`, `{source}`, `{date}`, `{time}` |
+| `click`        | Click registrado                | `{visitor_id}`, `{page_url}`, `{funnel}`, `{source}`, `{date}`, `{time}` |
+| `join_request` | Solicitação de entrada          | `{username}`, `{user_id}`, `{channel}`, `{funnel}`, `{date}`, `{time}`   |
+
+### Tabelas do Banco de Dados
+
+#### `pushcut_integrations`
+
+Armazena a configuração da API do Pushcut por usuário.
+
+| Coluna              | Tipo        | Descrição           | Constraints                     |
+| ------------------- | ----------- | ------------------- | ------------------------------- |
+| `id`                | UUID        | ID único            | PK, Default: uuid_generate_v4() |
+| `user_id`           | UUID        | Usuário             | FK → profiles.id, UNIQUE        |
+| `api_key`           | TEXT        | API Key do Pushcut  | NOT NULL                        |
+| `notification_name` | TEXT        | Nome da notificação | Default: 'TrackGram'            |
+| `is_active`         | BOOLEAN     | Integração ativa    | Default: true                   |
+| `created_at`        | TIMESTAMPTZ | Data de criação     | Default: now()                  |
+| `updated_at`        | TIMESTAMPTZ | Data de atualização | Default: now()                  |
+
+#### `pushcut_notifications`
+
+Configuração de notificação por evento.
+
+| Coluna           | Tipo        | Descrição            | Constraints                      |
+| ---------------- | ----------- | -------------------- | -------------------------------- |
+| `id`             | UUID        | ID único             | PK, Default: uuid_generate_v4()  |
+| `integration_id` | UUID        | Integração           | FK → pushcut_integrations.id     |
+| `event_type`     | TEXT        | Tipo do evento       | NOT NULL, CHECK: enum de eventos |
+| `enabled`        | BOOLEAN     | Evento habilitado    | Default: true                    |
+| `title_template` | TEXT        | Template do título   | NOT NULL                         |
+| `text_template`  | TEXT        | Template da mensagem | NOT NULL                         |
+| `sound`          | TEXT        | Som da notificação   | Nullable                         |
+| `created_at`     | TIMESTAMPTZ | Data de criação      | Default: now()                   |
+| `updated_at`     | TIMESTAMPTZ | Data de atualização  | Default: now()                   |
+
+#### `pushcut_logs`
+
+Log de notificações enviadas para auditoria.
+
+| Coluna           | Tipo        | Descrição        | Constraints                     |
+| ---------------- | ----------- | ---------------- | ------------------------------- |
+| `id`             | UUID        | ID único         | PK, Default: uuid_generate_v4() |
+| `integration_id` | UUID        | Integração       | FK → pushcut_integrations.id    |
+| `event_type`     | TEXT        | Tipo do evento   | NOT NULL                        |
+| `title`          | TEXT        | Título enviado   | Nullable                        |
+| `text`           | TEXT        | Texto enviado    | Nullable                        |
+| `status`         | TEXT        | sent \| failed   | NOT NULL                        |
+| `error_message`  | TEXT        | Mensagem de erro | Nullable                        |
+| `metadata`       | JSONB       | Dados do evento  | Default: '{}'                   |
+| `created_at`     | TIMESTAMPTZ | Data do log      | Default: now()                  |
+
+### Arquitetura
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    FLUXO DE NOTIFICAÇÃO PUSHCUT                  │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. Evento ocorre (Join, Leave, Click, etc...)                   │
+│     ↓                                                            │
+│  2. Handler chama PushcutService                                 │
+│     ↓                                                            │
+│  3. PushcutService busca integração do dono do funil             │
+│     ↓                                                            │
+│  4. Verifica se evento está habilitado                           │
+│     ↓                                                            │
+│  5. Faz parse dos templates (substitui variáveis)                │
+│     ↓                                                            │
+│  6. Envia para Pushcut API (POST /notifications/{name})          │
+│     ↓                                                            │
+│  7. Salva log em pushcut_logs                                    │
+│     ↓                                                            │
+│  8. Usuário recebe notificação push no iPhone                    │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Arquivos Relacionados
+
+- `src/lib/pushcut.ts` - Biblioteca de integração com Pushcut API
+- `src/app/actions/pushcut.ts` - Server Actions para CRUD
+- `src/services/telegram/pushcut-service.ts` - Serviço de notificações
+- `src/app/(dashboard)/integrations/pushcut/page.tsx` - Página de configuração
+
+---
+
 ## Conclusão
 
 O **TrackGram** é um sistema robusto e escalável que resolve efetivamente o problema de atribuição em campanhas para Telegram. A arquitetura serverless, combinada com RLS do Supabase e integração direta com APIs externas, garante segurança, performance e escalabilidade.
 
-A documentação acima reflete o estado atual do sistema (Janeiro 2025) e deve ser atualizada conforme novas funcionalidades forem implementadas.
+A documentação acima reflete o estado atual do sistema (Dezembro 2025) e deve ser atualizada conforme novas funcionalidades forem implementadas.
 
 ---
 
-**Última atualização**: Janeiro 2025  
-**Versão do Sistema**: 3.1+  
+**Última atualização**: Dezembro 2025  
+**Versão do Sistema**: 3.2+  
 **Autor**: Análise Técnica Completa e Detalhada

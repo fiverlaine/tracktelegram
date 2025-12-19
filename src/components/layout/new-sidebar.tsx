@@ -17,7 +17,8 @@ import {
   Users,
   Plug,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Bell
 } from 'lucide-react';
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
@@ -50,6 +51,7 @@ const menuItems: MenuItem[] = [
       { id: "funis", label: "Funis", href: "/funnels", icon: Filter },
       { id: "scripts", label: "Scripts", href: "/integrations/scripts", icon: FileText },
       { id: "postbacks", label: "Postbacks", href: "/postbacks", icon: Code },
+      { id: "pushcut", label: "Pushcut", href: "/integrations/pushcut", icon: Bell },
     ]
   },
   { id: "logs", label: "Logs", href: "/logs", icon: FileText },

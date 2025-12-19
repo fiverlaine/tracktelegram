@@ -2,16 +2,19 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { AttributionService } from "./attribution-service";
 import { ConversionService } from "./conversion-service";
 import { WelcomeService } from "./welcome-service";
+import { PushcutService } from "./pushcut-service";
 
 export class JoinHandler {
     private attributionService: AttributionService;
     private conversionService: ConversionService;
     private welcomeService: WelcomeService;
+    private pushcutService: PushcutService;
 
     constructor(private supabase: SupabaseClient) {
         this.attributionService = new AttributionService(supabase);
         this.conversionService = new ConversionService(supabase);
         this.welcomeService = new WelcomeService(supabase);
+        this.pushcutService = new PushcutService(supabase);
     }
 
     async handleChatMember(update: any, botId: string) {
@@ -83,6 +86,14 @@ export class JoinHandler {
 
             // 3. Processar Conversão (CAPI)
             if (visitorId && funnelId) {
+                // Enviar notificação Pushcut para novo lead
+                this.pushcutService.notifyNewLead(
+                    funnelId,
+                    telegramUsername,
+                    telegramFullName,
+                    chatTitle
+                ).catch(err => console.error('[JoinHandler] Pushcut notification error:', err));
+
                 await this.conversionService.processLeadConversion(
                     visitorId,
                     funnelId,
@@ -131,6 +142,24 @@ export class JoinHandler {
         if (isLeave) {
             console.log(`[JoinHandler] User ${telegramUserId} LEFT!`);
             await this.conversionService.processLeaveEvent(telegramUserId, chatId, chatTitle);
+
+            // Enviar notificação Pushcut para saída
+            // Primeiro buscar o funnel_id a partir do telegram_user_id
+            const { data: linkData } = await this.supabase
+                .from("visitor_telegram_links")
+                .select("funnel_id")
+                .eq("telegram_user_id", telegramUserId)
+                .order("linked_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (linkData?.funnel_id) {
+                this.pushcutService.notifyMemberLeave(
+                    linkData.funnel_id,
+                    telegramUserId,
+                    chatTitle
+                ).catch(err => console.error('[JoinHandler] Pushcut leave notification error:', err));
+            }
         }
     }
 
@@ -194,6 +223,15 @@ export class JoinHandler {
                         inviteName,
                         "join_request_approval"
                     );
+
+                    // Enviar notificação Pushcut para join request / new lead
+                    this.pushcutService.notifyJoinRequest(
+                        funnelId,
+                        telegramUserId,
+                        telegramUsername,
+                        telegramFullName,
+                        chatTitle
+                    ).catch(err => console.error('[JoinHandler] Pushcut join_request notification error:', err));
                 }
 
                 // 5. Enviar Boas-vindas (Pré-Aprovação)
