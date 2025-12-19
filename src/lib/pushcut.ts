@@ -28,27 +28,27 @@ export const EVENT_LABELS: Record<PushcutEventType, string> = {
 
 // Variáveis disponíveis para templates
 export const TEMPLATE_VARIABLES: Record<PushcutEventType, string[]> = {
-    new_lead: ['{username}', '{channel}', '{funnel}', '{date}', '{time}'],
-    member_join: ['{username}', '{user_id}', '{channel}', '{funnel}', '{date}', '{time}'],
-    member_leave: ['{username}', '{user_id}', '{channel}', '{funnel}', '{date}', '{time}'],
+    new_lead: ['{username}', '{name}', '{channel}', '{funnel}', '{date}', '{time}'],
+    member_join: ['{username}', '{name}', '{user_id}', '{channel}', '{funnel}', '{date}', '{time}'],
+    member_leave: ['{username}', '{name}', '{user_id}', '{channel}', '{funnel}', '{date}', '{time}'],
     pageview: ['{visitor_id}', '{page_url}', '{funnel}', '{source}', '{date}', '{time}'],
     click: ['{visitor_id}', '{page_url}', '{funnel}', '{source}', '{date}', '{time}'],
-    join_request: ['{username}', '{user_id}', '{channel}', '{funnel}', '{date}', '{time}']
+    join_request: ['{username}', '{name}', '{user_id}', '{channel}', '{funnel}', '{date}', '{time}']
 };
 
 // Templates padrão para cada evento
 export const DEFAULT_TEMPLATES: Record<PushcutEventType, { title: string; text: string }> = {
     new_lead: {
         title: '🎉 Novo Lead no TrackGram!',
-        text: '{username} entrou no canal {channel} via funil {funnel}'
+        text: '{name} ({username}) entrou no canal {channel} via funil {funnel}'
     },
     member_join: {
         title: '✅ Novo Membro',
-        text: '{username} entrou no canal {channel}'
+        text: '{name} ({username}) entrou no canal {channel}'
     },
     member_leave: {
         title: '👋 Membro Saiu',
-        text: '{username} saiu do canal {channel}'
+        text: '{name} ({username}) saiu do canal {channel}'
     },
     pageview: {
         title: '👀 Nova Visualização',
@@ -60,13 +60,14 @@ export const DEFAULT_TEMPLATES: Record<PushcutEventType, { title: string; text: 
     },
     join_request: {
         title: '📩 Solicitação de Entrada',
-        text: '{username} solicitou entrada no canal {channel}'
+        text: '{name} ({username}) solicitou entrada no canal {channel}'
     }
 };
 
 // Interface para dados do evento
 export interface PushcutEventData {
     username?: string;
+    name?: string;
     user_id?: string;
     channel?: string;
     funnel?: string;
@@ -111,8 +112,12 @@ export function parseTemplate(template: string, data: PushcutEventData): string 
     };
     
     Object.entries(allData).forEach(([key, value]) => {
+        // Substituir {chave} pelo valor
         result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), value || '');
     });
+
+    // Limpar variáveis não utilizadas que ficaram vazias
+    // result = result.replace(/\{.*?\}/g, '');
     
     return result;
 }

@@ -35,7 +35,8 @@ export class PushcutService {
             .single();
 
         await this.sendNotification(userId, "new_lead", {
-            username: telegramName || telegramUsername || "Novo usuário",
+            username: telegramUsername || "Novo usuário",
+            name: telegramName || telegramUsername || "Novo usuário",
             channel: chatTitle || "Canal",
             funnel: funnelData?.name || "Funil"
         });
@@ -61,7 +62,8 @@ export class PushcutService {
             .single();
 
         await this.sendNotification(userId, "member_join", {
-            username: telegramName || telegramUsername || "Usuário",
+            username: telegramUsername || "Usuário",
+            name: telegramName || telegramUsername || "Usuário",
             user_id: String(telegramUserId),
             channel: chatTitle || "Canal",
             funnel: funnelData?.name || "Funil"
@@ -92,8 +94,11 @@ export class PushcutService {
             .eq("telegram_user_id", telegramUserId)
             .maybeSingle();
 
+        const displayName = linkData?.telegram_name || linkData?.telegram_username || `Usuário ${telegramUserId}`;
+        
         await this.sendNotification(userId, "member_leave", {
-            username: linkData?.telegram_name || linkData?.telegram_username || `Usuário ${telegramUserId}`,
+            username: linkData?.telegram_username || String(telegramUserId),
+            name: linkData?.telegram_name || linkData?.telegram_username || String(telegramUserId),
             user_id: String(telegramUserId),
             channel: chatTitle || "Canal",
             funnel: funnelData?.name || "Funil"
@@ -120,7 +125,8 @@ export class PushcutService {
             .single();
 
         await this.sendNotification(userId, "join_request", {
-            username: telegramName || telegramUsername || "Usuário",
+            username: telegramUsername || "Usuário",
+            name: telegramName || telegramUsername || "Usuário",
             user_id: String(telegramUserId),
             channel: chatTitle || "Canal",
             funnel: funnelData?.name || "Funil"
