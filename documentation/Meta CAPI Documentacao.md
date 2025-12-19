@@ -19,12 +19,12 @@ implementaremos é o seguinte:
 3.  **Registro de Eventos Iniciais:** O servidor registra eventos
     iniciais como **PageView** (visualização de página) e um **Click**
     (por exemplo, o clique do usuário em um botão de cadastro/convite na
-    página). Esses eventos são associados ao *visitor_id*.
+    página). Esses eventos são associados ao _visitor_id_.
 4.  **Geração de Convite Único do Telegram:** Quando o usuário solicita
     ingresso no Telegram (por exemplo, clicando em um botão \"Entrar no
     grupo Telegram\"), o sistema gera um link de convite único via API
     do Telegram. Esse link é criado com o método `createChatInviteLink`
-    do Bot API, usando o *visitor_id* como nome do convite e limitando o
+    do Bot API, usando o _visitor_id_ como nome do convite e limitando o
     uso a 1 pessoa.
 5.  **Ingresso no Grupo/Canal:** O usuário é redirecionado para o link
     de convite e entra automaticamente no grupo ou canal do Telegram
@@ -32,7 +32,7 @@ implementaremos é o seguinte:
 6.  **Webhook de Entrada no Telegram:** O bot do Telegram, através de um
     webhook configurado, detecta que um novo membro entrou no grupo. O
     update recebido contém o objeto `invite_link` indicando qual convite
-    foi usado. O sistema extrai o *visitor_id* do campo
+    foi usado. O sistema extrai o _visitor_id_ do campo
     `invite_link.name` (que inserimos no momento da criação) e registra
     um evento de conversão **\"join\"** (entrada no grupo) para aquele
     visitante.
@@ -150,7 +150,7 @@ essenciais do lado da Meta:
 4.  Opcional: Ainda no Gerenciador de Eventos, pode ser útil anotar o
     **ID de teste de eventos** (Test Event Code) caso queira testar a
     integração antes de ir a produção. Esse código de teste permite
-    verificar eventos em tempo real na aba *\"Teste de Eventos\"* do
+    verificar eventos em tempo real na aba _\"Teste de Eventos\"_ do
     Gerenciador de Eventos, sem que eles sejam atribuídos às campanhas.
 
 Agora você tem o **Pixel ID** e o **Access Token** necessários. Por
@@ -189,12 +189,12 @@ iremos representá-los:
 
 **Relação entre eventos internos e eventos Facebook:**
 
-- *Evento interno \"pageview\"* → **Facebook Event \"PageView\"** (pode
+- _Evento interno \"pageview\"_ → **Facebook Event \"PageView\"** (pode
   ser enviado pelo Pixel e/ou CAPI).
-- *Evento interno \"click\"* → **Facebook Event personalizado** (ex.:
+- _Evento interno \"click\"_ → **Facebook Event personalizado** (ex.:
   \"ClickInvite\") ou pode não ser enviado, usado só para lógica
   interna.
-- *Evento interno \"join\"* → **Facebook Event \"Lead\"** (enviado via
+- _Evento interno \"join\"_ → **Facebook Event \"Lead\"** (enviado via
   CAPI).
 
 No mínimo, garantiremos o envio do **Lead** via CAPI, pois é o mais
@@ -217,7 +217,7 @@ fluxo.
 
 ## Capturando e Persistindo Parâmetros do Facebook (fbclid, \_fbc, \_fbp, User-Agent, IP)
 
-A etapa 1 e 2 do fluxo ocorrem quando o usuário chega na *landing page*
+A etapa 1 e 2 do fluxo ocorrem quando o usuário chega na _landing page_
 após clicar no anúncio do Facebook. Nesse momento, precisamos capturar
 os identificadores que permitirão conectar esse visitante à campanha de
 origem quando formos enviar o evento de conversão.
@@ -246,7 +246,7 @@ Os principais dados a capturar são:
   criado-o. Se não tivermos o cookie `_fbc` disponível, nós mesmos
   podemos construí-lo usando o fbclid capturado e o timestamp
   atual[\[4\]](https://stackoverflow.com/questions/67201385/how-does-facebook-convert-fbclid-to-fbc#:~:text=If%20you%20don%27t%20have%20the,milliseconds%2C%20and%20the%20fbclid%20value).
-  (Observação: devemos *somente* gerar `fbc` se realmente houver um
+  (Observação: devemos _somente_ gerar `fbc` se realmente houver um
   fbclid indicando que o tráfego veio de anúncio; caso contrário, não
   invente um fbc -- envie apenas fbp ou outros
   dados[\[5\]](https://watsspace.com/blog/meta-conversions-api-fbc-and-fbp-parameters/#:~:text=%2A%20fbc%3A%20%2F%5Efb.1.d%7B13%7D.%5BA,Standardize%20how%20you%20generate%20event_ids)).
@@ -332,11 +332,11 @@ No código acima, vimos que se não existe `_fbc` cookie, mas temos o
 parâmetro `fbclid`, criamos o valor de `fbc` concatenando
 `"fb.1." + <timestamp_em_ms> + "." + <fbclid>`[\[4\]](https://stackoverflow.com/questions/67201385/how-does-facebook-convert-fbclid-to-fbc#:~:text=If%20you%20don%27t%20have%20the,milliseconds%2C%20and%20the%20fbclid%20value).
 Esse é o formato esperado pela Meta caso você precise enviar o fbc
-manualmente. Confirmando: segundo a documentação, *\"se você não tem o
+manualmente. Confirmando: segundo a documentação, _\"se você não tem o
 Pixel instalado ou o cookie \_fbc disponível, então o valor de fbc é a
 combinação da versão, índice de domínio, timestamp UNIX em milissegundos
 e o valor
-fbclid\"*[\[4\]](https://stackoverflow.com/questions/67201385/how-does-facebook-convert-fbclid-to-fbc#:~:text=If%20you%20don%27t%20have%20the,milliseconds%2C%20and%20the%20fbclid%20value).
+fbclid\"_[\[4\]](https://stackoverflow.com/questions/67201385/how-does-facebook-convert-fbclid-to-fbc#:~:text=If%20you%20don%27t%20have%20the,milliseconds%2C%20and%20the%20fbclid%20value).
 
 Após capturar e armazenar os identificadores, também registramos
 internamente um evento \"pageview\". Nesse exemplo, usamos uma função
@@ -344,7 +344,7 @@ fictícia `logEvent` para salvar no banco ou em memória. Isso pode
 alimentar estatísticas próprias ou servir para caso queira enviar esse
 evento via CAPI também.
 
-**Visitor ID:** O *visitor_id* gerado é salvo junto com esses dados. Ele
+**Visitor ID:** O _visitor_id_ gerado é salvo junto com esses dados. Ele
 será fundamental para os próximos passos, pois será usado como **ponte
 entre o mundo web e o Telegram** -- iremos inseri-lo no link de convite
 e recuperá-lo depois no webhook do Telegram.
@@ -371,7 +371,7 @@ De qualquer forma, no backend, ao lidar com essa ação, faça algo como:
         // (Aqui entraremos na lógica de gerar o link de convite do Telegram, descrita a seguir)
     });
 
-O importante é registrar que o visitante com *visitor_id* X clicou para
+O importante é registrar que o visitante com _visitor_id_ X clicou para
 entrar no Telegram. Esse evento (`click_invite`) pode ser persistido. Em
 alguns casos, você poderia inclusive mandar esse evento ao Facebook como
 um evento customizado via CAPI, mas vamos focar no principal (Lead). O
@@ -388,18 +388,19 @@ Bot API** para isso, através do método
 **Pré-requisitos:** - Você deve ter um **bot do Telegram** configurado
 (criado via @BotFather) e adicionar esse bot como **administrador** do
 grupo ou canal no qual deseja que os usuários entrem. O bot precisa ter
-permissão de convidar usuários (permite gerenciar links de convite).  
-- Tenha o **TOKEN** HTTP API do seu bot (fornecido pelo BotFather).  
+permissão de convidar usuários (permite gerenciar links de convite).
+
+- Tenha o **TOKEN** HTTP API do seu bot (fornecido pelo BotFather).
 - Tenha o **ID ou @username do chat** do Telegram (grupo ou canal) para
-o qual criar o convite. Você pode obter o ID adicionando o bot ao grupo
-e usando API, ou através de ferramentas. Suponha que temos `CHAT_ID`
-definido (pode ser um número tipo `-1001234567890` para grupo ou
-`@nomeDoCanal` para canal público).
+  o qual criar o convite. Você pode obter o ID adicionando o bot ao grupo
+  e usando API, ou através de ferramentas. Suponha que temos `CHAT_ID`
+  definido (pode ser um número tipo `-1001234567890` para grupo ou
+  `@nomeDoCanal` para canal público).
 
 Vamos criar o link via API. O método `createChatInviteLink` nos permite
 especificar: - `chat_id`: o identificador do chat (nosso grupo ou
 canal). - `name`: um nome para o link (opcional, até 32 caracteres).
-Vamos usar este campo para colocar nosso *visitor_id*, pois quando
+Vamos usar este campo para colocar nosso _visitor_id_, pois quando
 alguém usar esse link, o Telegram vai nos devolver qual link (pelo nome)
 foi
 usado[\[6\]](https://docs.python-telegram-bot.org/en/v21.7/telegram.chatinvitelink.html#:~:text=). -
@@ -472,28 +473,29 @@ ou você pode fazer `window.location = invite_link` via JavaScript para
 redirecioná-lo automaticamente.
 
 **Detalhes importantes:** - **Link de uso único:** definindo
-`member_limit: 1`, assim que *um* usuário usar o link e entrar no grupo,
+`member_limit: 1`, assim que _um_ usuário usar o link e entrar no grupo,
 ele se tornará inválido para outros. Isso impede que o link seja
 compartilhado e reutilizado por múltiplas pessoas, garantindo que cada
 link está atrelado a um único visitante (e consequentemente a um único
-fbclid).  
+fbclid).
+
 - **Nome do convite:** estamos usando `name = visitorId`. Segundo a API,
-podemos usar até 32 caracteres para
-nome[\[10\]](https://core.telegram.org/bots/api#chatmemberupdated#:~:text=chat_id%20Integer%20or%20String%20Yes,joining%20the%20chat%20via%20the).
-Certifique-se que seu visitor_id não ultrapasse isso. Se você usar um
-UUID completo, ele tem 36 caracteres, então pode ser preciso abreviar
-(talvez usar um hash base64url de 16 bytes = 22 caracteres, por
-exemplo). O nome não é visível para usuários finais, mas **poderá ser
-visto por administradores do grupo ao listarem links de convite
-ativos**, e será devolvido no webhook. Portanto, **não coloque
-informações pessoais nesse nome** -- use apenas o identificador interno
-anônimo.  
+  podemos usar até 32 caracteres para
+  nome[\[10\]](https://core.telegram.org/bots/api#chatmemberupdated#:~:text=chat_id%20Integer%20or%20String%20Yes,joining%20the%20chat%20via%20the).
+  Certifique-se que seu visitor_id não ultrapasse isso. Se você usar um
+  UUID completo, ele tem 36 caracteres, então pode ser preciso abreviar
+  (talvez usar um hash base64url de 16 bytes = 22 caracteres, por
+  exemplo). O nome não é visível para usuários finais, mas **poderá ser
+  visto por administradores do grupo ao listarem links de convite
+  ativos**, e será devolvido no webhook. Portanto, **não coloque
+  informações pessoais nesse nome** -- use apenas o identificador interno
+  anônimo.
 - **Bot admin:** Lembrando, o bot precisa ser admin no chat. A
-documentação enfatiza: *\"The bot must be an administrator in the chat
-for this to work and must have the appropriate administrator
-rights.\"*[\[11\]](https://core.telegram.org/bots/api#chatmemberupdated#:~:text=Use%20this%20method%20to%20create,invite%20link%20as%20ChatInviteLink%20object).
-Se o bot não for admin ou não tiver permissão de adicionar usuários, a
-chamada irá falhar.
+  documentação enfatiza: _\"The bot must be an administrator in the chat
+  for this to work and must have the appropriate administrator
+  rights.\"_[\[11\]](https://core.telegram.org/bots/api#chatmemberupdated#:~:text=Use%20this%20method%20to%20create,invite%20link%20as%20ChatInviteLink%20object).
+  Se o bot não for admin ou não tiver permissão de adicionar usuários, a
+  chamada irá falhar.
 
 Após gerar o link e enviar ao usuário, este provavelmente clicará e será
 levado para o Telegram (seja app ou web) e ingressará no chat.
@@ -510,10 +512,10 @@ práticas aqui:
 <!-- -->
 
 - fetch('/generate-telegram-link', { method: 'POST', body: JSON.stringify({ visitorId }) })
-        .then(res => res.json())
-        .then(data => {
-            window.location.href = data.invite_link;
-        });
+  .then(res => res.json())
+  .then(data => {
+  window.location.href = data.invite_link;
+  });
 
   Isso causará um redirecionamento do navegador do usuário para a URL do
   Telegram. Essa URL geralmente começa com `https://t.me/` ou
@@ -544,8 +546,8 @@ pela notificação do Telegram de que o usuário entrou no chat.
 
 Para que nosso sistema seja informado quando alguém entra no grupo via
 nosso convite, usaremos o mecanismo de **updates** do Telegram Bot API.
-Existem duas formas: *webhook* (o Telegram envia uma requisição ao seu
-servidor) ou *polling* (seu bot fica perguntando de tempos em tempos).
+Existem duas formas: _webhook_ (o Telegram envia uma requisição ao seu
+servidor) ou _polling_ (seu bot fica perguntando de tempos em tempos).
 Webhook é mais eficiente e recomendado em produção.
 
 **Configuração do webhook:** Você chamará a API do Telegram para definir
@@ -563,14 +565,14 @@ um webhook para o seu bot. Um exemplo de chamada (via GET) seria:
   para receber **invite_link** nos
   dados[\[12\]](https://stackoverflow.com/questions/77720606/how-can-i-get-the-chat-invite-link-through-which-a-member-joins-in-node-telegram#:~:text=,i%20thought%20this%20method%20was).
 - Certifique-se de que seu bot tenha permissão adequada: **o bot precisa
-  ser administrador do grupo** (como já citado) *e* você deve
+  ser administrador do grupo** (como já citado) _e_ você deve
   especificar explicitamente que quer updates de tipo chat_member, caso
   contrário não as
   receberá[\[12\]](https://stackoverflow.com/questions/77720606/how-can-i-get-the-chat-invite-link-through-which-a-member-joins-in-node-telegram#:~:text=,i%20thought%20this%20method%20was).
-  De acordo com a documentação: *\"The bot must explicitly specify
+  De acordo com a documentação: _\"The bot must explicitly specify
   \'chat_member\' in the list of allowed_updates to receive these
-  updates.\"* e *\"The bot must be an admin in the
-  chat\"*[\[12\]](https://stackoverflow.com/questions/77720606/how-can-i-get-the-chat-invite-link-through-which-a-member-joins-in-node-telegram#:~:text=,i%20thought%20this%20method%20was).
+  updates.\"_ e _\"The bot must be an admin in the
+  chat\"_[\[12\]](https://stackoverflow.com/questions/77720606/how-can-i-get-the-chat-invite-link-through-which-a-member-joins-in-node-telegram#:~:text=,i%20thought%20this%20method%20was).
 
 Depois de configurar o webhook, toda vez que um usuário entrar ou sair
 do grupo, ou houver alteração de status de membros, seu endpoint
@@ -619,10 +621,10 @@ usado[\[13\]](https://core.telegram.org/bots/api#chatmemberupdated#:~:text=invit
 Checamos que `new_chat_member.status === 'member'` para ter certeza que
 é um evento de entrada confirmada (e não apenas mudança de algum
 privilégio). - **Extraímos o visitor_id:** graças a termos colocado o
-*visitor_id* no campo name do invite link ao criá-lo, aqui podemos
+_visitor_id_ no campo name do invite link ao criá-lo, aqui podemos
 recuperar `inviteLink.name` que deve conter exatamente aquele ID
 único[\[14\]](https://core.telegram.org/bots/api#chatmemberupdated#:~:text=match%20at%20L5315%20invite_link%20String,when%20the%20link%20will%20expire).
-Assim sabemos *quem* (qual visitante do site) corresponde a esse
+Assim sabemos _quem_ (qual visitante do site) corresponde a esse
 ingresso. - Registramos o evento \"join\" internamente associando ao
 visitor_id (e possivelmente armazenamos informações do usuário Telegram
 que chegou, embora para a CAPI isso não seja necessário). - Finalmente,
@@ -669,7 +671,7 @@ O funcionamento interno é semelhante.
 
 ## Mapeando o invite_link.name para o visitor_id {#mapeando-o-invite_link.name-para-o-visitor_id}
 
-Conforme descrito, o *invite_link.name* carrega nosso **visitor_id**.
+Conforme descrito, o _invite_link.name_ carrega nosso **visitor_id**.
 Então quando recebemos no webhook: - Pegamos
 `visitorId = invite_link.name`. - Consultamos nosso armazenamento onde,
 na etapa inicial, salvamos os dados do visitante sob esse ID. Lá teremos
@@ -682,7 +684,7 @@ exemplo, se o visitor_id era \"abc123\", criamos o link com name
 os dados do visitante \"abc123\" que armazenamos no passo 2 (quando ele
 estava na página web).
 
-> Dica: É prudente também marcar esse link como *usado* no seu sistema
+> Dica: É prudente também marcar esse link como _usado_ no seu sistema
 > assim que o join acontecer, caso você esteja guardando convites
 > gerados. O Telegram já impede reuso pelo próprio `member_limit=1`, mas
 > registrar que \"visitor_id X já ingressou\" pode evitar qualquer
@@ -711,44 +713,45 @@ O corpo da requisição será um JSON contendo um array de eventos em um
 campo \"data\". Podemos enviar múltiplos eventos de uma vez, mas aqui
 enviaremos um de cada vez. Cada evento é um objeto com vários campos. O
 mínimo recomendado inclui: - `event_name`: nome do evento (no nosso
-caso, `"Lead"`).  
+caso, `"Lead"`).
+
 - `event_time`: timestamp UNIX (em segundos) do momento do evento. Use o
-horário do join detectado (ex.: Date.now()/1000 arredondado).  
+  horário do join detectado (ex.: Date.now()/1000 arredondado).
 - `event_id` (opcional mas útil para deduplicação): um ID único do
-evento. No caso do Lead, não temos duplicata via Pixel, mas podemos usar
-o próprio visitor_id ou gerar um UUID para identificar este envio. O
-Facebook usa isso para deduplicar caso receba o mesmo event_id via Pixel
-e CAPI.  
+  evento. No caso do Lead, não temos duplicata via Pixel, mas podemos usar
+  o próprio visitor_id ou gerar um UUID para identificar este envio. O
+  Facebook usa isso para deduplicar caso receba o mesmo event_id via Pixel
+  e CAPI.
 - `user_data`: um objeto contendo dados do usuário para
-correspondência: - Aqui colocaremos `fbc` e `fbp` (se disponíveis) que
-extraímos/persistimos anteriormente. Esses são identificadores primários
-para o Facebook associar o evento ao usuário/click
-correto[\[3\]](https://www.reddit.com/r/PPC/comments/185ylfo/facebook_tracking_solutions_using_fbclid/#:~:text=The%20closest%20official%20use%20is,EMQ). -
-`fbc`: valor do cookie \_fbc ou gerado (que inclui fbclid) -- deve
-iniciar com \"fb.1.\" e conter o
-fbclid[\[4\]](https://stackoverflow.com/questions/67201385/how-does-facebook-convert-fbclid-to-fbc#:~:text=If%20you%20don%27t%20have%20the,milliseconds%2C%20and%20the%20fbclid%20value). -
-`fbp`: valor do cookie \_fbp (identificador do navegador) -- inicia com
-\"fb.1.\" e um identificador aleatório. - `client_user_agent`: o
-User-Agent do navegador.  
+  correspondência: - Aqui colocaremos `fbc` e `fbp` (se disponíveis) que
+  extraímos/persistimos anteriormente. Esses são identificadores primários
+  para o Facebook associar o evento ao usuário/click
+  correto[\[3\]](https://www.reddit.com/r/PPC/comments/185ylfo/facebook_tracking_solutions_using_fbclid/#:~:text=The%20closest%20official%20use%20is,EMQ). -
+  `fbc`: valor do cookie \_fbc ou gerado (que inclui fbclid) -- deve
+  iniciar com \"fb.1.\" e conter o
+  fbclid[\[4\]](https://stackoverflow.com/questions/67201385/how-does-facebook-convert-fbclid-to-fbc#:~:text=If%20you%20don%27t%20have%20the,milliseconds%2C%20and%20the%20fbclid%20value). -
+  `fbp`: valor do cookie \_fbp (identificador do navegador) -- inicia com
+  \"fb.1.\" e um identificador aleatório. - `client_user_agent`: o
+  User-Agent do navegador.
 - `client_ip_address`: o IP do usuário. - Qualquer outro dado
-disponível: se tivéssemos email, telefone do usuário, poderíamos incluir
-hasheados em campos como `em`, `ph`. No nosso fluxo, não coletamos esses
-PII, então deixaremos em branco. (Não envie campos vazios; apenas não os
-inclua se não tiver dados.) - Podemos incluir também `external_id` se
-quisermos passar nosso visitor_id ou algum ID interno. O Facebook pode
-usar external_id para fins de reconciliação de dados (e para você
-rastrear resultados), mas não é um match key tão forte quanto fbc/fbp. É
-opcional. - `action_source`: fonte da ação, normalmente `"website"`
-neste caso, já que a conversão se originou de um evento web. (Mesmo a
-entrada sendo no Telegram, consideramos que foi resultado de uma ação
-iniciada no site, então website é adequado. Poderia argumentar \"app\"
-se fosse dentro de um app, mas não é.)  
+  disponível: se tivéssemos email, telefone do usuário, poderíamos incluir
+  hasheados em campos como `em`, `ph`. No nosso fluxo, não coletamos esses
+  PII, então deixaremos em branco. (Não envie campos vazios; apenas não os
+  inclua se não tiver dados.) - Podemos incluir também `external_id` se
+  quisermos passar nosso visitor_id ou algum ID interno. O Facebook pode
+  usar external_id para fins de reconciliação de dados (e para você
+  rastrear resultados), mas não é um match key tão forte quanto fbc/fbp. É
+  opcional. - `action_source`: fonte da ação, normalmente `"website"`
+  neste caso, já que a conversão se originou de um evento web. (Mesmo a
+  entrada sendo no Telegram, consideramos que foi resultado de uma ação
+  iniciada no site, então website é adequado. Poderia argumentar \"app\"
+  se fosse dentro de um app, mas não é.)
 - `event_source_url`: URL da página onde a ação aconteceu. Para
-PageView/Click faz sentido preencher com a URL da landing page. Para o
-Lead (join Telegram), poderíamos omitir ou enviar a URL da landing page
-original (pois foi lá que iniciou). Esse campo é usado mais para
-verificações e debug. No exemplo vamos omitir ou usar a landing page URL
-que temos armazenada (se armazenamos).
+  PageView/Click faz sentido preencher com a URL da landing page. Para o
+  Lead (join Telegram), poderíamos omitir ou enviar a URL da landing page
+  original (pois foi lá que iniciou). Esse campo é usado mais para
+  verificações e debug. No exemplo vamos omitir ou usar a landing page URL
+  que temos armazenada (se armazenamos).
 
 Vamos construir e enviar usando Node (poderia ser Python `requests` da
 mesma forma):
@@ -810,7 +813,7 @@ necessária. Um exemplo de JSON enviado seria equivalente a:
         "event_name": "Lead",
         "event_time": 1697574501,
         "user_data": {
-          "fbc": "fb.1.1697570916234.IwAR0abcd1234...", 
+          "fbc": "fb.1.1697570916234.IwAR0abcd1234...",
           "fbp": "fb.1.1697570916.1111100000",
           "client_user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)...",
           "client_ip_address": "203.0.113.45"
@@ -875,7 +878,7 @@ potencialmente sensíveis. Abaixo, algumas práticas recomendadas:
   eles **devem ser enviados em texto simples conforme
   gerados**[\[20\]](https://watsspace.com/blog/meta-conversions-api-fbc-and-fbp-parameters/#:~:text=rates,such%20as%20email%20or%20phone).
   Esses valores não são considerados PII pelo Facebook, mas sim
-  *pseudônimos* para matching técnico.
+  _pseudônimos_ para matching técnico.
 - **Envie fbc/fbp somente quando aplicável:** Se o usuário não veio de
   um anúncio (ou seja, não há fbclid), não crie um fbc fictício. Você
   pode enviar apenas fbp, ou nenhum desses se não
@@ -898,7 +901,7 @@ potencialmente sensíveis. Abaixo, algumas práticas recomendadas:
   restrinja acesso a quem precisa e descarte após uso (por exemplo,
   poderia limpar fbclid/fbc do banco após X dias, mantendo talvez só
   contagens agregadas).
-- **Segurança do Telegram:** O *visitor_id* colocado no nome do invite
+- **Segurança do Telegram:** O _visitor_id_ colocado no nome do invite
   link só é visível para administradores do grupo e para o bot. Ainda
   assim, certifique-se que ele não contenha informação pessoal (como
   falado). Use um identificador opaco. Além disso, caso seu grupo tenha
@@ -932,46 +935,46 @@ documentações oficiais da Meta e do Telegram relacionadas a esse tema:
 
 - **Meta for Developers -- Conversions API (Visão Geral):** Documentação
   oficial da Meta sobre a Conversions API, explicando conceitos, como
-  construir requisições e parâmetros suportados. *Link:*
+  construir requisições e parâmetros suportados. _Link:_
   <https://developers.facebook.com/docs/marketing-api/conversions-api>
 - **Meta -- Parâmetros de Informações do Cliente (User Data):** Lista e
   descrição dos campos que podem ser enviados em `user_data` (como fbp,
   fbc, emails hasheados, etc.), incluindo formato esperado de `fbc` e
-  `fbp`. *Link:* [Facebook Developers: Customer Information
+  `fbp`. _Link:_ [Facebook Developers: Customer Information
   Parameters](https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/customer-information-parameters)[\[3\]](https://www.reddit.com/r/PPC/comments/185ylfo/facebook_tracking_solutions_using_fbclid/#:~:text=The%20closest%20official%20use%20is,EMQ)[\[22\]](https://www.reddit.com/r/PPC/comments/185ylfo/facebook_tracking_solutions_using_fbclid/#:~:text=,am%20unsure%20which%20Zapier%2FFB%20wants)
 - **Meta -- Parâmetros \_fbp e \_fbc:** Guia específico explicando o que
   são os parâmetros \_fbp e \_fbc, como obtê-los ou gerá-los, e boas
   práticas de
   uso[\[4\]](https://stackoverflow.com/questions/67201385/how-does-facebook-convert-fbclid-to-fbc#:~:text=If%20you%20don%27t%20have%20the,milliseconds%2C%20and%20the%20fbclid%20value).
-  *Link:* [Facebook Developers: fbp and fbc
+  _Link:_ [Facebook Developers: fbp and fbc
   Parameters](https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc)
 - **Telegram Bot API -- createChatInviteLink:** Detalhamento do método
   para criar links de convite via Bot. Inclui descrição dos parâmetros
   (chat_id, name, expire_date, member_limit, etc) e comportamento.
-  *Link:* [Core Telegram API:
+  _Link:_ [Core Telegram API:
   createChatInviteLink](https://core.telegram.org/bots/api#createChatInviteLink)[\[23\]](https://core.telegram.org/bots/api#chatmemberupdated#:~:text=Parameter%20Type%20Required%20Description%20chat_id,99999)
 - **Telegram Bot API -- Updates (ChatMemberUpdated):** Descrição do
   objeto de update de chat_member, incluindo o campo `invite_link`
   presente quando usuários entram via
   convite[\[13\]](https://core.telegram.org/bots/api#chatmemberupdated#:~:text=invite_link%20ChatInviteLink%20Optional,link%20and%20being%20approved%20by).
-  *Link:* [Core Telegram API:
+  _Link:_ [Core Telegram API:
   ChatMemberUpdated](https://core.telegram.org/bots/api#chatmemberupdated)
 - **Telegram Bot API -- Webhooks:** Guia de como configurar webhooks
-  para bots. *Link:* [Core Telegram API:
+  para bots. _Link:_ [Core Telegram API:
   setWebhook](https://core.telegram.org/bots/api#setwebhook) (veja
   parâmetros allowed_updates).
 - **Stack Overflow -- Obtendo invite_link no update:** Discussão sobre
   como receber o `invite_link` de um novo membro e a necessidade de
-  allowed_updates e admin. *Referência:* *"The bot must be an
+  allowed_updates e admin. _Referência:_ _"The bot must be an
   administrator in the chat and must explicitly specify \'chat_member\'
   in allowed_updates to receive these
-  updates."*[\[12\]](https://stackoverflow.com/questions/77720606/how-can-i-get-the-chat-invite-link-through-which-a-member-joins-in-node-telegram#:~:text=,i%20thought%20this%20method%20was).
+  updates."_[\[12\]](https://stackoverflow.com/questions/77720606/how-can-i-get-the-chat-invite-link-through-which-a-member-joins-in-node-telegram#:~:text=,i%20thought%20this%20method%20was).
 - **Meta Business Help Center -- Evento Lead:** Informações sobre o
   evento padrão \"Lead\" e como ele é usado em otimização de anúncios.
-  *Link:* [Facebook Business: Standard Events -
+  _Link:_ [Facebook Business: Standard Events -
   Lead](https://www.facebook.com/business/help/351616968103583?id=1205376682832142).
 
 Com essas referências e os passos detalhados neste guia, você terá os
 recursos necessários para implementar e verificar com sucesso a Meta
 Conversions API integrada ao Telegram no seu SaaS. Boa implementação e
-bons resultados!
+bons resultados!!
