@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
         const capiResult = await sendCAPIEvent(
           pixel.pixel_id,
           pixel.access_token,
-          "Lead", // Evento de cadastro = Lead
+          "Cadastrou_bet", // Evento personalizado de cadastro na bet
           {
             email: email,
             phone: phone,
@@ -226,7 +226,7 @@ export async function POST(request: NextRequest) {
         );
         
         capiSent = capiResult?.events_received > 0;
-        console.log(`[BET IDENTIFY] Lead event sent for ${email}, success: ${capiSent}`);
+        console.log(`[BET IDENTIFY] Cadastrou_bet event sent for ${email}, success: ${capiSent}`);
       } else {
         console.log("[BET IDENTIFY] No pixel found in database, skipping CAPI");
       }
@@ -239,7 +239,7 @@ export async function POST(request: NextRequest) {
         success: true, 
         message: "Lead identificado",
         capi_sent: capiSent,
-        event: "Lead"
+        event: "Cadastrou_bet"
       },
       { headers: corsHeaders }
     );

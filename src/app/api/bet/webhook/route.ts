@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
       (status === "PAID" || transaction_status === "completed");
     
     const eventType = isDeposit ? "deposit" : "register";
-    const fbEventName = isDeposit ? "Purchase" : "Lead";
+    const fbEventName = isDeposit ? "Purchase" : "Cadastrou_bet";
 
     console.log(`[BET WEBHOOK] Event type: ${eventType}, FB Event: ${fbEventName}, valor: ${valor}`);
 
