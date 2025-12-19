@@ -310,7 +310,7 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
   return new Response(scriptContent, {
     headers: {
       'Content-Type': 'application/javascript',
-      'Cache-Control': 'no-store, max-age=0',
+      'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=60',
       'Access-Control-Allow-Origin': '*',
     },
   });
