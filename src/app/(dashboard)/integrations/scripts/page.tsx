@@ -17,6 +17,8 @@ interface DomainScriptStatus {
     has_pixel: boolean;
     has_funnel: boolean;
     has_channel: boolean;
+    funnel_id?: string;
+    funnel_name?: string;
 }
 
 export default function ScriptsPage() {
@@ -24,13 +26,18 @@ export default function ScriptsPage() {
     const [loading, setLoading] = useState(true);
     const supabase = createClient();
 
+    const [funnels, setFunnels] = useState<any[]>([]);
+    const [updating, setUpdating] = useState<string | null>(null);
+
     useEffect(() => {
-        fetchDomains();
+        fetchData();
     }, []);
 
-    async function fetchDomains() {
+    async function fetchData() {
         setLoading(true);
-        const { data, error } = await supabase
+        
+        // Fetch Domains
+        const { data: domainsData, error: domainsError } = await supabase
             .from("domains")
             .select(`
                 id,
@@ -41,15 +48,21 @@ export default function ScriptsPage() {
                 domain_pixels (pixel_id),
                 funnels (
                     id,
+                    name,
                     bot_id
                 )
             `);
 
-        if (error) {
-            console.error("Error fetching domains:", error);
+        // Fetch Funnels for selection
+        const { data: funnelsData } = await supabase
+            .from("funnels")
+            .select("id, name, bot_id");
+
+        if (domainsError) {
+            console.error("Error fetching domains:", domainsError);
             toast.error("Erro ao carregar domínios.");
         } else {
-            const mapped = data.map((d: any) => {
+            const mapped = domainsData.map((d: any) => {
                 const hasPixel = !!(d.pixels?.id || (d.domain_pixels && d.domain_pixels.length > 0));
                 const hasFunnel = !!d.funnel_id;
                 const hasChannel = !!(d.funnels?.bot_id);
@@ -60,12 +73,31 @@ export default function ScriptsPage() {
                     verified: d.verified,
                     has_pixel: hasPixel,
                     has_funnel: hasFunnel,
-                    has_channel: hasChannel
+                    has_channel: hasChannel,
+                    funnel_id: d.funnel_id,
+                    funnel_name: d.funnels?.name
                 };
             });
             setDomains(mapped);
+            if (funnelsData) setFunnels(funnelsData);
         }
         setLoading(false);
+    }
+
+    async function handleLinkFunnel(domainId: string, funnelId: string) {
+        setUpdating(domainId);
+        const { error } = await supabase
+            .from("domains")
+            .update({ funnel_id: funnelId })
+            .eq("id", domainId);
+
+        if (error) {
+            toast.error("Erro ao vincular funil.");
+        } else {
+            toast.success("Funil vinculado com sucesso!");
+            fetchData(); // Refresh
+        }
+        setUpdating(null);
     }
 
     const copyScript = (domainId: string) => {
@@ -171,17 +203,32 @@ export default function ScriptsPage() {
                                             </div>
 
                                             <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/5">
-                                                <div className="flex items-center gap-3">
+                                                <div className="flex items-center gap-3 flex-1">
                                                     <div className={`p-1.5 rounded-full ${domain.has_funnel ? 'bg-emerald-500/20 text-emerald-500' : 'bg-red-500/20 text-red-500'}`}>
                                                         {domain.has_funnel ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
                                                     </div>
-                                                    <span className="text-sm font-medium">Funil Vinculado</span>
+                                                    <div className="flex-1">
+                                                        <span className="text-sm font-medium block">Funil Vinculado</span>
+                                                        {!domain.has_funnel && (
+                                                            <div className="mt-2">
+                                                                <select 
+                                                                    className="w-full bg-white dark:bg-black border border-neutral-200 dark:border-white/10 rounded-md text-xs p-1.5"
+                                                                    onChange={(e) => handleLinkFunnel(domain.id, e.target.value)}
+                                                                    defaultValue=""
+                                                                    disabled={updating === domain.id}
+                                                                >
+                                                                    <option value="" disabled>Selecione um funil...</option>
+                                                                    {funnels.map(f => (
+                                                                        <option key={f.id} value={f.id}>{f.name}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        )}
+                                                        {domain.has_funnel && (
+                                                            <span className="text-xs text-gray-500">{domain.funnel_name}</span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                {!domain.has_funnel && (
-                                                    <Link href="/domains">
-                                                        <Button size="sm" variant="ghost" className="h-7 text-xs hover:bg-white/10">Resolver <ExternalLink className="ml-1 h-3 w-3" /></Button>
-                                                    </Link>
-                                                )}
                                             </div>
 
                                             <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/5">
