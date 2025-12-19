@@ -48,6 +48,7 @@ const menuItems: MenuItem[] = [
       { id: "pixels", label: "Pixels", href: "/pixels", icon: BarChart2 },
       { id: "canal", label: "Canal", href: "/channels", icon: Send },
       { id: "funis", label: "Funis", href: "/funnels", icon: Filter },
+      { id: "scripts", label: "Scripts", href: "/integrations/scripts", icon: FileText },
       { id: "postbacks", label: "Postbacks", href: "/postbacks", icon: Code },
     ]
   },

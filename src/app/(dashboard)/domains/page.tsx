@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { getPlanLimits } from "@/config/subscription-plans";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
@@ -441,51 +442,11 @@ export default function DomainsPage() {
                                                                 )}
                                                             </div>
 
-                                                            {/* Script de Instalação */}
-                                                            <div className="space-y-3">
-                                                                <div>
-                                                                    <h3 className="font-semibold text-white mb-2">Script de Rastreamento</h3>
-                                                                    <p className="text-sm text-gray-400 mb-3">
-                                                                        Copie o script abaixo e cole no <code className="bg-white/10 px-1 py-0.5 rounded text-gray-300">&lt;head&gt;</code> de todas as páginas do seu site <strong>{domain.domain}</strong>.
-                                                                    </p>
-                                                                </div>
-
-                                                                <div className="bg-black/50 border border-white/10 p-4 rounded-xl font-mono text-xs overflow-x-auto relative group text-gray-300">
-                                                                    <pre className="whitespace-pre-wrap">
-                                                                        {`<script>
-  (function(w,d,s,l,i){
-    w[l]=w[l]||[];
-    w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
-    var f=d.getElementsByTagName(s)[0], j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
-    j.async=true; 
-    j.src='${typeof window !== 'undefined' ? window.location.origin : ''}/api/tracking-script.js?id=${domain.id}';
-    f.parentNode.insertBefore(j,f);
-  })(window,document,'script','trackGramLayer','${domain.id}');
-</script>`}
-                                                                    </pre>
-                                                                    <Button
-                                                                        variant="secondary"
-                                                                        size="sm"
-                                                                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white text-black hover:bg-gray-200"
-                                                                        onClick={() => {
-                                                                            const code = `<script>
-  (function(w,d,s,l,i){
-    w[l]=w[l]||[];
-    w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
-    var f=d.getElementsByTagName(s)[0], j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
-    j.async=true; 
-    j.src='${window.location.origin}/api/tracking-script.js?id=${domain.id}';
-    f.parentNode.insertBefore(j,f);
-  })(window,document,'script','trackGramLayer','${domain.id}');
-</script>`;
-                                                                            navigator.clipboard.writeText(code);
-                                                                            toast.success("Script copiado!");
-                                                                        }}
-                                                                    >
-                                                                        <Copy className="h-4 w-4 mr-2" />
-                                                                        Copiar
-                                                                    </Button>
-                                                                </div>
+                                                            {/* Script de Instalação removido - movido para Integrações > Scripts */}
+                                                            <div className="bg-neutral-900/50 border border-white/10 p-4 rounded-xl text-sm text-center">
+                                                                <p className="text-gray-400">
+                                                                    Para obter o script de instalação, acesse o menu <Link href="/integrations/scripts" className="text-violet-400 hover:underline">Integrações &gt; Scripts</Link>.
+                                                                </p>
                                                             </div>
 
                                                             {/* Instruções */}
