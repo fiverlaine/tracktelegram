@@ -441,13 +441,61 @@ export default function DomainsPage() {
                                                                 )}
                                                             </div>
 
+                                                            {/* Script de Instalação */}
+                                                            <div className="space-y-3">
+                                                                <div>
+                                                                    <h3 className="font-semibold text-white mb-2">Script de Rastreamento</h3>
+                                                                    <p className="text-sm text-gray-400 mb-3">
+                                                                        Copie o script abaixo e cole no <code className="bg-white/10 px-1 py-0.5 rounded text-gray-300">&lt;head&gt;</code> de todas as páginas do seu site <strong>{domain.domain}</strong>.
+                                                                    </p>
+                                                                </div>
+
+                                                                <div className="bg-black/50 border border-white/10 p-4 rounded-xl font-mono text-xs overflow-x-auto relative group text-gray-300">
+                                                                    <pre className="whitespace-pre-wrap">
+                                                                        {`<script>
+  (function(w,d,s,l,i){
+    w[l]=w[l]||[];
+    w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
+    var f=d.getElementsByTagName(s)[0], j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
+    j.async=true; 
+    j.src='${typeof window !== 'undefined' ? window.location.origin : ''}/api/tracking-script.js?id=${domain.id}';
+    f.parentNode.insertBefore(j,f);
+  })(window,document,'script','trackGramLayer','${domain.id}');
+</script>`}
+                                                                    </pre>
+                                                                    <Button
+                                                                        variant="secondary"
+                                                                        size="sm"
+                                                                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white text-black hover:bg-gray-200"
+                                                                        onClick={() => {
+                                                                            const code = `<script>
+  (function(w,d,s,l,i){
+    w[l]=w[l]||[];
+    w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
+    var f=d.getElementsByTagName(s)[0], j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
+    j.async=true; 
+    j.src='${window.location.origin}/api/tracking-script.js?id=${domain.id}';
+    f.parentNode.insertBefore(j,f);
+  })(window,document,'script','trackGramLayer','${domain.id}');
+</script>`;
+                                                                            navigator.clipboard.writeText(code);
+                                                                            toast.success("Script copiado!");
+                                                                        }}
+                                                                    >
+                                                                        <Copy className="h-4 w-4 mr-2" />
+                                                                        Copiar
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+
                                                             {/* Instruções */}
                                                             <div className="bg-blue-500/5 border border-blue-500/20 p-4 rounded-xl text-sm">
                                                                 <h4 className="font-semibold text-blue-400 mb-2">Instruções de Instalação:</h4>
                                                                 <ol className="list-decimal pl-4 space-y-1 text-gray-400">
-                                                                    <li>Vá para a aba <strong>Integrações &gt; Scripts</strong> no menu lateral.</li>
-                                                                    <li>Lá você encontrará o script universal para instalar em seu site.</li>
-                                                                    <li>A verificação de domínio acima é importante para garantir a segurança do seu tráfego.</li>
+                                                                    <li>Copie o script acima</li>
+                                                                    <li>Cole no <code className="bg-white/10 px-1 py-0.5 rounded text-gray-300">&lt;head&gt;</code> de todas as páginas do seu site</li>
+                                                                    <li>Certifique-se de que o script está presente antes do fechamento da tag <code className="bg-white/10 px-1 py-0.5 rounded text-gray-300">&lt;/head&gt;</code></li>
+                                                                    <li>O script funciona automaticamente após a instalação</li>
                                                                 </ol>
                                                             </div>
                                                         </div>
