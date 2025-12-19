@@ -84,16 +84,39 @@ export class JoinHandler {
                 });
             }
 
-            // 3. Processar Conversão (CAPI)
-            if (visitorId && funnelId) {
-                // Enviar notificação Pushcut para novo lead
-                this.pushcutService.notifyNewLead(
-                    funnelId,
+            // 3. Lógica de Notificação (com Fallback Robusto)
+            let notifyFunnelId = funnelId;
+            
+            // Se atribuição falhou, tentar encontrar funnelId histórico para notificação
+            if (!notifyFunnelId && telegramUserId) {
+                const { data: historicalLink } = await this.supabase
+                    .from("visitor_telegram_links")
+                    .select("funnel_id")
+                    .eq("telegram_user_id", telegramUserId)
+                    .order("linked_at", { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                
+                if (historicalLink?.funnel_id) {
+                    notifyFunnelId = historicalLink.funnel_id;
+                    console.log(`[JoinHandler] Usando funnel_id histórico para notificação: ${notifyFunnelId}`);
+                }
+            }
+
+            if (notifyFunnelId) {
+                // Enviar notificação Pushcut para membro entrou (member_join)
+                // Usamos member_join pois é a entrada confirmada no grupo
+                this.pushcutService.notifyMemberJoin(
+                    notifyFunnelId,
+                    telegramUserId,
                     telegramUsername,
                     telegramFullName,
                     chatTitle
                 ).catch(err => console.error('[JoinHandler] Pushcut notification error:', err));
+            }
 
+            // 4. Processar Conversão (CAPI)
+            if (visitorId && funnelId) {
                 await this.conversionService.processLeadConversion(
                     visitorId,
                     funnelId,
