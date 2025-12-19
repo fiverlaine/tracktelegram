@@ -132,6 +132,9 @@ export async function POST(
             const oldStatus = chatMember.old_chat_member?.status;
             const telegramUserId = chatMember.new_chat_member?.user?.id || chatMember.from?.id;
             const telegramUsername = chatMember.new_chat_member?.user?.username || chatMember.from?.username;
+            const telegramFirstName = chatMember.new_chat_member?.user?.first_name || chatMember.from?.first_name || "";
+            const telegramLastName = chatMember.new_chat_member?.user?.last_name || chatMember.from?.last_name || "";
+            const telegramFullName = `${telegramFirstName} ${telegramLastName}`.trim();
             const chatId = chatMember.chat?.id;
             const chatTitle = chatMember.chat?.title;
 
@@ -193,6 +196,7 @@ export async function POST(
                                     linked_at: new Date().toISOString(),
                                     metadata: {
                                         ...linkData.metadata,
+                                        telegram_name: telegramFullName,
                                         linked_via: "dynamic_invite",
                                         chat_id: chatId,
                                         chat_title: chatTitle
@@ -230,6 +234,7 @@ export async function POST(
                                     linked_at: new Date().toISOString(),
                                     metadata: {
                                         ...linkData.metadata,
+                                        telegram_name: telegramFullName,
                                         linked_via: "pool_invite",
                                         chat_id: chatId,
                                         chat_title: chatTitle
@@ -329,7 +334,7 @@ export async function POST(
                 if (visitorId && funnelId && telegramUserId) {
                     const { data: existingLink } = await supabase
                         .from("visitor_telegram_links")
-                        .select("id, telegram_user_id")
+                        .select("id, telegram_user_id, metadata")
                         .eq("visitor_id", visitorId)
                         .eq("funnel_id", funnelId)
                         .maybeSingle();
@@ -341,7 +346,11 @@ export async function POST(
                             .update({
                                 telegram_user_id: telegramUserId,
                                 telegram_username: telegramUsername,
-                                linked_at: new Date().toISOString()
+                                linked_at: new Date().toISOString(),
+                                metadata: {
+                                    ...(existingLink.metadata || {}),
+                                    telegram_name: telegramFullName
+                                }
                             })
                             .eq("id", existingLink.id);
                         console.log(`[Webhook] ✅ Vinculado telegram_user_id ${telegramUserId} ao visitor_id ${visitorId} durante chat_member`);
@@ -358,6 +367,7 @@ export async function POST(
                                 telegram_username: telegramUsername,
                                 linked_at: new Date().toISOString(),
                                 metadata: {
+                                    telegram_name: telegramFullName,
                                     linked_via: "chat_member_fallback",
                                     chat_id: chatId,
                                     chat_title: chatTitle
@@ -375,6 +385,7 @@ export async function POST(
                         funnelId,
                         telegramUserId,
                         telegramUsername,
+                        telegramFullName,
                         chatId,
                         chatTitle,
                         inviteName,
@@ -831,6 +842,7 @@ export async function POST(
                                 linked_at: new Date().toISOString(),
                                 metadata: {
                                     ...linkData.metadata,
+                                    telegram_name: `${request.from?.first_name || ""} ${request.from?.last_name || ""}`.trim(),
                                     linked_via: "join_request",
                                     chat_id: botData.chat_id,
                                 }
@@ -847,6 +859,7 @@ export async function POST(
                                 linkData.funnel_id,
                                 telegramUserId,
                                 request.from?.username,
+                                `${request.from?.first_name || ""} ${request.from?.last_name || ""}`.trim(),
                                 botData.chat_id,
                                 undefined, // chatTitle não disponível aqui facilmente
                                 inviteName,
@@ -998,6 +1011,7 @@ async function processLeadConversion(
     funnelId: string,
     telegramUserId: number,
     telegramUsername: string | undefined,
+    telegramName: string | undefined,
     chatId: number | undefined,
     chatTitle: string | undefined,
     inviteName: string | undefined,
@@ -1105,6 +1119,7 @@ async function processLeadConversion(
                     source: source,
                     telegram_user_id: telegramUserId,
                     telegram_username: telegramUsername,
+                    telegram_name: telegramName,
                     chat_id: chatId,
                     chat_title: chatTitle,
                     invite_name: inviteName

@@ -44,6 +44,8 @@ interface Lead {
   utm_campaign?: string;
   utm_medium?: string;
   utm_content?: string;
+  utm_term?: string;
+  telegram_name?: string;
   source?: string;
 }
 
@@ -169,6 +171,8 @@ export default function LeadsPage() {
             utm_campaign: meta.utm_campaign,
             utm_medium: meta.utm_medium,
             utm_content: meta.utm_content,
+            utm_term: meta.utm_term,
+            telegram_name: meta.telegram_name,
             source: meta.source
           };
         }).filter(Boolean) as Lead[];
@@ -212,12 +216,13 @@ export default function LeadsPage() {
 
   const handleExport = () => {
     // Simple CSV Export
-    const headers = ["Visitor ID", "Telegram User", "Username", "Status", "Entrou em", "Saiu em", "Funil", "Bot", "Cidade", "Estado", "País", "UTM Source", "UTM Campaign"];
+    const headers = ["Visitor ID", "Telegram User", "Nome", "Username", "Status", "Entrou em", "Saiu em", "Funil", "Bot", "Cidade", "Estado", "País", "UTM Source", "UTM Medium", "UTM Campaign", "UTM Content", "UTM Term"];
     const csvContent = [
       headers.join(","),
       ...leads.map(lead => [
         lead.visitor_id,
         lead.telegram_user_id,
+        lead.telegram_name || "",
         lead.telegram_username || "",
         lead.status === 'active' ? 'Entrou' : 'Saiu',
         format(new Date(lead.joined_at), "dd/MM/yyyy HH:mm"),
@@ -228,7 +233,10 @@ export default function LeadsPage() {
         lead.region || "",
         lead.country || "",
         lead.utm_source || "",
-        lead.utm_campaign || ""
+        lead.utm_medium || "",
+        lead.utm_campaign || "",
+        lead.utm_content || "",
+        lead.utm_term || ""
       ].join(","))
     ].join("\n");
 
@@ -412,10 +420,12 @@ export default function LeadsPage() {
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="font-medium text-neutral-900 dark:text-white flex items-center gap-2">
-                          {lead.telegram_username ? (
+                          {lead.telegram_name ? (
+                            <>{lead.telegram_name}</>
+                          ) : lead.telegram_username ? (
                             <>@{lead.telegram_username}</>
                           ) : (
-                            <span className="italic text-gray-500">Sem username</span>
+                            <span className="italic text-gray-500">Sem nome</span>
                           )}
                         </span>
                         <span className="text-xs text-neutral-500 font-mono mt-0.5" title="Visitor ID">
@@ -462,18 +472,33 @@ export default function LeadsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1 text-xs">
+                      <div className="flex flex-col gap-1 text-[10px]">
                         {lead.utm_source && (
-                          <span className="bg-neutral-100 dark:bg-white/10 px-1.5 py-0.5 rounded text-neutral-600 dark:text-gray-300 w-fit">
+                          <span className="bg-violet-500/10 text-violet-600 dark:text-violet-400 px-1.5 py-0.5 rounded w-fit border border-violet-500/20">
                             src: {lead.utm_source}
                           </span>
                         )}
+                        {lead.utm_medium && (
+                          <span className="bg-blue-500/10 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded w-fit border border-blue-500/20">
+                            med: {lead.utm_medium}
+                          </span>
+                        )}
                         {lead.utm_campaign && (
-                          <span className="bg-neutral-100 dark:bg-white/10 px-1.5 py-0.5 rounded text-neutral-600 dark:text-gray-300 w-fit">
+                          <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded w-fit border border-emerald-500/20">
                             cmp: {lead.utm_campaign}
                           </span>
                         )}
-                        {!lead.utm_source && !lead.utm_campaign && (
+                        {lead.utm_content && (
+                          <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded w-fit border border-amber-500/20">
+                            cnt: {lead.utm_content}
+                          </span>
+                        )}
+                        {lead.utm_term && (
+                          <span className="bg-rose-500/10 text-rose-600 dark:text-rose-400 px-1.5 py-0.5 rounded w-fit border border-rose-500/20">
+                            trm: {lead.utm_term}
+                          </span>
+                        )}
+                        {!lead.utm_source && !lead.utm_medium && !lead.utm_campaign && !lead.utm_content && !lead.utm_term && (
                           <span className="text-neutral-400 italic">-</span>
                         )}
                       </div>
