@@ -68,7 +68,7 @@ async function sendCAPIEvent(
     userData.client_user_agent = eventData.userAgent;
   }
 
-  const payload = {
+  const payload: Record<string, any> = {
     data: [
       {
         event_name: eventName,
@@ -85,12 +85,28 @@ async function sendCAPIEvent(
     access_token: accessToken,
   };
 
+  // Adicionar test_event_code se existir (para debug no Facebook Events Manager)
+  if (process.env.FB_TEST_EVENT_CODE) {
+    payload.test_event_code = process.env.FB_TEST_EVENT_CODE;
+  }
+
   try {
-    console.log(`[CAPI] Sending ${eventName} event to pixel ${pixelId}`, {
+    // Log detalhado do que está sendo enviado
+    console.log(`[CAPI] ========================================`);
+    console.log(`[CAPI] Sending ${eventName} event`);
+    console.log(`[CAPI] Pixel: ${pixelId}`);
+    console.log(`[CAPI] User Data (raw):`, {
       email: eventData.email,
-      value: eventData.value,
-      hasFbc: !!eventData.fbc,
+      phone: eventData.phone,
+      fbc: eventData.fbc ? "✓ presente" : "✗ ausente",
+      fbp: eventData.fbp ? "✓ presente" : "✗ ausente",
+      ip: eventData.ip,
     });
+    console.log(`[CAPI] Custom Data:`, {
+      currency: eventData.currency || "BRL",
+      value: eventData.value || 0,
+    });
+    console.log(`[CAPI] ========================================`);
     
     const response = await fetch(url, {
       method: "POST",
@@ -98,7 +114,15 @@ async function sendCAPIEvent(
       body: JSON.stringify(payload),
     });
     const result = await response.json();
+    
     console.log(`[CAPI] Response:`, JSON.stringify(result));
+    
+    if (result.error) {
+      console.error(`[CAPI] ERROR:`, result.error);
+    } else {
+      console.log(`[CAPI] SUCCESS: ${result.events_received} event(s) received`);
+    }
+    
     return result;
   } catch (error) {
     console.error("[CAPI] Error:", error);
