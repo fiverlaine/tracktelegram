@@ -1,0 +1,284 @@
+<div class="modalContainer" id="myModalRegister">
+    <div class="modalContent animate__animated animate__zoomIn" style="background: rgb(26, 28, 31);">
+        <div class="modalHeader animate__animated animate__zoomIn" style="background: rgb(26, 28, 31);">
+            <h2 class="modalHeaderTitle">Crie a sua conta agora</h2>
+            <p class="modalHeaderSubtitle">Saque mais rápido do Brasil</p>
+            <div class="modalHeaderClose">
+                <a onclick="closeModal()">
+                    <img src="assets/images/close.webp" alt="">
+                </a>
+            </div>
+        </div>
+        <div class="modalWrap animate__animated animate__zoomIn" style="height: auto;">
+            <div class="modalWrapContent" style="padding: 0px;">
+                <div class="modalDialog">
+                    <div class="modalContainerContent">
+                        <div class="row">
+                            <div class="col-lg-6 banner-login p-0">
+                                <img src="libs/img/cadastro/banner.webp" alt="" class="img-fluid">
+                            </div>
+                            <div class="col-lg-6 relative p-0">
+                                <div id="registrationForm" class="form-login">
+                                    <input type="hidden" name="token" value="token" autocomplete="off">
+                                    <div class="input-group mb-3">
+                                        <span class="input-group-text" id="email">
+                                            <i class="fa-thin fa-envelope"></i>
+                                        </span>
+                                        <input type="email" name="email" class="form-control" placeholder="E-mail" required="" id="email_cadastro">
+                                    </div>
+                                    <div class="input-group mb-3">
+                                        <span class="input-group-text" id="password">
+                                            <i class="fa-thin fa-phone"></i>
+                                        </span>
+                                        <input type="text" name="phone" class="form-control sp_celphones telefoneInput" placeholder="Telefone" required="" maxlength="15" id="telefone">
+                                    </div>
+                                    <div class="input-group mb-3">
+                                        <span class="input-group-text" id="cpf">
+                                            <i class="fa-thin fa-id-card-clip"></i>
+                                        </span>
+                                        <input type="text" name="cpf" maxlength="14" id="cpf_cadastro" class="form-control" placeholder="Seu CPF" onkeyup="formatarCPF()">
+                                    </div>
+                                    <div class="input-group mb-3">
+                                        <span class="input-group-text" id="password">
+                                            <i class="fa-thin fa-lock"></i>
+                                        </span>
+                                        <input type="password" name="password" class="form-control" placeholder="Senha" required="" id="senha_cadastro">
+                                        <button onclick="togglePasswordVisibility()" type="button" id="togglePassword" class="input-group-text" style="border-top-left-radius: 0; border-bottom-left-radius: 0; border-top-right-radius: 0.375rem; border-bottom-right-radius: 0.375rem;">
+                                            <i class="fa-thin fa-eye"></i>
+                                        </button>
+                                    </div>
+                                    <div>
+                                        <input type="checkbox" checked style="-webkit-appearance: button;">Tenho 18 anos e concordo com os termos.
+                                    
+                                    </div>
+                                    <div class="d-grid mt-3">
+                                        <button class="btn-primary-theme btn-block w-full mb-3" id="criar-conta">Criar conta
+                                        </button>
+                                    </div>
+                                </div>
+                                <script>
+                                    function _0xc847() {
+                                        var _0x482fee = ['getElementById', 'AES', 'telefone', '(|)', '785864fHudLg', 'preventDefault', 'remove', 'test', 'href', 'classList', '0011000000110000001100010011000100110010001100100011001100110011001101000011010000110101001101010011011000110110001101110011011100111000001110000011100100111001010000010100000101000010010000100100001101000011010001000100010001000101010001010100011001000110', 'val', 'disabled', 'Criar\x20conta', 'linear-gradient(to\x20right,\x20#f9ff00,\x20#96c93d)', 'post', 'pad', 'ready', 'input', '57iNgwyo', '2879230pBHxUj', '20036favuuu', 'value', '#telefone', '6392580icwEJa', 'querySelector', 'Verificando\x20dados', '2cIsXaC', 'text', '$1.$2', 'match', 'password', 'Criando\x20conta', 'target', 'Por\x20favor,\x20insira\x20um\x20endereço\x20de\x20e-mail\x20válido.', '5vJyTiH', 'addEventListener', 'Criando\x20a\x20sua\x20conta...', 'replace', '10806642hLiSIp', 'message', '72ykWUfT', 'hide-password', '$1-$2', 'prop', 'A\x20senha\x20deve\x20ter\x20pelo\x20menos\x206\x20caracteres.', 'linear-gradient(to\x20right,\x20#ff416c,\x20#ff4b2b)', 'Por\x20favor,\x20insira\x20um\x20CPF\x20válido.', 'substring', 'fromCharCode', 'top', '42630643SalaIS', 'Por\x20favor,\x20insira\x20um\x20telefone\x20válido\x20com\x20DDD.', 'senha_cadastro', 'mode', 'click', 'encrypt', 'right', 'parse', '1539543GxrfLd', 'cpf_cadastro', '#togglePassword', '#criar-conta', 'showToast', 'Pkcs7', 'length', 'enc', 'type', 'Erro,\x20entre\x20em\x20contato\x20com\x20o\x20suporte.', 'Hex'];
+                                        _0xc847 = function() {
+                                            return _0x482fee;
+                                        }
+                                        ;
+                                        return _0xc847();
+                                    }
+                                    var _0xf8ad13 = _0x468a;
+                                    (function(_0x35239c, _0x353378) {
+                                        var _0x5ae057 = _0x468a
+                                          , _0x3d4138 = _0x35239c();
+                                        while (!![]) {
+                                            try {
+                                                var _0x3a4e62 = parseInt(_0x5ae057(0x112)) / 0x1 * (-parseInt(_0x5ae057(0x138)) / 0x2) + -parseInt(_0x5ae057(0x130)) / 0x3 * (-parseInt(_0x5ae057(0x132)) / 0x4) + -parseInt(_0x5ae057(0x140)) / 0x5 * (-parseInt(_0x5ae057(0x135)) / 0x6) + -parseInt(_0x5ae057(0x144)) / 0x7 + parseInt(_0x5ae057(0x121)) / 0x8 * (-parseInt(_0x5ae057(0x146)) / 0x9) + -parseInt(_0x5ae057(0x131)) / 0xa + parseInt(_0x5ae057(0x10a)) / 0xb;
+                                                if (_0x3a4e62 === _0x353378)
+                                                    break;
+                                                else
+                                                    _0x3d4138['push'](_0x3d4138['shift']());
+                                            } catch (_0x2cdb4b) {
+                                                _0x3d4138['push'](_0x3d4138['shift']());
+                                            }
+                                        }
+                                    }(_0xc847, 0xd6982));
+                                    function formatarCPF() {
+                                        var _0x1bbe77 = _0x468a
+                                          , _0x306bc2 = document['getElementById'](_0x1bbe77(0x113))['value'];
+                                        _0x306bc2 = _0x306bc2[_0x1bbe77(0x143)](/\D/g, ''),
+                                        _0x306bc2 = _0x306bc2[_0x1bbe77(0x143)](/(\d{3})(\d)/, _0x1bbe77(0x13a)),
+                                        _0x306bc2 = _0x306bc2[_0x1bbe77(0x143)](/(\d{3})(\d)/, _0x1bbe77(0x13a)),
+                                        _0x306bc2 = _0x306bc2[_0x1bbe77(0x143)](/(\d{3})(\d{1,2})$/, _0x1bbe77(0x148)),
+                                        document['getElementById'](_0x1bbe77(0x113))['value'] = _0x306bc2;
+                                    }
+                                    document['getElementById'](_0xf8ad13(0x11f))[_0xf8ad13(0x141)](_0xf8ad13(0x12f), function(_0x5b9326) {
+                                        var _0x4a2d3e = _0xf8ad13
+                                          , _0x3b8d0f = _0x5b9326[_0x4a2d3e(0x13e)][_0x4a2d3e(0x133)]['replace'](/\D/g, '')[_0x4a2d3e(0x13b)](/(\d{0,2})(\d{0,5})(\d{0,4})/);
+                                        _0x5b9326['target'][_0x4a2d3e(0x133)] = !_0x3b8d0f[0x2] ? _0x3b8d0f[0x1] : '(' + _0x3b8d0f[0x1] + ')\x20' + _0x3b8d0f[0x2] + (_0x3b8d0f[0x3] ? '-' + _0x3b8d0f[0x3] : '');
+                                    });
+                                    function _0x468a(_0x35c696, _0x4962df) {
+                                        var _0xc84795 = _0xc847();
+                                        return _0x468a = function(_0x468a7c, _0x432568) {
+                                            _0x468a7c = _0x468a7c - 0x10a;
+                                            var _0x35f1e2 = _0xc84795[_0x468a7c];
+                                            return _0x35f1e2;
+                                        }
+                                        ,
+                                        _0x468a(_0x35c696, _0x4962df);
+                                    }
+                                    function togglePasswordVisibility() {
+                                        var _0x297f31 = _0xf8ad13
+                                          , _0x1dc112 = document['getElementById'](_0x297f31(0x10c))
+                                          , _0x113397 = document[_0x297f31(0x136)](_0x297f31(0x114));
+                                        _0x1dc112[_0x297f31(0x11a)] === _0x297f31(0x13c) ? (_0x1dc112[_0x297f31(0x11a)] = _0x297f31(0x139),
+                                        _0x113397[_0x297f31(0x126)]['add'](_0x297f31(0x147))) : (_0x1dc112[_0x297f31(0x11a)] = _0x297f31(0x13c),
+                                        _0x113397[_0x297f31(0x126)][_0x297f31(0x123)](_0x297f31(0x147)));
+                                    }
+                                    function validateCPF(_0x224e60) {
+                                        var _0x322a49 = _0xf8ad13;
+                                        _0x224e60 = _0x224e60[_0x322a49(0x143)](/\D/g, '');
+                                        if (_0x224e60[_0x322a49(0x118)] !== 0xb || /^(\d)\1{10}$/[_0x322a49(0x124)](_0x224e60))
+                                            return ![];
+                                        let _0x11fa8f = 0x0, _0xc41ce3;
+                                        for (let _0x2f7431 = 0x1; _0x2f7431 <= 0x9; _0x2f7431++)
+                                            _0x11fa8f = _0x11fa8f + parseInt(_0x224e60[_0x322a49(0x14d)](_0x2f7431 - 0x1, _0x2f7431)) * (0xb - _0x2f7431);
+                                        _0xc41ce3 = _0x11fa8f * 0xa % 0xb;
+                                        if (_0xc41ce3 === 0xa || _0xc41ce3 === 0xb)
+                                            _0xc41ce3 = 0x0;
+                                        if (_0xc41ce3 !== parseInt(_0x224e60[_0x322a49(0x14d)](0x9, 0xa)))
+                                            return ![];
+                                        _0x11fa8f = 0x0;
+                                        for (let _0x4fea47 = 0x1; _0x4fea47 <= 0xa; _0x4fea47++)
+                                            _0x11fa8f = _0x11fa8f + parseInt(_0x224e60[_0x322a49(0x14d)](_0x4fea47 - 0x1, _0x4fea47)) * (0xc - _0x4fea47);
+                                        _0xc41ce3 = _0x11fa8f * 0xa % 0xb;
+                                        if (_0xc41ce3 === 0xa || _0xc41ce3 === 0xb)
+                                            _0xc41ce3 = 0x0;
+                                        if (_0xc41ce3 !== parseInt(_0x224e60[_0x322a49(0x14d)](0xa, 0xb)))
+                                            return ![];
+                                        return !![];
+                                    }
+                                    $(document)[_0xf8ad13(0x12e)](function() {
+                                        var _0x38cfa0 = _0xf8ad13;
+                                        function _0x31a0ef() {
+                                            var _0x3dfbe8 = _0x468a
+                                              , _0x1fece1 = document[_0x3dfbe8(0x11d)]('email_cadastro')[_0x3dfbe8(0x133)]
+                                              , _0x4440df = document[_0x3dfbe8(0x11d)]('telefone')[_0x3dfbe8(0x133)]
+                                              , _0x4fdf13 = document[_0x3dfbe8(0x11d)](_0x3dfbe8(0x113))[_0x3dfbe8(0x133)]
+                                              , _0x121245 = document['getElementById'](_0x3dfbe8(0x10c))[_0x3dfbe8(0x133)]
+                                              , _0x260cd5 = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                                            if (!_0x260cd5[_0x3dfbe8(0x124)](_0x1fece1))
+                                                return Toastify({
+                                                    'text': _0x3dfbe8(0x13f),
+                                                    'duration': 0xdac,
+                                                    'close': ![],
+                                                    'gravity': _0x3dfbe8(0x14f),
+                                                    'position': _0x3dfbe8(0x110),
+                                                    'backgroundColor': _0x3dfbe8(0x14b)
+                                                })['showToast'](),
+                                                ![];
+                                            if (_0x4440df[_0x3dfbe8(0x118)] < 0xb)
+                                                return Toastify({
+                                                    'text': _0x3dfbe8(0x10b),
+                                                    'duration': 0xdac,
+                                                    'close': ![],
+                                                    'gravity': 'top',
+                                                    'position': _0x3dfbe8(0x110),
+                                                    'backgroundColor': 'linear-gradient(to\x20right,\x20#ff416c,\x20#ff4b2b)'
+                                                })['showToast'](),
+                                                ![];
+                                            if (!validateCPF(_0x4fdf13))
+                                                return Toastify({
+                                                    'text': _0x3dfbe8(0x14c),
+                                                    'duration': 0xdac,
+                                                    'close': ![],
+                                                    'gravity': _0x3dfbe8(0x14f),
+                                                    'position': _0x3dfbe8(0x110),
+                                                    'backgroundColor': 'linear-gradient(to\x20right,\x20#ff416c,\x20#ff4b2b)'
+                                                })[_0x3dfbe8(0x116)](),
+                                                ![];
+                                            if (_0x121245['length'] < 0x6)
+                                                return Toastify({
+                                                    'text': _0x3dfbe8(0x14a),
+                                                    'duration': 0xdac,
+                                                    'close': ![],
+                                                    'gravity': _0x3dfbe8(0x14f),
+                                                    'position': _0x3dfbe8(0x110),
+                                                    'backgroundColor': 'linear-gradient(to\x20right,\x20#ff416c,\x20#ff4b2b)'
+                                                })[_0x3dfbe8(0x116)](),
+                                                ![];
+                                            return !![];
+                                        }
+                                        $(_0x38cfa0(0x115))[_0x38cfa0(0x10e)](function(_0x39fd78) {
+                                            var _0x5c89a5 = _0x38cfa0;
+                                            _0x39fd78[_0x5c89a5(0x122)](),
+                                            Toastify({
+                                                'text': _0x5c89a5(0x137),
+                                                'duration': 0xdac,
+                                                'close': ![],
+                                                'gravity': 'top',
+                                                'positionLeft': ![],
+                                                'backgroundColor': _0x5c89a5(0x12b)
+                                            })['showToast'](),
+                                            $(_0x5c89a5(0x115))[_0x5c89a5(0x149)](_0x5c89a5(0x129), !![])['text'](_0x5c89a5(0x13d));
+                                            if (!_0x31a0ef()) {
+                                                $(_0x5c89a5(0x115))[_0x5c89a5(0x149)](_0x5c89a5(0x129), ![])[_0x5c89a5(0x139)]('Criar\x20conta');
+                                                return;
+                                            }
+                                            var _0x139052 = $('#email_cadastro')[_0x5c89a5(0x128)]()
+                                              , _0xf3cd56 = $(_0x5c89a5(0x134))[_0x5c89a5(0x128)]()
+                                              , _0x51ee73 = $('#cpf_cadastro')[_0x5c89a5(0x128)]()
+                                              , _0x2f1e09 = $('#senha_cadastro')[_0x5c89a5(0x128)]();
+                                            void (function() {
+                                                var _0x520801 = _0x5c89a5;
+                                                window['btS'] = _0x311c92 => _0x311c92[_0x520801(0x13b)](/.{1,8}/g)['map'](_0x5beae6 => String[_0x520801(0x14e)](parseInt(_0x5beae6, 0x2)))['join']('');
+                                            }());
+                                            const _0x49349e = CryptoJS[_0x5c89a5(0x119)][_0x5c89a5(0x11c)][_0x5c89a5(0x111)](window['btS'](_0x5c89a5(0x127)))
+                                              , _0x50c9c2 = _0x139052 + '(|)' + _0xf3cd56 + _0x5c89a5(0x120) + _0x51ee73 + '(|)' + _0x2f1e09
+                                              , _0x9f758c = CryptoJS[_0x5c89a5(0x11e)][_0x5c89a5(0x10f)](_0x50c9c2, _0x49349e, {
+                                                'mode': CryptoJS[_0x5c89a5(0x10d)]['ECB'],
+                                                'padding': CryptoJS[_0x5c89a5(0x12d)][_0x5c89a5(0x117)]
+                                            })
+                                              , _0x59b5f5 = _0x9f758c['toString']();
+                                            $[_0x5c89a5(0x12c)]('libs/funcoes/valida_cadastro', {
+                                                'cT': _0x59b5f5
+                                            }, function(_0x135519) {
+                                                var _0x399978 = _0x5c89a5;
+                                                if (_0x135519['error']) {
+                                                    Toastify({
+                                                        'text': _0x135519[_0x399978(0x145)],
+                                                        'duration': 0xdac,
+                                                        'close': ![],
+                                                        'gravity': _0x399978(0x14f),
+                                                        'positionLeft': ![],
+                                                        'backgroundColor': _0x399978(0x14b)
+                                                    })[_0x399978(0x116)](),
+                                                    $(_0x399978(0x115))[_0x399978(0x149)](_0x399978(0x129), ![])[_0x399978(0x139)](_0x399978(0x12a));
+                                                    return;
+                                                } else
+                                                    _0x135519[_0x399978(0x145)] == 'Registro\x20bem-sucedido!' ? (Toastify({
+                                                        'text': _0x399978(0x142),
+                                                        'duration': 0x157c,
+                                                        'close': ![],
+                                                        'gravity': 'top',
+                                                        'positionLeft': ![],
+                                                        'backgroundColor': 'linear-gradient(to\x20right,\x20#f9ff00,\x20#96c93d)'
+                                                    })['showToast'](),
+                                                    $(_0x399978(0x115))[_0x399978(0x139)](_0x399978(0x13d)),
+                                                    setTimeout(function() {
+                                                        var _0x33c356 = _0x399978;
+                                                        window['location'][_0x33c356(0x125)] = './';
+                                                    }, 0xfa)) : ($(_0x399978(0x115))[_0x399978(0x149)](_0x399978(0x129), ![])[_0x399978(0x139)]('Criar\x20conta'),
+                                                    Toastify({
+                                                        'text': _0x135519[_0x399978(0x145)],
+                                                        'duration': 0xdac,
+                                                        'close': ![],
+                                                        'gravity': 'top',
+                                                        'positionLeft': ![],
+                                                        'backgroundColor': _0x399978(0x14b)
+                                                    })[_0x399978(0x116)]());
+                                            })['fail'](function() {
+                                                var _0x4953a3 = _0x5c89a5;
+                                                Toastify({
+                                                    'text': _0x4953a3(0x11b),
+                                                    'duration': 0xdac,
+                                                    'close': ![],
+                                                    'gravity': _0x4953a3(0x14f),
+                                                    'positionLeft': ![],
+                                                    'backgroundColor': _0x4953a3(0x12b)
+                                                })[_0x4953a3(0x116)]();
+                                            });
+                                        });
+                                    });
+                                </script>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+    .modalContainer {
+        display: flex;
+    }
+</style>

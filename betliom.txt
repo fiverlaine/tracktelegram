@@ -1,0 +1,63 @@
+Cadastro:
+
+[
+  {
+    "headers": {
+      "host": "n8n-n8n.igwdtb.easypanel.host",
+      "content-length": "66",
+      "accept": "*/*",
+      "content-type": "application/json",
+      "x-forwarded-for": "138.117.216.141",
+      "x-forwarded-host": "n8n-n8n.igwdtb.easypanel.host",
+      "x-forwarded-port": "443",
+      "x-forwarded-proto": "https",
+      "x-forwarded-server": "9c7cf8181bfb",
+      "x-real-ip": "138.117.216.141",
+      "accept-encoding": "gzip"
+    },
+    "params": {},
+    "query": {},
+    "body": {
+      "name": "",
+      "phone": "38183813939",
+      "email": "ryanteste813@gmail.com"
+    },
+    "webhookUrl": "https://n8n-n8n.igwdtb.easypanel.host/webhook/48bbb60e-cc19-4395-bd22-9dab3c813be1",
+    "executionMode": "production"
+  }
+]
+
+Depositos:
+[
+  {
+    "headers": {
+      "host": "n8n-n8n.igwdtb.easypanel.host",
+      "content-length": "153",
+      "accept": "*/*",
+      "content-type": "application/json",
+      "x-forwarded-for": "138.117.216.141",
+      "x-forwarded-host": "n8n-n8n.igwdtb.easypanel.host",
+      "x-forwarded-port": "443",
+      "x-forwarded-proto": "https",
+      "x-forwarded-server": "9c7cf8181bfb",
+      "x-real-ip": "138.117.216.141",
+      "accept-encoding": "gzip"
+    },
+    "params": {},
+    "query": {},
+    "body": {
+      "name": "",
+      "phone": "89274994628",
+      "email": "lulaladrao@ehdim.com",
+      "valor": 30,
+      "qrcode": "",
+      "currency": "BRL",
+      "status": "PAID",
+      "transaction_status": "completed"
+    },
+    "webhookUrl": "https://n8n-n8n.igwdtb.easypanel.host/webhook/5ec1052f-3b25-49ee-b61b-9c352ba9ba98",
+    "executionMode": "production"
+  }
+]
+
+Obs: params e query sempre ficam vazios

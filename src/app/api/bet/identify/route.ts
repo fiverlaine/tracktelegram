@@ -1,11 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 
 /**
  * API Route: /api/bet/identify
  * 
  * Recebe dados de identificação do lead vindos do script injetado na bet.
  * Cria/atualiza o registro na tabela bet_leads para fazer o match email <-> visitor_id.
+ * 
+ * TAMBÉM dispara evento LEAD para o Facebook CAPI quando tem fbc.
  * 
  * Este endpoint é chamado pelo script que você injeta no <head> da betlionpro.com
  * quando o usuário clica no botão de cadastro.
@@ -17,6 +20,85 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
+
+// Hash SHA256 para dados do usuário (requisito do Facebook CAPI)
+function hashSHA256(value: string): string {
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+// Enviar evento para Facebook CAPI
+async function sendCAPIEvent(
+  pixelId: string,
+  accessToken: string,
+  eventName: string,
+  eventData: {
+    email?: string;
+    phone?: string;
+    fbc?: string;
+    fbp?: string;
+    ip?: string;
+    userAgent?: string;
+    currency?: string;
+    value?: number;
+    eventSourceUrl?: string;
+  }
+) {
+  const url = `https://graph.facebook.com/v18.0/${pixelId}/events`;
+  
+  // Construir user_data removendo campos undefined
+  const userData: Record<string, any> = {};
+  
+  if (eventData.email) {
+    userData.em = [hashSHA256(eventData.email.toLowerCase().trim())];
+  }
+  if (eventData.phone) {
+    userData.ph = [hashSHA256(eventData.phone.replace(/\D/g, ""))];
+  }
+  if (eventData.fbc) {
+    userData.fbc = eventData.fbc;
+  }
+  if (eventData.fbp) {
+    userData.fbp = eventData.fbp;
+  }
+  if (eventData.ip && eventData.ip !== "unknown") {
+    userData.client_ip_address = eventData.ip;
+  }
+  if (eventData.userAgent) {
+    userData.client_user_agent = eventData.userAgent;
+  }
+
+  const payload = {
+    data: [
+      {
+        event_name: eventName,
+        event_time: Math.floor(Date.now() / 1000),
+        action_source: "website",
+        event_source_url: eventData.eventSourceUrl || "https://betlionpro.com",
+        user_data: userData,
+        custom_data: {
+          currency: eventData.currency || "BRL",
+          value: eventData.value || 0,
+        },
+      },
+    ],
+    access_token: accessToken,
+  };
+
+  try {
+    console.log(`[CAPI] Sending ${eventName} event to pixel ${pixelId}`);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json();
+    console.log(`[CAPI] Response:`, JSON.stringify(result));
+    return result;
+  } catch (error) {
+    console.error("[CAPI] Error:", error);
+    return null;
+  }
+}
 
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
@@ -76,7 +158,7 @@ export async function POST(request: NextRequest) {
           utm_term: utm_term || null,
           ip_address: ip,
           user_agent: userAgent,
-          status: "identified",
+          status: "registered", // Mudou para registered pois está cadastrando
           updated_at: new Date().toISOString(),
         },
         {
@@ -90,7 +172,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       // Se der erro de conflito, tenta update simples
       if (error.code === "23505") {
-        const { error: updateError } = await supabase
+        await supabase
           .from("bet_leads")
           .update({
             phone: phone || undefined,
@@ -104,19 +186,61 @@ export async function POST(request: NextRequest) {
             utm_term: utm_term || undefined,
             ip_address: ip,
             user_agent: userAgent,
+            status: "registered",
           })
           .eq("email", email.toLowerCase().trim());
-        
-        if (updateError) {
-          console.error("Error updating bet_lead:", updateError);
-        }
       } else {
         console.error("Error upserting bet_lead:", error);
       }
     }
 
+    // ========================================
+    // ENVIAR EVENTO LEAD PARA FACEBOOK CAPI
+    // ========================================
+    let capiSent = false;
+    
+    if (fbc) {
+      // Buscar pixel do banco (pega o primeiro disponível)
+      // Você pode mudar para buscar um pixel específico se preferir
+      const { data: pixel } = await supabase
+        .from("pixels")
+        .select("pixel_id, access_token")
+        .limit(1)
+        .single();
+
+      if (pixel?.pixel_id && pixel?.access_token) {
+        const capiResult = await sendCAPIEvent(
+          pixel.pixel_id,
+          pixel.access_token,
+          "Lead", // Evento de cadastro = Lead
+          {
+            email: email,
+            phone: phone,
+            fbc: fbc,
+            fbp: fbp,
+            ip: ip,
+            userAgent: userAgent,
+            currency: "BRL",
+            value: 0, // Lead não tem valor
+          }
+        );
+        
+        capiSent = capiResult?.events_received > 0;
+        console.log(`[BET IDENTIFY] Lead event sent for ${email}, success: ${capiSent}`);
+      } else {
+        console.log("[BET IDENTIFY] No pixel found in database, skipping CAPI");
+      }
+    } else {
+      console.log(`[BET IDENTIFY] No fbc for ${email}, skipping CAPI`);
+    }
+
     return NextResponse.json(
-      { success: true, message: "Lead identificado" },
+      { 
+        success: true, 
+        message: "Lead identificado",
+        capi_sent: capiSent,
+        event: "Lead"
+      },
       { headers: corsHeaders }
     );
 
