@@ -92,6 +92,7 @@ export default function ClientRedirect({
                         await fetch("/api/track", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
+                            keepalive: true, // Garante que o request termine mesmo com redirect
                             body: JSON.stringify({
                                 funnel_id: initialFunnelData.id,
                                 visitor_id: vid,
@@ -110,6 +111,9 @@ export default function ClientRedirect({
                                 }
                             })
                         });
+                        
+                        // Pequeno delay para garantir
+                        await new Promise(resolve => setTimeout(resolve, 300));
                     } catch (e) {
                         console.error("Erro ao salvar track:", e);
                     }
