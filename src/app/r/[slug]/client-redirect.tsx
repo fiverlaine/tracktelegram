@@ -2,7 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { v4 as uuidv4 } from "uuid";
+
+// Helper para gerar UUID sem dependência externa
+function generateUUID() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
 
 // --- Tipos ---
 type FunnelData = {
@@ -50,7 +60,7 @@ export default function ClientRedirect({
                 // 1. Identificar Visitor ID
                 let vid = searchParams.vid as string;
                 if (!vid) {
-                    vid = localStorage.getItem("visitor_id") || uuidv4();
+                    vid = localStorage.getItem("visitor_id") || generateUUID();
                     localStorage.setItem("visitor_id", vid);
                 }
 
