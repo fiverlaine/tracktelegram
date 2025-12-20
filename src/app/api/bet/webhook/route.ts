@@ -42,6 +42,12 @@ async function sendCAPIEvent(
     currency?: string;
     value?: number;
     eventSourceUrl?: string;
+    // Novos campos de geolocalização
+    city?: string;
+    state?: string;
+    country?: string;
+    postalCode?: string;
+    externalId?: string;
   }
 ) {
   const url = `https://graph.facebook.com/v18.0/${pixelId}/events`;
@@ -66,6 +72,23 @@ async function sendCAPIEvent(
   }
   if (eventData.userAgent) {
     userData.client_user_agent = eventData.userAgent;
+  }
+  
+  // Campos de geolocalização (hasheados)
+  if (eventData.city) {
+    userData.ct = [hashSHA256(eventData.city.toLowerCase().trim())];
+  }
+  if (eventData.state) {
+    userData.st = [hashSHA256(eventData.state.toLowerCase().trim())];
+  }
+  if (eventData.country) {
+    userData.country = [hashSHA256(eventData.country.toLowerCase().trim())];
+  }
+  if (eventData.postalCode) {
+    userData.zp = [hashSHA256(eventData.postalCode.replace(/\D/g, ""))];
+  }
+  if (eventData.externalId) {
+    userData.external_id = [hashSHA256(eventData.externalId)];
   }
 
   const payload: Record<string, any> = {
@@ -101,6 +124,11 @@ async function sendCAPIEvent(
       fbc: eventData.fbc ? "✓ presente" : "✗ ausente",
       fbp: eventData.fbp ? "✓ presente" : "✗ ausente",
       ip: eventData.ip,
+      city: eventData.city || "✗ ausente",
+      state: eventData.state || "✗ ausente",
+      country: eventData.country || "✗ ausente",
+      postalCode: eventData.postalCode || "✗ ausente",
+      externalId: eventData.externalId ? "✓ presente" : "✗ ausente",
     });
     console.log(`[CAPI] Custom Data:`, {
       currency: eventData.currency || "BRL",
@@ -248,6 +276,12 @@ export async function POST(request: NextRequest) {
             userAgent: lead.user_agent || undefined,
             currency: currency || "BRL",
             value: isDeposit ? Number(valor) : 0,
+            // Dados de geolocalização do lead
+            city: lead.city || undefined,
+            state: lead.state || undefined,
+            country: lead.country || undefined,
+            postalCode: lead.postal_code || undefined,
+            externalId: lead.visitor_id || undefined,
           }
         );
 

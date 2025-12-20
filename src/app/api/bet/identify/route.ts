@@ -41,6 +41,12 @@ async function sendCAPIEvent(
     currency?: string;
     value?: number;
     eventSourceUrl?: string;
+    // Novos campos de geolocalização
+    city?: string;
+    state?: string;
+    country?: string;
+    postalCode?: string;
+    externalId?: string; // visitor_id
   }
 ) {
   const url = `https://graph.facebook.com/v18.0/${pixelId}/events`;
@@ -65,6 +71,23 @@ async function sendCAPIEvent(
   }
   if (eventData.userAgent) {
     userData.client_user_agent = eventData.userAgent;
+  }
+  
+  // Novos campos de geolocalização (hasheados conforme requisito do Facebook)
+  if (eventData.city) {
+    userData.ct = [hashSHA256(eventData.city.toLowerCase().trim())];
+  }
+  if (eventData.state) {
+    userData.st = [hashSHA256(eventData.state.toLowerCase().trim())];
+  }
+  if (eventData.country) {
+    userData.country = [hashSHA256(eventData.country.toLowerCase().trim())];
+  }
+  if (eventData.postalCode) {
+    userData.zp = [hashSHA256(eventData.postalCode.replace(/\D/g, ""))];
+  }
+  if (eventData.externalId) {
+    userData.external_id = [hashSHA256(eventData.externalId)];
   }
 
   const payload: Record<string, any> = {
@@ -100,6 +123,11 @@ async function sendCAPIEvent(
       fbc: eventData.fbc ? "✓ presente" : "✗ ausente",
       fbp: eventData.fbp ? "✓ presente" : "✗ ausente",
       ip: eventData.ip,
+      city: eventData.city || "✗ ausente",
+      state: eventData.state || "✗ ausente",
+      country: eventData.country || "✗ ausente",
+      postalCode: eventData.postalCode || "✗ ausente",
+      externalId: eventData.externalId ? "✓ presente" : "✗ ausente",
     });
     console.log(`[CAPI] Custom Data:`, {
       currency: eventData.currency || "BRL",
@@ -224,6 +252,51 @@ export async function POST(request: NextRequest) {
     }
 
     // ========================================
+    // BUSCAR DADOS ORIGINAIS DA TABELA EVENTS
+    // (cidade, estado, país, CEP coletados na presell)
+    // ========================================
+    let geoData: {
+      city?: string;
+      state?: string;
+      country?: string;
+      postalCode?: string;
+    } = {};
+
+    if (visitor_id) {
+      const { data: originalEvent } = await supabase
+        .from("events")
+        .select("metadata")
+        .eq("visitor_id", visitor_id)
+        .not("metadata", "is", null)
+        .limit(1)
+        .single();
+
+      if (originalEvent?.metadata) {
+        const meta = originalEvent.metadata as Record<string, any>;
+        geoData = {
+          city: meta.city,
+          state: meta.region || meta.state,
+          country: meta.country,
+          postalCode: meta.postal_code,
+        };
+        console.log(`[BET IDENTIFY] Found geo data from events:`, geoData);
+
+        // Atualizar bet_leads com os dados de geo
+        if (geoData.city || geoData.state || geoData.country || geoData.postalCode) {
+          await supabase
+            .from("bet_leads")
+            .update({
+              city: geoData.city || undefined,
+              state: geoData.state || undefined,
+              country: geoData.country || undefined,
+              postal_code: geoData.postalCode || undefined,
+            })
+            .eq("email", email.toLowerCase().trim());
+        }
+      }
+    }
+
+    // ========================================
     // ENVIAR EVENTO PARA FACEBOOK CAPI
     // Pixel fixo: Lucas Magnotti
     // ========================================
@@ -247,6 +320,12 @@ export async function POST(request: NextRequest) {
           userAgent: userAgent,
           currency: "BRL",
           value: 0, // Cadastro não tem valor
+          // Dados de geolocalização
+          city: geoData.city,
+          state: geoData.state,
+          country: geoData.country,
+          postalCode: geoData.postalCode,
+          externalId: visitor_id,
         }
       );
       
