@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
     const userAgent = clientUserAgent || serverUserAgent;
 
     // Variável para registrar como o match foi feito
-    let matchedBy: string | null = null;
+    let matchedBy: string | null = visitor_id ? "direct" : null;
 
     // ========================================
     // MATCHING ROBUSTO COM MÚLTIPLOS CRITÉRIOS
@@ -242,8 +242,8 @@ export async function POST(request: NextRequest) {
       return { os, version, device };
     };
 
-    if (!visitor_id) {
-      console.log(`[BET IDENTIFY] Visitor ID missing. IP: ${ip}`);
+    if (!visitor_id || (!fbc && !utm_source)) {
+      console.log(`[BET IDENTIFY] Visitor ID missing OR poor data, starting multi-criteria matching...`);
       
       // 1. TENTATIVA POR IP (Prioridade Alta)
       if (ip !== "unknown") {
@@ -276,8 +276,9 @@ export async function POST(request: NextRequest) {
 
       // 2. TENTATIVA FUZZY (Fallback se IP falhou)
       // Busca eventos recentes (1h) e compara OS/Device
-      if (!visitor_id) {
-        console.log(`[BET IDENTIFY] IP match failed. Trying Fuzzy UA match...`);
+      // Só tenta se ainda não tiver visitor_id ou se o visitor_id for o "fraco" e não achamos IP match
+      if ((!visitor_id || matchedBy === "direct") && matchedBy !== "ip_address") {
+        console.log(`[BET IDENTIFY] IP match failed/skipped. Trying Fuzzy UA match...`);
         
         const clientUA = parseUA(userAgent);
         
@@ -297,27 +298,18 @@ export async function POST(request: NextRequest) {
               const eventUAStr = event.metadata?.user_agent || "";
               const eventUA = parseUA(eventUAStr);
               
-              // Critérios de Match Fuzzy:
-              // 1. Mesmo SO (Obrigatório)
-              // 2. Mesma Versão Principal do SO (Obrigatório)
-              // 3. Mesmo Device (Obrigatório para Android)
-              
               let isMatch = false;
 
               if (clientUA.os === eventUA.os) {
-                // Verificar versão (primeiro número)
                 const clientMajor = clientUA.version.split(".")[0];
                 const eventMajor = eventUA.version.split(".")[0];
                 
                 if (clientMajor === eventMajor) {
                   if (clientUA.os === "Android") {
-                    // Android precisa bater o modelo (ex: SM-A546E)
                     if (clientUA.device === eventUA.device && clientUA.device !== "unknown") {
                       isMatch = true;
                     }
                   } else if (clientUA.os === "iOS") {
-                    // iOS basta bater a versão principal (ex: iOS 17)
-                    // pois modelos de iPhone são genéricos no UA
                     isMatch = true;
                   }
                 }
@@ -325,7 +317,7 @@ export async function POST(request: NextRequest) {
 
               if (isMatch) {
                 bestFuzzyMatch = event;
-                break; // Pegamos o mais recente que bateu
+                break; 
               }
             }
 
@@ -348,9 +340,6 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-    } else {
-      matchedBy = "direct";
-      console.log(`[BET IDENTIFY] visitor_id provided directly: ${visitor_id}`);
     }
 
     // Upsert: Se o email já existe, atualiza. Senão, cria novo.
