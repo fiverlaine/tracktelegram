@@ -212,102 +212,141 @@ export async function POST(request: NextRequest) {
 
     // ========================================
     // MATCHING ROBUSTO COM MÚLTIPLOS CRITÉRIOS
-    // Evita falsos positivos de CGNAT/IPs compartilhados
     // ========================================
-    if (!visitor_id) {
-      console.log(`[BET IDENTIFY] Visitor ID missing, starting multi-criteria matching...`);
-      console.log(`[BET IDENTIFY] Fingerprint data:`, { 
-        ip: ip !== "unknown" ? ip.substring(0, 10) + "..." : "unknown",
-        fingerprint, 
-        screen_resolution, 
-        timezone,
-        userAgent: userAgent ? userAgent.substring(0, 50) + "..." : "none"
-      });
-      
-      // Buscar TODOS os eventos recentes (últimas 24h) com mesmo IP
-      const { data: candidateEvents } = await supabase
-        .from("events")
-        .select("visitor_id, metadata")
-        .eq("metadata->>ip_address", ip)
-        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-        .order("created_at", { ascending: false })
-        .limit(20); // Pegar vários candidatos para scoring
+    
+    // Helper para extrair info básica do UA
+    const parseUA = (ua: string) => {
+      ua = ua || "";
+      let os = "unknown";
+      let version = "";
+      let device = "unknown";
 
-      if (candidateEvents && candidateEvents.length > 0) {
-        console.log(`[BET IDENTIFY] Found ${candidateEvents.length} candidate(s) with matching IP`);
+      if (ua.includes("iPhone OS")) {
+        os = "iOS";
+        const match = ua.match(/iPhone OS ([0-9_]+)/);
+        if (match) version = match[1].replace(/_/g, ".");
+        device = "iPhone";
+      } else if (ua.includes("Android")) {
+        os = "Android";
+        const match = ua.match(/Android ([0-9.]+)/);
+        if (match) version = match[1];
+        // Tentar pegar modelo (ex: SM-A065M)
+        const modelMatch = ua.match(/; ([^;]+) Build\//);
+        if (modelMatch) device = modelMatch[1].trim();
+      } else if (ua.includes("Windows")) {
+        os = "Windows";
+      } else if (ua.includes("Mac OS")) {
+        os = "MacOS";
+      }
+
+      return { os, version, device };
+    };
+
+    if (!visitor_id) {
+      console.log(`[BET IDENTIFY] Visitor ID missing. IP: ${ip}`);
+      
+      // 1. TENTATIVA POR IP (Prioridade Alta)
+      if (ip !== "unknown") {
+        const { data: ipEvents } = await supabase
+          .from("events")
+          .select("visitor_id, metadata")
+          .eq("metadata->>ip_address", ip)
+          .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        if (ipEvents && ipEvents.length > 0) {
+           // Match por IP é forte, usamos o mais recente
+           const match = ipEvents[0];
+           visitor_id = match.visitor_id;
+           matchedBy = "ip_address";
+           console.log(`[BET IDENTIFY] ✅ Match by IP: ${visitor_id}`);
+           
+           // Populate data
+           const meta = match.metadata || {};
+           if (!fbc && meta.fbc) fbc = meta.fbc;
+           if (!fbp && meta.fbp) fbp = meta.fbp;
+           if (!utm_source && meta.utm_source) utm_source = meta.utm_source;
+           if (!utm_medium && meta.utm_medium) utm_medium = meta.utm_medium;
+           if (!utm_campaign && meta.utm_campaign) utm_campaign = meta.utm_campaign;
+           if (!utm_content && meta.utm_content) utm_content = meta.utm_content;
+           if (!utm_term && meta.utm_term) utm_term = meta.utm_term;
+        }
+      }
+
+      // 2. TENTATIVA FUZZY (Fallback se IP falhou)
+      // Busca eventos recentes (1h) e compara OS/Device
+      if (!visitor_id) {
+        console.log(`[BET IDENTIFY] IP match failed. Trying Fuzzy UA match...`);
         
-        // Sistema de pontuação para cada candidato
-        let bestMatch: { visitor_id: string; metadata: any; score: number } | null = null;
+        const clientUA = parseUA(userAgent);
         
-        for (const event of candidateEvents) {
-          const meta = event.metadata || {};
-          let score = 1; // 1 ponto por ter o IP igual (já filtrado)
-          const matchDetails: string[] = ["ip"];
-          
-          // User Agent (muito discriminatório - navegador + versão + OS)
-          if (userAgent && meta.user_agent) {
-            // Comparar apenas a parte principal do UA (sem versões menores)
-            const normalizeUA = (ua: string) => ua.toLowerCase().replace(/[0-9]+\.[0-9]+\.[0-9]+/g, 'x.x.x');
-            if (normalizeUA(userAgent) === normalizeUA(meta.user_agent)) {
-              score += 3;
-              matchDetails.push("user_agent");
+        if (clientUA.os !== "unknown") {
+          // Buscar últimos 50 eventos (independente de IP)
+          const { data: recentEvents } = await supabase
+            .from("events")
+            .select("visitor_id, metadata, created_at")
+            .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString()) // Última 1h
+            .order("created_at", { ascending: false })
+            .limit(50);
+
+          if (recentEvents && recentEvents.length > 0) {
+            let bestFuzzyMatch = null;
+
+            for (const event of recentEvents) {
+              const eventUAStr = event.metadata?.user_agent || "";
+              const eventUA = parseUA(eventUAStr);
+              
+              // Critérios de Match Fuzzy:
+              // 1. Mesmo SO (Obrigatório)
+              // 2. Mesma Versão Principal do SO (Obrigatório)
+              // 3. Mesmo Device (Obrigatório para Android)
+              
+              let isMatch = false;
+
+              if (clientUA.os === eventUA.os) {
+                // Verificar versão (primeiro número)
+                const clientMajor = clientUA.version.split(".")[0];
+                const eventMajor = eventUA.version.split(".")[0];
+                
+                if (clientMajor === eventMajor) {
+                  if (clientUA.os === "Android") {
+                    // Android precisa bater o modelo (ex: SM-A546E)
+                    if (clientUA.device === eventUA.device && clientUA.device !== "unknown") {
+                      isMatch = true;
+                    }
+                  } else if (clientUA.os === "iOS") {
+                    // iOS basta bater a versão principal (ex: iOS 17)
+                    // pois modelos de iPhone são genéricos no UA
+                    isMatch = true;
+                  }
+                }
+              }
+
+              if (isMatch) {
+                bestFuzzyMatch = event;
+                break; // Pegamos o mais recente que bateu
+              }
+            }
+
+            if (bestFuzzyMatch) {
+              visitor_id = bestFuzzyMatch.visitor_id;
+              matchedBy = `fuzzy_ua:${clientUA.os}_${clientUA.version}`;
+              console.log(`[BET IDENTIFY] ✅ Fuzzy Match! ${visitor_id} (${matchedBy})`);
+              
+              const meta = bestFuzzyMatch.metadata || {};
+              if (!fbc && meta.fbc) fbc = meta.fbc;
+              if (!fbp && meta.fbp) fbp = meta.fbp;
+              if (!utm_source && meta.utm_source) utm_source = meta.utm_source;
+              if (!utm_medium && meta.utm_medium) utm_medium = meta.utm_medium;
+              if (!utm_campaign && meta.utm_campaign) utm_campaign = meta.utm_campaign;
+              if (!utm_content && meta.utm_content) utm_content = meta.utm_content;
+              if (!utm_term && meta.utm_term) utm_term = meta.utm_term;
+            } else {
+               console.log(`[BET IDENTIFY] No fuzzy match found in ${recentEvents.length} recent events.`);
             }
           }
-          
-          // Screen Resolution (bastante discriminatório)
-          if (screen_resolution && meta.screen_resolution === screen_resolution) {
-            score += 2;
-            matchDetails.push("screen");
-          }
-          
-          // Timezone (moderadamente discriminatório)
-          if (timezone && meta.timezone === timezone) {
-            score += 2;
-            matchDetails.push("timezone");
-          }
-          
-          // Fingerprint Hash (se disponível, muito preciso)
-          if (fingerprint && meta.fingerprint === fingerprint) {
-            score += 4;
-            matchDetails.push("fingerprint");
-          }
-          
-          // Language
-          if (language && meta.language === language) {
-            score += 1;
-            matchDetails.push("language");
-          }
-          
-          console.log(`[BET IDENTIFY] Candidate ${event.visitor_id.substring(0, 8)}... score: ${score} (${matchDetails.join(" + ")})`);
-          
-          if (!bestMatch || score > bestMatch.score) {
-            bestMatch = { visitor_id: event.visitor_id, metadata: meta, score };
-          }
         }
-        
-        // Só aceitar match se tiver score >= 4 (IP + pelo menos mais 2-3 critérios)
-        // Isso evita falsos positivos de CGNAT onde só o IP bate
-        const MIN_SCORE_THRESHOLD = 4;
-        
-        if (bestMatch && bestMatch.score >= MIN_SCORE_THRESHOLD) {
-          visitor_id = bestMatch.visitor_id;
-          matchedBy = `score:${bestMatch.score}`;
-          console.log(`[BET IDENTIFY] ✅ MATCH CONFIRMED! visitor_id: ${visitor_id}, score: ${bestMatch.score}`);
-          
-          // Recuperar outros dados se faltarem
-          const meta = bestMatch.metadata;
-          if (!fbc && meta.fbc) fbc = meta.fbc;
-          if (!fbp && meta.fbp) fbp = meta.fbp;
-          if (!utm_source && meta.utm_source) utm_source = meta.utm_source;
-          if (!utm_medium && meta.utm_medium) utm_medium = meta.utm_medium;
-          if (!utm_campaign && meta.utm_campaign) utm_campaign = meta.utm_campaign;
-          if (!utm_content && meta.utm_content) utm_content = meta.utm_content;
-          if (!utm_term && meta.utm_term) utm_term = meta.utm_term;
-        } else {
-          console.log(`[BET IDENTIFY] ❌ No confident match found. Best score: ${bestMatch?.score || 0} (threshold: ${MIN_SCORE_THRESHOLD})`);
-        }
-      } else {
-        console.log(`[BET IDENTIFY] No candidates found for IP: ${ip}`);
       }
     } else {
       matchedBy = "direct";
