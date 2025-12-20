@@ -132,18 +132,51 @@ async function sendCAPIEvent(
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // Tentar ler o body como texto primeiro para debug
+    const rawBody = await request.text();
+    console.log("[BET WEBHOOK] Raw body received:", rawBody);
     
-    console.log("[BET WEBHOOK] Received:", JSON.stringify(body));
+    if (!rawBody || rawBody.trim() === "") {
+      console.error("[BET WEBHOOK] Empty body received");
+      return NextResponse.json(
+        { success: false, error: "Body vazio recebido" },
+        { status: 400 }
+      );
+    }
+
+    let body;
+    try {
+      body = JSON.parse(rawBody);
+    } catch (parseError) {
+      console.error("[BET WEBHOOK] JSON parse error:", parseError);
+      return NextResponse.json(
+        { success: false, error: "JSON inválido", raw: rawBody.substring(0, 200) },
+        { status: 400 }
+      );
+    }
     
-    // Extrair dados do webhook (pode vir como array ou objeto)
-    const webhookData = Array.isArray(body) ? body[0]?.body || body[0] : body.body || body;
+    console.log("[BET WEBHOOK] Parsed body:", JSON.stringify(body));
     
-    const { email, phone, name, valor, status, transaction_status, currency } = webhookData;
+    // Extrair dados do webhook (pode vir como array ou objeto, ou direto)
+    let webhookData = body;
+    
+    // Se vier como array (formato N8N)
+    if (Array.isArray(body)) {
+      webhookData = body[0]?.body || body[0];
+    }
+    // Se vier com wrapper .body
+    else if (body.body && typeof body.body === 'object') {
+      webhookData = body.body;
+    }
+    
+    console.log("[BET WEBHOOK] Extracted data:", JSON.stringify(webhookData));
+    
+    const { email, phone, name, valor, status, transaction_status, currency } = webhookData || {};
 
     if (!email) {
+      console.error("[BET WEBHOOK] Email not found in:", JSON.stringify(webhookData));
       return NextResponse.json(
-        { success: false, error: "Email não encontrado no webhook" },
+        { success: false, error: "Email não encontrado no webhook", received: webhookData },
         { status: 400 }
       );
     }
