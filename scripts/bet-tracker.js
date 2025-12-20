@@ -11,11 +11,11 @@
  * IMPORTANTE: Substitua a URL do TRACKING_API pelo seu domínio real!
  * 
  * FUNCIONAMENTO:
- * 1. Quando o usuário entra na bet, lê vid/fbc/fbp da URL
+ * 1. Quando o usuário entra na bet, lê vid/fbc/fbp/fingerprint da URL
  * 2. Salva esses dados no localStorage do domínio da bet
  * 3. Quando o usuário clica em "Criar conta", captura o email e envia
- *    para o seu servidor junto com os dados de tracking
- * 4. Seu servidor faz o match email <-> visitor_id
+ *    para o seu servidor junto com os dados de tracking + fingerprint
+ * 4. Seu servidor faz o match usando múltiplos critérios (não só IP)
  */
 
 (function() {
@@ -54,22 +54,56 @@
         }
     }
 
-    // Capturar e salvar parâmetros da URL
+    // Gerar fingerprint do navegador (mesmo algoritmo do betia-tracker)
+    function generateFingerprint() {
+        const components = [];
+        
+        components.push(navigator.userAgent || '');
+        components.push(screen.width + 'x' + screen.height);
+        
+        try {
+            components.push(Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+        } catch (e) {
+            components.push('');
+        }
+        
+        components.push(navigator.language || '');
+        components.push(navigator.platform || '');
+        components.push(screen.colorDepth || '');
+        
+        const fingerprintString = components.join('|');
+        
+        let hash = 0;
+        for (let i = 0; i < fingerprintString.length; i++) {
+            const char = fingerprintString.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        
+        return Math.abs(hash).toString(36);
+    }
+
+    // Capturar e salvar parâmetros da URL (agora incluindo fingerprint)
     function captureUrlParams() {
-        const params = ['vid', 'fbc', 'fbp', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+        const params = [
+            'vid', 'fbc', 'fbp', 
+            'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+            'fp', 'ua', 'sr', 'tz', 'lang' // Novos params de fingerprint
+        ];
         
         params.forEach(function(param) {
             const value = getUrlParam(param);
             if (value) {
                 saveToStorage(param, value);
-                console.log('[BetTracker] Salvo:', param, '=', value);
+                console.log('[BetTracker] Salvo:', param, '=', value.substring(0, 30) + (value.length > 30 ? '...' : ''));
             }
         });
     }
 
-    // Obter todos os dados de tracking
+    // Obter todos os dados de tracking + fingerprint
     function getTrackingData() {
         return {
+            // Dados de tracking originais
             visitor_id: getFromStorage('vid') || getUrlParam('vid'),
             fbc: getFromStorage('fbc') || getUrlParam('fbc'),
             fbp: getFromStorage('fbp') || getUrlParam('fbp'),
@@ -78,6 +112,17 @@
             utm_campaign: getFromStorage('utm_campaign') || getUrlParam('utm_campaign'),
             utm_content: getFromStorage('utm_content') || getUrlParam('utm_content'),
             utm_term: getFromStorage('utm_term') || getUrlParam('utm_term'),
+            
+            // ======= FINGERPRINT PARA MATCHING ROBUSTO =======
+            // Se veio da URL (via betia-tracker), usa. Senão, gera aqui.
+            fingerprint: getFromStorage('fp') || getUrlParam('fp') || generateFingerprint(),
+            user_agent: getFromStorage('ua') || getUrlParam('ua') || navigator.userAgent,
+            screen_resolution: getFromStorage('sr') || getUrlParam('sr') || (screen.width + 'x' + screen.height),
+            timezone: getFromStorage('tz') || getUrlParam('tz') || (function() { 
+                try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } 
+                catch(e) { return ''; } 
+            })(),
+            language: getFromStorage('lang') || getUrlParam('lang') || navigator.language,
         };
     }
 
@@ -85,10 +130,13 @@
     function sendIdentification(email, phone) {
         const trackingData = getTrackingData();
         
-        // Só enviar se tiver pelo menos visitor_id ou fbc
+        // Log de debug - mostrar se temos dados suficientes para match
         if (!trackingData.visitor_id && !trackingData.fbc) {
-            console.log('[BetTracker] Sem dados de tracking, não enviando');
-            return;
+            console.log('[BetTracker] visitor_id/fbc ausentes. Usando fingerprint para match:', {
+                fingerprint: trackingData.fingerprint,
+                screen: trackingData.screen_resolution,
+                timezone: trackingData.timezone
+            });
         }
 
         const payload = {
@@ -97,7 +145,13 @@
             ...trackingData
         };
 
-        console.log('[BetTracker] Enviando identificação:', payload);
+        console.log('[BetTracker] Enviando identificação com fingerprint:', {
+            email: email,
+            has_vid: !!trackingData.visitor_id,
+            has_fbc: !!trackingData.fbc,
+            fingerprint: trackingData.fingerprint,
+            screen: trackingData.screen_resolution
+        });
 
         // Enviar de forma assíncrona (não bloqueia o cadastro)
         fetch(TRACKING_API, {
@@ -111,6 +165,9 @@
             return response.json();
         }).then(function(data) {
             console.log('[BetTracker] Resposta:', data);
+            if (data.matched_by) {
+                console.log('[BetTracker] Match feito por:', data.matched_by);
+            }
         }).catch(function(error) {
             console.error('[BetTracker] Erro:', error);
         });
@@ -164,7 +221,7 @@
 
     // Inicialização
     function init() {
-        console.log('[BetTracker] Inicializando...');
+        console.log('[BetTracker] Inicializando com suporte a fingerprint...');
         
         // 1. Capturar parâmetros da URL
         captureUrlParams();
@@ -172,7 +229,15 @@
         // 2. Configurar listener de cadastro
         setupCadastroListener();
         
-        console.log('[BetTracker] Dados de tracking:', getTrackingData());
+        // 3. Log dos dados disponíveis
+        const data = getTrackingData();
+        console.log('[BetTracker] Dados de tracking:', {
+            visitor_id: data.visitor_id || '(vazio)',
+            fbc: data.fbc ? '✓' : '✗',
+            fingerprint: data.fingerprint,
+            screen: data.screen_resolution,
+            timezone: data.timezone
+        });
     }
 
     // Executar

@@ -6,12 +6,13 @@
  * COMO USAR:
  * 1. Cole este script no <head> ou antes do </body> da página betia.io/codigo/
  * 2. Ele vai automaticamente decorar o botão "ACESSAR BETLIONPRO" com os 
- *    parâmetros de tracking (vid, fbc, fbp, utms)
+ *    parâmetros de tracking (vid, fbc, fbp, utms, fingerprint)
  * 
  * FUNCIONAMENTO:
  * - Lê os parâmetros de tracking do localStorage (salvos quando o usuário
  *   passou pela sua landing page com o script do TrackGram)
  * - Adiciona esses parâmetros na URL do botão que leva para a bet
+ * - Também adiciona dados de fingerprint para matching robusto
  * - Assim, quando o usuário chegar na bet, os parâmetros estarão na URL
  */
 
@@ -42,7 +43,47 @@
         return match ? match[2] : '';
     }
 
-    // Coletar todos os parâmetros de tracking
+    // Gerar fingerprint do navegador (dados estáveis que não mudam entre sessões)
+    function generateFingerprint() {
+        const components = [];
+        
+        // User Agent (navegador + versão + OS)
+        components.push(navigator.userAgent || '');
+        
+        // Resolução de tela
+        components.push(screen.width + 'x' + screen.height);
+        
+        // Timezone
+        try {
+            components.push(Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+        } catch (e) {
+            components.push('');
+        }
+        
+        // Idioma
+        components.push(navigator.language || '');
+        
+        // Plataforma
+        components.push(navigator.platform || '');
+        
+        // Cores da tela
+        components.push(screen.colorDepth || '');
+        
+        // Gerar hash simples do fingerprint
+        const fingerprintString = components.join('|');
+        
+        // Simple hash function (não precisa ser crypto-safe, é só para matching)
+        let hash = 0;
+        for (let i = 0; i < fingerprintString.length; i++) {
+            const char = fingerprintString.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        
+        return Math.abs(hash).toString(36);
+    }
+
+    // Coletar todos os parâmetros de tracking + fingerprint
     function getTrackingParams() {
         return {
             // Visitor ID (do TrackGram)
@@ -60,6 +101,17 @@
             utm_campaign: getUrlParam('utm_campaign') || getStoredValue('track_utm_campaign'),
             utm_content: getUrlParam('utm_content') || getStoredValue('track_utm_content'),
             utm_term: getUrlParam('utm_term') || getStoredValue('track_utm_term'),
+            
+            // ======= FINGERPRINT ROBUSTO =======
+            // Esses dados ajudam a fazer match mesmo sem visitor_id
+            fp: generateFingerprint(), // Hash do fingerprint
+            ua: navigator.userAgent || '', // User agent completo
+            sr: screen.width + 'x' + screen.height, // Screen resolution
+            tz: (function() { 
+                try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } 
+                catch(e) { return ''; } 
+            })(),
+            lang: navigator.language || '',
         };
     }
 
@@ -87,7 +139,7 @@
                     // Atualizar o href se mudou
                     if (link.getAttribute('href') !== url.toString()) {
                         link.setAttribute('href', url.toString());
-                        console.log('[BetiaTracker] Link decorado:', url.toString());
+                        console.log('[BetiaTracker] Link decorado com fingerprint:', url.toString().substring(0, 100) + '...');
                     }
                 } catch (e) {
                     // URL inválida, ignorar
@@ -114,7 +166,7 @@
             observer.observe(document.body, { childList: true, subtree: true });
         }
 
-        console.log('[BetiaTracker] Inicializado. Parâmetros:', getTrackingParams());
+        console.log('[BetiaTracker] Inicializado com fingerprint. Parâmetros:', getTrackingParams());
     }
 
     // Iniciar

@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    const {
+    let {
       email,
       phone,
       visitor_id,
@@ -176,6 +176,12 @@ export async function POST(request: NextRequest) {
       utm_campaign,
       utm_content,
       utm_term,
+      // ======= NOVOS CAMPOS DE FINGERPRINT =======
+      fingerprint,
+      user_agent: clientUserAgent,
+      screen_resolution,
+      timezone,
+      language,
     } = body;
 
     // Validação básica
@@ -192,11 +198,121 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Capturar IP e User-Agent
+    // Capturar IP e User-Agent do request
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() 
       || request.headers.get("x-real-ip") 
       || "unknown";
-    const userAgent = request.headers.get("user-agent") || "";
+    const serverUserAgent = request.headers.get("user-agent") || "";
+    
+    // Usar user_agent do cliente se disponível (mais preciso), senão do servidor
+    const userAgent = clientUserAgent || serverUserAgent;
+
+    // Variável para registrar como o match foi feito
+    let matchedBy: string | null = null;
+
+    // ========================================
+    // MATCHING ROBUSTO COM MÚLTIPLOS CRITÉRIOS
+    // Evita falsos positivos de CGNAT/IPs compartilhados
+    // ========================================
+    if (!visitor_id) {
+      console.log(`[BET IDENTIFY] Visitor ID missing, starting multi-criteria matching...`);
+      console.log(`[BET IDENTIFY] Fingerprint data:`, { 
+        ip: ip !== "unknown" ? ip.substring(0, 10) + "..." : "unknown",
+        fingerprint, 
+        screen_resolution, 
+        timezone,
+        userAgent: userAgent ? userAgent.substring(0, 50) + "..." : "none"
+      });
+      
+      // Buscar TODOS os eventos recentes (últimas 24h) com mesmo IP
+      const { data: candidateEvents } = await supabase
+        .from("events")
+        .select("visitor_id, metadata")
+        .eq("metadata->>ip_address", ip)
+        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .order("created_at", { ascending: false })
+        .limit(20); // Pegar vários candidatos para scoring
+
+      if (candidateEvents && candidateEvents.length > 0) {
+        console.log(`[BET IDENTIFY] Found ${candidateEvents.length} candidate(s) with matching IP`);
+        
+        // Sistema de pontuação para cada candidato
+        let bestMatch: { visitor_id: string; metadata: any; score: number } | null = null;
+        
+        for (const event of candidateEvents) {
+          const meta = event.metadata || {};
+          let score = 1; // 1 ponto por ter o IP igual (já filtrado)
+          const matchDetails: string[] = ["ip"];
+          
+          // User Agent (muito discriminatório - navegador + versão + OS)
+          if (userAgent && meta.user_agent) {
+            // Comparar apenas a parte principal do UA (sem versões menores)
+            const normalizeUA = (ua: string) => ua.toLowerCase().replace(/[0-9]+\.[0-9]+\.[0-9]+/g, 'x.x.x');
+            if (normalizeUA(userAgent) === normalizeUA(meta.user_agent)) {
+              score += 3;
+              matchDetails.push("user_agent");
+            }
+          }
+          
+          // Screen Resolution (bastante discriminatório)
+          if (screen_resolution && meta.screen_resolution === screen_resolution) {
+            score += 2;
+            matchDetails.push("screen");
+          }
+          
+          // Timezone (moderadamente discriminatório)
+          if (timezone && meta.timezone === timezone) {
+            score += 2;
+            matchDetails.push("timezone");
+          }
+          
+          // Fingerprint Hash (se disponível, muito preciso)
+          if (fingerprint && meta.fingerprint === fingerprint) {
+            score += 4;
+            matchDetails.push("fingerprint");
+          }
+          
+          // Language
+          if (language && meta.language === language) {
+            score += 1;
+            matchDetails.push("language");
+          }
+          
+          console.log(`[BET IDENTIFY] Candidate ${event.visitor_id.substring(0, 8)}... score: ${score} (${matchDetails.join(" + ")})`);
+          
+          if (!bestMatch || score > bestMatch.score) {
+            bestMatch = { visitor_id: event.visitor_id, metadata: meta, score };
+          }
+        }
+        
+        // Só aceitar match se tiver score >= 4 (IP + pelo menos mais 2-3 critérios)
+        // Isso evita falsos positivos de CGNAT onde só o IP bate
+        const MIN_SCORE_THRESHOLD = 4;
+        
+        if (bestMatch && bestMatch.score >= MIN_SCORE_THRESHOLD) {
+          visitor_id = bestMatch.visitor_id;
+          matchedBy = `score:${bestMatch.score}`;
+          console.log(`[BET IDENTIFY] ✅ MATCH CONFIRMED! visitor_id: ${visitor_id}, score: ${bestMatch.score}`);
+          
+          // Recuperar outros dados se faltarem
+          const meta = bestMatch.metadata;
+          if (!fbc && meta.fbc) fbc = meta.fbc;
+          if (!fbp && meta.fbp) fbp = meta.fbp;
+          if (!utm_source && meta.utm_source) utm_source = meta.utm_source;
+          if (!utm_medium && meta.utm_medium) utm_medium = meta.utm_medium;
+          if (!utm_campaign && meta.utm_campaign) utm_campaign = meta.utm_campaign;
+          if (!utm_content && meta.utm_content) utm_content = meta.utm_content;
+          if (!utm_term && meta.utm_term) utm_term = meta.utm_term;
+        } else {
+          console.log(`[BET IDENTIFY] ❌ No confident match found. Best score: ${bestMatch?.score || 0} (threshold: ${MIN_SCORE_THRESHOLD})`);
+        }
+      } else {
+        console.log(`[BET IDENTIFY] No candidates found for IP: ${ip}`);
+      }
+    } else {
+      matchedBy = "direct";
+      console.log(`[BET IDENTIFY] visitor_id provided directly: ${visitor_id}`);
+    }
 
     // Upsert: Se o email já existe, atualiza. Senão, cria novo.
     const { data, error } = await supabase
@@ -340,7 +456,9 @@ export async function POST(request: NextRequest) {
         success: true, 
         message: "Lead identificado",
         capi_sent: capiSent,
-        event: "Cadastrou_bet"
+        event: "Cadastrou_bet",
+        matched_by: matchedBy,
+        visitor_id: visitor_id || null,
       },
       { headers: corsHeaders }
     );
