@@ -224,41 +224,34 @@ export async function POST(request: NextRequest) {
     }
 
     // ========================================
-    // ENVIAR EVENTO LEAD PARA FACEBOOK CAPI
+    // ENVIAR EVENTO PARA FACEBOOK CAPI
+    // Pixel fixo: Lucas Magnotti
     // ========================================
     let capiSent = false;
     
     if (fbc) {
-      // Buscar pixel do banco (pega o primeiro disponível)
-      // Você pode mudar para buscar um pixel específico se preferir
-      const { data: pixel } = await supabase
-        .from("pixels")
-        .select("pixel_id, access_token")
-        .limit(1)
-        .single();
+      // Pixel fixo - Lucas Magnotti
+      const PIXEL_ID = "1254338099849797";
+      const ACCESS_TOKEN = "EAAkK1oRLUisBQMhcDyobaYzlnZBNODTNWrmVH7FvWTQiHlmZBl7MvRKNvKoJ4uXx17v92TZC88oxDbnU9eZA84zDmyuC2xiTcZCgLXX3h95plBYp7kfRz8Ne0ZBiBuQugGaL3aOVj0HXuaURN17S97ZA0L5ZBLlZBf9ruTS3faC7U40qgtnYxjS9QMpwLxbtqzQZDZD";
 
-      if (pixel?.pixel_id && pixel?.access_token) {
-        const capiResult = await sendCAPIEvent(
-          pixel.pixel_id,
-          pixel.access_token,
-          "Cadastrou_bet", // Evento personalizado de cadastro na bet
-          {
-            email: email,
-            phone: phone,
-            fbc: fbc,
-            fbp: fbp,
-            ip: ip,
-            userAgent: userAgent,
-            currency: "BRL",
-            value: 0, // Lead não tem valor
-          }
-        );
-        
-        capiSent = capiResult?.events_received > 0;
-        console.log(`[BET IDENTIFY] Cadastrou_bet event sent for ${email}, success: ${capiSent}`);
-      } else {
-        console.log("[BET IDENTIFY] No pixel found in database, skipping CAPI");
-      }
+      const capiResult = await sendCAPIEvent(
+        PIXEL_ID,
+        ACCESS_TOKEN,
+        "Cadastrou_bet", // Evento personalizado de cadastro na bet
+        {
+          email: email,
+          phone: phone,
+          fbc: fbc,
+          fbp: fbp,
+          ip: ip,
+          userAgent: userAgent,
+          currency: "BRL",
+          value: 0, // Cadastro não tem valor
+        }
+      );
+      
+      capiSent = capiResult?.events_received > 0;
+      console.log(`[BET IDENTIFY] Cadastrou_bet event sent for ${email}, success: ${capiSent}`);
     } else {
       console.log(`[BET IDENTIFY] No fbc for ${email}, skipping CAPI`);
     }

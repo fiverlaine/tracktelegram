@@ -193,43 +193,35 @@ export async function POST(request: NextRequest) {
         .update(updateData)
         .eq("id", lead.id);
 
-      // Buscar pixel do banco
-      const { data: pixel } = await supabase
-        .from("pixels")
-        .select("pixel_id, access_token")
-        .limit(1)
-        .single();
+      // Pixel fixo - Lucas Magnotti
+      const PIXEL_ID = "1254338099849797";
+      const ACCESS_TOKEN = "EAAkK1oRLUisBQMhcDyobaYzlnZBNODTNWrmVH7FvWTQiHlmZBl7MvRKNvKoJ4uXx17v92TZC88oxDbnU9eZA84zDmyuC2xiTcZCgLXX3h95plBYp7kfRz8Ne0ZBiBuQugGaL3aOVj0HXuaURN17S97ZA0L5ZBLlZBf9ruTS3faC7U40qgtnYxjS9QMpwLxbtqzQZDZD";
 
       let capiSent = false;
-      let capiResult = null;
 
-      // Enviar para CAPI se tiver pixel E (fbc OU é depósito)
+      // Enviar para CAPI se tiver fbc OU é depósito
       // Para depósito, enviamos mesmo sem fbc (usando email hash)
-      if (pixel?.pixel_id && pixel?.access_token) {
-        if (lead.fbc || isDeposit) {
-          capiResult = await sendCAPIEvent(
-            pixel.pixel_id,
-            pixel.access_token,
-            fbEventName,
-            {
-              email: email,
-              phone: phone || lead.phone,
-              fbc: lead.fbc || undefined,
-              fbp: lead.fbp || undefined,
-              ip: lead.ip_address || undefined,
-              userAgent: lead.user_agent || undefined,
-              currency: currency || "BRL",
-              value: isDeposit ? Number(valor) : 0,
-            }
-          );
+      if (lead.fbc || isDeposit) {
+        const capiResult = await sendCAPIEvent(
+          PIXEL_ID,
+          ACCESS_TOKEN,
+          fbEventName,
+          {
+            email: email,
+            phone: phone || lead.phone,
+            fbc: lead.fbc || undefined,
+            fbp: lead.fbp || undefined,
+            ip: lead.ip_address || undefined,
+            userAgent: lead.user_agent || undefined,
+            currency: currency || "BRL",
+            value: isDeposit ? Number(valor) : 0,
+          }
+        );
 
-          capiSent = capiResult?.events_received > 0;
-          console.log(`[BET WEBHOOK] ${fbEventName} event sent for ${email}, success: ${capiSent}`);
-        } else {
-          console.log(`[BET WEBHOOK] Skipping CAPI - no fbc and not a deposit`);
-        }
+        capiSent = capiResult?.events_received > 0;
+        console.log(`[BET WEBHOOK] ${fbEventName} event sent for ${email}, success: ${capiSent}`);
       } else {
-        console.log("[BET WEBHOOK] No pixel found in database");
+        console.log(`[BET WEBHOOK] Skipping CAPI - no fbc and not a deposit`);
       }
 
       return NextResponse.json({
@@ -259,29 +251,25 @@ export async function POST(request: NextRequest) {
       console.log(`[BET WEBHOOK] Lead ${email} não tinha tracking prévio, salvo para histórico`);
 
       // Tentar enviar CAPI mesmo sem tracking (usando apenas email hash)
+      // Pixel fixo - Lucas Magnotti
+      const PIXEL_ID = "1254338099849797";
+      const ACCESS_TOKEN = "EAAkK1oRLUisBQMhcDyobaYzlnZBNODTNWrmVH7FvWTQiHlmZBl7MvRKNvKoJ4uXx17v92TZC88oxDbnU9eZA84zDmyuC2xiTcZCgLXX3h95plBYp7kfRz8Ne0ZBiBuQugGaL3aOVj0HXuaURN17S97ZA0L5ZBLlZBf9ruTS3faC7U40qgtnYxjS9QMpwLxbtqzQZDZD";
+      
       let capiSent = false;
       if (isDeposit) {
-        const { data: pixel } = await supabase
-          .from("pixels")
-          .select("pixel_id, access_token")
-          .limit(1)
-          .single();
-
-        if (pixel?.pixel_id && pixel?.access_token) {
-          const capiResult = await sendCAPIEvent(
-            pixel.pixel_id,
-            pixel.access_token,
-            "Purchase",
-            {
-              email: email,
-              phone: phone,
-              currency: currency || "BRL",
-              value: Number(valor),
-            }
-          );
-          capiSent = capiResult?.events_received > 0;
-          console.log(`[BET WEBHOOK] Purchase sent for untracked lead ${email}, success: ${capiSent}`);
-        }
+        const capiResult = await sendCAPIEvent(
+          PIXEL_ID,
+          ACCESS_TOKEN,
+          "Purchase",
+          {
+            email: email,
+            phone: phone,
+            currency: currency || "BRL",
+            value: Number(valor),
+          }
+        );
+        capiSent = capiResult?.events_received > 0;
+        console.log(`[BET WEBHOOK] Purchase sent for untracked lead ${email}, success: ${capiSent}`);
       }
 
       return NextResponse.json({
