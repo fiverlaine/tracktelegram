@@ -54,6 +54,12 @@
         }
     }
 
+// Função para ler cookies (fallback se não vier na URL)
+    function getCookie(name) {
+        var v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+        return v ? v[2] : null;
+    }
+
     // Gerar fingerprint do navegador (mesmo algoritmo do betia-tracker)
     function generateFingerprint() {
         const components = [];
@@ -100,13 +106,18 @@
         });
     }
 
-    // Obter todos os dados de tracking + fingerprint
+    // Obter todos os dados de tracking + fingerprint + cookies
     function getTrackingData() {
+        // Tentar pegar fbc/fbp dos cookies se não tiver no storage/URL
+        const cookieFbc = getCookie('_fbc');
+        const cookieFbp = getCookie('_fbp');
+        
         return {
-            // Dados de tracking originais
+            // Dados de tracking originais (Prioridade: URL > Storage > Cookie)
             visitor_id: getFromStorage('vid') || getUrlParam('vid'),
-            fbc: getFromStorage('fbc') || getUrlParam('fbc'),
-            fbp: getFromStorage('fbp') || getUrlParam('fbp'),
+            fbc: getFromStorage('fbc') || getUrlParam('fbc') || cookieFbc,
+            fbp: getFromStorage('fbp') || getUrlParam('fbp') || cookieFbp,
+            
             utm_source: getFromStorage('utm_source') || getUrlParam('utm_source'),
             utm_medium: getFromStorage('utm_medium') || getUrlParam('utm_medium'),
             utm_campaign: getFromStorage('utm_campaign') || getUrlParam('utm_campaign'),
@@ -132,10 +143,9 @@
         
         // Log de debug - mostrar se temos dados suficientes para match
         if (!trackingData.visitor_id && !trackingData.fbc) {
-            console.log('[BetTracker] visitor_id/fbc ausentes. Usando fingerprint para match:', {
-                fingerprint: trackingData.fingerprint,
-                screen: trackingData.screen_resolution,
-                timezone: trackingData.timezone
+            console.log('[BetTracker] visitor_id/fbc ausentes. Usando fingerprint e cookies para match:', {
+                fbp: trackingData.fbp,
+                fingerprint: trackingData.fingerprint
             });
         }
 
@@ -145,12 +155,12 @@
             ...trackingData
         };
 
-        console.log('[BetTracker] Enviando identificação com fingerprint:', {
+        console.log('[BetTracker] Enviando identificação completa:', {
             email: email,
             has_vid: !!trackingData.visitor_id,
             has_fbc: !!trackingData.fbc,
-            fingerprint: trackingData.fingerprint,
-            screen: trackingData.screen_resolution
+            has_fbp: !!trackingData.fbp,
+            fingerprint: trackingData.fingerprint
         });
 
         // Enviar de forma assíncrona (não bloqueia o cadastro)
@@ -221,7 +231,7 @@
 
     // Inicialização
     function init() {
-        console.log('[BetTracker] Inicializando com suporte a fingerprint...');
+        console.log('[BetTracker] Inicializando com suporte avançado (Cookies + Fingerprint)...');
         
         // 1. Capturar parâmetros da URL
         captureUrlParams();
@@ -233,10 +243,9 @@
         const data = getTrackingData();
         console.log('[BetTracker] Dados de tracking:', {
             visitor_id: data.visitor_id || '(vazio)',
-            fbc: data.fbc ? '✓' : '✗',
+            fbc: data.fbc ? '✓ (Cookie/URL)' : '✗',
+            fbp: data.fbp ? '✓ (Cookie/URL)' : '✗',
             fingerprint: data.fingerprint,
-            screen: data.screen_resolution,
-            timezone: data.timezone
         });
     }
 

@@ -34,6 +34,7 @@ async function sendCAPIEvent(
   eventData: {
     email?: string;
     phone?: string;
+
     fbc?: string;
     fbp?: string;
     ip?: string;
@@ -60,6 +61,8 @@ async function sendCAPIEvent(
   if (eventData.phone) {
     userData.ph = [hashSHA256(eventData.phone.replace(/\D/g, ""))];
   }
+
+
   if (eventData.fbc) {
     userData.fbc = eventData.fbc;
   }
@@ -117,21 +120,16 @@ async function sendCAPIEvent(
     console.log(`[CAPI] ========================================`);
     console.log(`[CAPI] Sending ${eventName} event`);
     console.log(`[CAPI] Pixel: ${pixelId}`);
-    console.log(`[CAPI] User Data (raw):`, {
-      email: eventData.email,
-      phone: eventData.phone,
-      fbc: eventData.fbc ? "✓ presente" : "✗ ausente",
-      fbp: eventData.fbp ? "✓ presente" : "✗ ausente",
-      ip: eventData.ip,
-      city: eventData.city || "✗ ausente",
-      state: eventData.state || "✗ ausente",
-      country: eventData.country || "✗ ausente",
-      postalCode: eventData.postalCode || "✗ ausente",
-      externalId: eventData.externalId ? "✓ presente" : "✗ ausente",
-    });
-    console.log(`[CAPI] Custom Data:`, {
-      currency: eventData.currency || "BRL",
-      value: eventData.value || 0,
+    console.log(`[CAPI] User Data (resumo):`, {
+      em: !!eventData.email,
+      ph: !!eventData.phone,
+
+      fbc: !!eventData.fbc,
+      fbp: !!eventData.fbp,
+      geo: {
+          city: !!eventData.city,
+          state: !!eventData.state
+      }
     });
     console.log(`[CAPI] ========================================`);
     
@@ -142,7 +140,7 @@ async function sendCAPIEvent(
     });
     const result = await response.json();
     
-    console.log(`[CAPI] Response:`, JSON.stringify(result));
+    // console.log(`[CAPI] Response:`, JSON.stringify(result));
     
     if (result.error) {
       console.error(`[CAPI] ERROR:`, result.error);
@@ -168,6 +166,7 @@ export async function POST(request: NextRequest) {
     let {
       email,
       phone,
+
       visitor_id,
       fbc,
       fbp,
@@ -192,6 +191,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+
+
     // Supabase client com service role (acesso total)
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -204,11 +205,17 @@ export async function POST(request: NextRequest) {
       || "unknown";
     const serverUserAgent = request.headers.get("user-agent") || "";
     
+    // GeoIP Fallback (Vercel Headers)
+    const vercelCity = request.headers.get("x-vercel-ip-city");
+    const vercelRegion = request.headers.get("x-vercel-ip-country-region");
+    const vercelCountry = request.headers.get("x-vercel-ip-country");
+
     // Usar user_agent do cliente se disponível (mais preciso), senão do servidor
     const userAgent = clientUserAgent || serverUserAgent;
 
     // Variável para registrar como o match foi feito
     let matchedBy: string | null = null;
+    let matchedEvent: any = null;
 
     // ========================================
     // MATCHING ROBUSTO COM MÚLTIPLOS CRITÉRIOS
@@ -243,7 +250,7 @@ export async function POST(request: NextRequest) {
     };
 
     if (!visitor_id) {
-      console.log(`[BET IDENTIFY] Visitor ID missing. IP: ${ip}`);
+    //   console.log(`[BET IDENTIFY] Visitor ID missing. IP: ${ip}`);
       
       // 1. TENTATIVA POR IP (Prioridade Alta)
       if (ip !== "unknown") {
@@ -256,33 +263,23 @@ export async function POST(request: NextRequest) {
           .limit(5);
 
         if (ipEvents && ipEvents.length > 0) {
-           // Match por IP é forte, usamos o mais recente
            const match = ipEvents[0];
            visitor_id = match.visitor_id;
            matchedBy = "ip_address";
-           console.log(`[BET IDENTIFY] ✅ Match by IP: ${visitor_id}`);
-           
-           // Populate data
-           const meta = match.metadata || {};
-           if (!fbc && meta.fbc) fbc = meta.fbc;
-           if (!fbp && meta.fbp) fbp = meta.fbp;
-           if (!utm_source && meta.utm_source) utm_source = meta.utm_source;
-           if (!utm_medium && meta.utm_medium) utm_medium = meta.utm_medium;
-           if (!utm_campaign && meta.utm_campaign) utm_campaign = meta.utm_campaign;
-           if (!utm_content && meta.utm_content) utm_content = meta.utm_content;
-           if (!utm_term && meta.utm_term) utm_term = meta.utm_term;
+           matchedEvent = match;
+           // console.log(`[BET IDENTIFY] ✅ Match by IP: ${visitor_id}`);
         }
       }
 
       // 2. TENTATIVA FUZZY (Fallback se IP falhou)
       // Busca eventos recentes (1h) e compara OS/Device
       if (!visitor_id) {
-        console.log(`[BET IDENTIFY] IP match failed. Trying Fuzzy UA match...`);
+        // console.log(`[BET IDENTIFY] IP match failed. Trying Fuzzy UA match...`);
         
         const clientUA = parseUA(userAgent);
         
         if (clientUA.os !== "unknown") {
-          // Buscar últimos 50 eventos (independente de IP)
+          // Buscar últimos 50 eventos
           const { data: recentEvents } = await supabase
             .from("events")
             .select("visitor_id, metadata, created_at")
@@ -297,27 +294,16 @@ export async function POST(request: NextRequest) {
               const eventUAStr = event.metadata?.user_agent || "";
               const eventUA = parseUA(eventUAStr);
               
-              // Critérios de Match Fuzzy:
-              // 1. Mesmo SO (Obrigatório)
-              // 2. Mesma Versão Principal do SO (Obrigatório)
-              // 3. Mesmo Device (Obrigatório para Android)
-              
               let isMatch = false;
 
               if (clientUA.os === eventUA.os) {
-                // Verificar versão (primeiro número)
                 const clientMajor = clientUA.version.split(".")[0];
                 const eventMajor = eventUA.version.split(".")[0];
                 
                 if (clientMajor === eventMajor) {
                   if (clientUA.os === "Android") {
-                    // Android precisa bater o modelo (ex: SM-A546E)
-                    if (clientUA.device === eventUA.device && clientUA.device !== "unknown") {
-                      isMatch = true;
-                    }
+                    if (clientUA.device === eventUA.device && clientUA.device !== "unknown") isMatch = true;
                   } else if (clientUA.os === "iOS") {
-                    // iOS basta bater a versão principal (ex: iOS 17)
-                    // pois modelos de iPhone são genéricos no UA
                     isMatch = true;
                   }
                 }
@@ -332,28 +318,72 @@ export async function POST(request: NextRequest) {
             if (bestFuzzyMatch) {
               visitor_id = bestFuzzyMatch.visitor_id;
               matchedBy = `fuzzy_ua:${clientUA.os}_${clientUA.version}`;
-              console.log(`[BET IDENTIFY] ✅ Fuzzy Match! ${visitor_id} (${matchedBy})`);
-              
-              const meta = bestFuzzyMatch.metadata || {};
-              if (!fbc && meta.fbc) fbc = meta.fbc;
-              if (!fbp && meta.fbp) fbp = meta.fbp;
-              if (!utm_source && meta.utm_source) utm_source = meta.utm_source;
-              if (!utm_medium && meta.utm_medium) utm_medium = meta.utm_medium;
-              if (!utm_campaign && meta.utm_campaign) utm_campaign = meta.utm_campaign;
-              if (!utm_content && meta.utm_content) utm_content = meta.utm_content;
-              if (!utm_term && meta.utm_term) utm_term = meta.utm_term;
-            } else {
-               console.log(`[BET IDENTIFY] No fuzzy match found in ${recentEvents.length} recent events.`);
+              matchedEvent = bestFuzzyMatch;
+            //   console.log(`[BET IDENTIFY] ✅ Fuzzy Match! ${visitor_id} (${matchedBy})`);
             }
           }
         }
       }
     } else {
       matchedBy = "direct";
-      console.log(`[BET IDENTIFY] visitor_id provided directly: ${visitor_id}`);
+      // console.log(`[BET IDENTIFY] visitor_id provided directly: ${visitor_id}`);
+      
+      // Buscar evento original para pegar metadados, mesmo vindo direto da URL
+      if (!matchedEvent) {
+          const { data: originalEvent } = await supabase
+            .from("events")
+            .select("metadata")
+            .eq("visitor_id", visitor_id)
+            .limit(1)
+            .single();
+            
+          if (originalEvent) matchedEvent = originalEvent;
+      }
     }
 
-    // Upsert: Se o email já existe, atualiza. Senão, cria novo.
+    // Se houve match/evento encontrado, preencher dados faltantes
+    if (matchedEvent) {
+       const meta = matchedEvent.metadata || {};
+       if (!fbc && meta.fbc) fbc = meta.fbc;
+       if (!fbp && meta.fbp) fbp = meta.fbp;
+       if (!utm_source && meta.utm_source) utm_source = meta.utm_source;
+       if (!utm_medium && meta.utm_medium) utm_medium = meta.utm_medium;
+       if (!utm_campaign && meta.utm_campaign) utm_campaign = meta.utm_campaign;
+    }
+
+    // ========================================
+    // GEOLOCALIZAÇÃO - FALLBACK ROBUSTO
+    // ========================================
+    let geoData: {
+      city?: string;
+      state?: string;
+      country?: string;
+      postalCode?: string;
+    } = {};
+
+    // 1. Tentar pegar do evento original (se houver)
+    if (matchedEvent?.metadata) {
+        const meta = matchedEvent.metadata;
+        geoData = {
+          city: meta.city,
+          state: meta.region || meta.state,
+          country: meta.country,
+          postalCode: meta.postal_code,
+        };
+    }
+
+    // 2. Se não encontrou no evento, usar headers da Vercel (IP atual)
+    if (!geoData.city && vercelCity) {
+        console.log(`[BET IDENTIFY] Usando Vercel Headers para GeoIP Fallback: ${vercelCity}, ${vercelRegion}`);
+        geoData = {
+            city: decodeURIComponent(vercelCity),
+            state: vercelRegion ? decodeURIComponent(vercelRegion) : undefined,
+            country: vercelCountry ? decodeURIComponent(vercelCountry) : undefined,
+        };
+    }
+
+    // Upsert: Salvar todo o conhecimento acumulado na tabela bet_leads
+    // para ser usado depois no Webhook de compra
     const { data, error } = await supabase
       .from("bet_leads")
       .upsert(
@@ -368,9 +398,16 @@ export async function POST(request: NextRequest) {
           utm_campaign: utm_campaign || null,
           utm_content: utm_content || null,
           utm_term: utm_term || null,
+          
+          // Dados enriquecidos
+          city: geoData.city || null,
+          state: geoData.state || null,
+          country: geoData.country || null,
+          postal_code: geoData.postalCode || null,
+          
           ip_address: ip,
           user_agent: userAgent,
-          status: "registered", // Mudou para registered pois está cadastrando
+          status: "registered",
           updated_at: new Date().toISOString(),
         },
         {
@@ -382,20 +419,19 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      // Se der erro de conflito, tenta update simples
-      if (error.code === "23505") {
+      if (error.code === "23505") { // Conflito de chave única, fallback para update
         await supabase
           .from("bet_leads")
           .update({
+            // Atualizar apenas o que pode ter mudado ou enriquecido
             phone: phone || undefined,
             visitor_id: visitor_id || undefined,
             fbc: fbc || undefined,
             fbp: fbp || undefined,
-            utm_source: utm_source || undefined,
-            utm_medium: utm_medium || undefined,
-            utm_campaign: utm_campaign || undefined,
-            utm_content: utm_content || undefined,
-            utm_term: utm_term || undefined,
+            city: geoData.city || undefined,
+            state: geoData.state || undefined,
+            country: geoData.country || undefined,
+            postal_code: geoData.postalCode || undefined,
             ip_address: ip,
             user_agent: userAgent,
             status: "registered",
@@ -407,57 +443,13 @@ export async function POST(request: NextRequest) {
     }
 
     // ========================================
-    // BUSCAR DADOS ORIGINAIS DA TABELA EVENTS
-    // (cidade, estado, país, CEP coletados na presell)
-    // ========================================
-    let geoData: {
-      city?: string;
-      state?: string;
-      country?: string;
-      postalCode?: string;
-    } = {};
-
-    if (visitor_id) {
-      const { data: originalEvent } = await supabase
-        .from("events")
-        .select("metadata")
-        .eq("visitor_id", visitor_id)
-        .not("metadata", "is", null)
-        .limit(1)
-        .single();
-
-      if (originalEvent?.metadata) {
-        const meta = originalEvent.metadata as Record<string, any>;
-        geoData = {
-          city: meta.city,
-          state: meta.region || meta.state,
-          country: meta.country,
-          postalCode: meta.postal_code,
-        };
-        console.log(`[BET IDENTIFY] Found geo data from events:`, geoData);
-
-        // Atualizar bet_leads com os dados de geo
-        if (geoData.city || geoData.state || geoData.country || geoData.postalCode) {
-          await supabase
-            .from("bet_leads")
-            .update({
-              city: geoData.city || undefined,
-              state: geoData.state || undefined,
-              country: geoData.country || undefined,
-              postal_code: geoData.postalCode || undefined,
-            })
-            .eq("email", email.toLowerCase().trim());
-        }
-      }
-    }
-
-    // ========================================
     // ENVIAR EVENTO PARA FACEBOOK CAPI
-    // Pixel fixo: Lucas Magnotti
     // ========================================
     let capiSent = false;
     
-    if (fbc) {
+    // Agora enviamos SEMPRE, pois temos enriquecimento via GeoIP e Cookies
+    // que aumentam muito a chance do Facebook fazer match
+    if (email) {
       // Pixel fixo - Lucas Magnotti
       const PIXEL_ID = "1254338099849797";
       const ACCESS_TOKEN = "EAAkK1oRLUisBQMhcDyobaYzlnZBNODTNWrmVH7FvWTQiHlmZBl7MvRKNvKoJ4uXx17v92TZC88oxDbnU9eZA84zDmyuC2xiTcZCgLXX3h95plBYp7kfRz8Ne0ZBiBuQugGaL3aOVj0HXuaURN17S97ZA0L5ZBLlZBf9ruTS3faC7U40qgtnYxjS9QMpwLxbtqzQZDZD";
@@ -465,17 +457,18 @@ export async function POST(request: NextRequest) {
       const capiResult = await sendCAPIEvent(
         PIXEL_ID,
         ACCESS_TOKEN,
-        "Cadastrou_bet", // Evento personalizado de cadastro na bet
+        "Cadastrou_bet", 
         {
           email: email,
           phone: phone,
+
           fbc: fbc,
           fbp: fbp,
           ip: ip,
           userAgent: userAgent,
           currency: "BRL",
-          value: 0, // Cadastro não tem valor
-          // Dados de geolocalização
+          value: 0, 
+          // Dados de geolocalização completos (Match ou Fallback)
           city: geoData.city,
           state: geoData.state,
           country: geoData.country,
@@ -485,9 +478,6 @@ export async function POST(request: NextRequest) {
       );
       
       capiSent = capiResult?.events_received > 0;
-      console.log(`[BET IDENTIFY] Cadastrou_bet event sent for ${email}, success: ${capiSent}`);
-    } else {
-      console.log(`[BET IDENTIFY] No fbc for ${email}, skipping CAPI`);
     }
 
     return NextResponse.json(
@@ -498,6 +488,7 @@ export async function POST(request: NextRequest) {
         event: "Cadastrou_bet",
         matched_by: matchedBy,
         visitor_id: visitor_id || null,
+        geo_source: geoData.city ? (matchedEvent ? "match" : "vercel_header") : "none"
       },
       { headers: corsHeaders }
     );
