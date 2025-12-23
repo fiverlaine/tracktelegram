@@ -43,6 +43,30 @@
         return match ? match[2] : '';
     }
 
+    // ======= CORREÇÃO CRÍTICA: Gerar fbc a partir do fbclid =======
+    // Conforme documentação Meta CAPI:
+    // "Se você não tem o cookie _fbc, o valor de fbc é: fb.1.<timestamp_ms>.<fbclid>"
+    function generateFbc() {
+        // 1. Tentar pegar do cookie primeiro (prioridade)
+        const cookieFbc = getCookie('_fbc');
+        if (cookieFbc) return cookieFbc;
+        
+        // 2. Tentar pegar do storage
+        const storedFbc = getStoredValue('_fbc');
+        if (storedFbc) return storedFbc;
+        
+        // 3. Se não tem cookie/_fbc, mas tem fbclid na URL, GERAR o fbc
+        const fbclid = getUrlParam('fbclid');
+        if (fbclid) {
+            const timestamp = Date.now();
+            const generatedFbc = `fb.1.${timestamp}.${fbclid}`;
+            console.log('[BetiaTracker] fbc gerado a partir do fbclid:', generatedFbc.substring(0, 50) + '...');
+            return generatedFbc;
+        }
+        
+        return '';
+    }
+
     // Gerar fingerprint do navegador (dados estáveis que não mudam entre sessões)
     function generateFingerprint() {
         const components = [];
@@ -89,8 +113,8 @@
             // Visitor ID (do TrackGram)
             vid: getUrlParam('vid') || getStoredValue('visitor_id'),
             
-            // Facebook Click ID
-            fbc: getUrlParam('fbc') || getCookie('_fbc') || getStoredValue('_fbc'),
+            // Facebook Click ID - AGORA COM GERAÇÃO CORRETA!
+            fbc: generateFbc(),
             
             // Facebook Browser ID
             fbp: getUrlParam('fbp') || getCookie('_fbp') || getStoredValue('_fbp'),

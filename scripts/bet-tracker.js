@@ -60,6 +60,34 @@
         return v ? v[2] : null;
     }
 
+    // ======= CORREÇÃO CRÍTICA: Gerar fbc a partir do fbclid =======
+    // Conforme documentação Meta CAPI:
+    // "Se você não tem o cookie _fbc, o valor de fbc é: fb.1.<timestamp_ms>.<fbclid>"
+    function generateFbc() {
+        // 1. Tentar pegar do storage primeiro (pode ter sido salvo anteriormente)
+        const storedFbc = getFromStorage('fbc');
+        if (storedFbc) return storedFbc;
+        
+        // 2. Tentar pegar da URL
+        const urlFbc = getUrlParam('fbc');
+        if (urlFbc) return urlFbc;
+        
+        // 3. Tentar pegar do cookie
+        const cookieFbc = getCookie('_fbc');
+        if (cookieFbc) return cookieFbc;
+        
+        // 4. Se não tem fbc, mas tem fbclid na URL, GERAR o fbc
+        const fbclid = getUrlParam('fbclid');
+        if (fbclid) {
+            const timestamp = Date.now();
+            const generatedFbc = `fb.1.${timestamp}.${fbclid}`;
+            console.log('[BetTracker] fbc gerado a partir do fbclid:', generatedFbc.substring(0, 50) + '...');
+            return generatedFbc;
+        }
+        
+        return null;
+    }
+
     // Gerar fingerprint do navegador (mesmo algoritmo do betia-tracker)
     function generateFingerprint() {
         const components = [];
@@ -109,14 +137,13 @@
 
     // Obter todos os dados de tracking + fingerprint + cookies
     function getTrackingData() {
-        // Tentar pegar fbc/fbp dos cookies se não tiver no storage/URL
-        const cookieFbc = getCookie('_fbc');
+        // Tentar pegar fbp dos cookies se não tiver no storage/URL
         const cookieFbp = getCookie('_fbp');
         
         return {
             // Dados de tracking originais (Prioridade: URL > Storage > Cookie)
             visitor_id: getFromStorage('vid') || getUrlParam('vid'),
-            fbc: getFromStorage('fbc') || getUrlParam('fbc') || cookieFbc,
+            fbc: generateFbc(), // AGORA COM GERAÇÃO CORRETA!
             fbp: getFromStorage('fbp') || getUrlParam('fbp') || cookieFbp,
             
             utm_source: getFromStorage('utm_source') || getUrlParam('utm_source'),
