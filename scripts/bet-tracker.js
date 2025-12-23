@@ -94,6 +94,7 @@
         const params = [
             'vid', 'fbc', 'fbp', 
             'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+            'funnel_id', // Identificador de funil para roteamento interno
             'fp', 'ua', 'sr', 'tz', 'lang' // Novos params de fingerprint
         ];
         
@@ -123,6 +124,7 @@
             utm_campaign: getFromStorage('utm_campaign') || getUrlParam('utm_campaign'),
             utm_content: getFromStorage('utm_content') || getUrlParam('utm_content'),
             utm_term: getFromStorage('utm_term') || getUrlParam('utm_term'),
+            funnel_id: getFromStorage('funnel_id') || getUrlParam('funnel_id'),
             
             // ======= FINGERPRINT PARA MATCHING ROBUSTO =======
             // Se veio da URL (via betia-tracker), usa. Senão, gera aqui.

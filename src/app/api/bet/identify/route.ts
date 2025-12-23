@@ -175,6 +175,7 @@ export async function POST(request: NextRequest) {
       utm_campaign,
       utm_content,
       utm_term,
+      funnel_id, // Novo parâmetro customizado para roteamento
       // ======= NOVOS CAMPOS DE FINGERPRINT =======
       fingerprint,
       user_agent: clientUserAgent,
@@ -382,10 +383,31 @@ export async function POST(request: NextRequest) {
         };
     }
 
-    // Upsert: Salvar todo o conhecimento acumulado na tabela bet_leads
-    // para ser usado depois no Webhook de compra
+    // ========================================
+    // LÓGICA DE ROTEAMENTO (Lucas vs Pedro Zutti)
+    // ========================================
+    // Agora verifica o parametro customizado 'funnel_id' para evitar misturar com UTMs reais
+    const isPedroZutti = (funnel_id && funnel_id.toLowerCase() === "pedrozutti") || 
+                         (utm_campaign && utm_campaign.toLowerCase().includes("pedrozutti")); // Compatibilidade retroativa
+
+    const targetTable = isPedroZutti ? "bet_leads_pedrozutti" : "bet_leads";
+    
+    // Configurações do Pixel
+    const PIXEL_CONFIG = isPedroZutti ? {
+        // PEDRO ZUTTI
+        pixelId: "1217675423556541", 
+        accessToken: "EAAb7wyx9POsBQZA6xqf8Wc49ZAUjhqZAWv8zdjgBqebt7nHoNCKTZCZAbttOGxUsuWNQfnrYjqjs47aZAwWWlFJ7FmxtZC2ct2CH5fhGINNwGtBQoWGwYGZAwa2Tz3z43hlkZBkynZCQi6QsvITiaITkxxRQDozwX0ZBmEUFHuWLEwRdMfWM3Ts2ZBss5MrZCYsl7OgZDZD"
+    } : {
+        // LUCAS MAGNOTTI (Padrão)
+        pixelId: "1254338099849797",
+        accessToken: "EAAkK1oRLUisBQMhcDyobaYzlnZBNODTNWrmVH7FvWTQiHlmZBl7MvRKNvKoJ4uXx17v92TZC88oxDbnU9eZA84zDmyuC2xiTcZCgLXX3h95plBYp7kfRz8Ne0ZBiBuQugGaL3aOVj0HXuaURN17S97ZA0L5ZBLlZBf9ruTS3faC7U40qgtnYxjS9QMpwLxbtqzQZDZD"
+    };
+
+    console.log(`[BET IDENTIFY] Roteando para: ${isPedroZutti ? "Pedro Zutti" : "Lucas Magnotti"} (Tabela: ${targetTable})`);
+
+    // Upsert: Salvar todo o conhecimento acumulado na tabela correta
     const { data, error } = await supabase
-      .from("bet_leads")
+      .from(targetTable) // Usa a tabela dinâmica
       .upsert(
         {
           email: email.toLowerCase().trim(),
@@ -421,7 +443,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       if (error.code === "23505") { // Conflito de chave única, fallback para update
         await supabase
-          .from("bet_leads")
+          .from(targetTable)
           .update({
             // Atualizar apenas o que pode ter mudado ou enriquecido
             phone: phone || undefined,
@@ -438,7 +460,7 @@ export async function POST(request: NextRequest) {
           })
           .eq("email", email.toLowerCase().trim());
       } else {
-        console.error("Error upserting bet_lead:", error);
+        console.error(`Error upserting ${targetTable}:`, error);
       }
     }
 
@@ -450,9 +472,8 @@ export async function POST(request: NextRequest) {
     // Agora enviamos SEMPRE, pois temos enriquecimento via GeoIP e Cookies
     // que aumentam muito a chance do Facebook fazer match
     if (email) {
-      // Pixel fixo - Lucas Magnotti
-      const PIXEL_ID = "1254338099849797";
-      const ACCESS_TOKEN = "EAAkK1oRLUisBQMhcDyobaYzlnZBNODTNWrmVH7FvWTQiHlmZBl7MvRKNvKoJ4uXx17v92TZC88oxDbnU9eZA84zDmyuC2xiTcZCgLXX3h95plBYp7kfRz8Ne0ZBiBuQugGaL3aOVj0HXuaURN17S97ZA0L5ZBLlZBf9ruTS3faC7U40qgtnYxjS9QMpwLxbtqzQZDZD";
+      const PIXEL_ID = PIXEL_CONFIG.pixelId;
+      const ACCESS_TOKEN = PIXEL_CONFIG.accessToken;
 
       const capiResult = await sendCAPIEvent(
         PIXEL_ID,

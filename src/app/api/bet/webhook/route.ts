@@ -215,12 +215,41 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Buscar lead pelo email
-    const { data: lead, error: leadError } = await supabase
-      .from("bet_leads")
+    // 1. Tentar encontrar na Tabela Pedro Zutti
+    let lead = null;
+    let targetTable = "bet_leads_pedrozutti";
+    let pixelConfig = {
+        pixelId: "1217675423556541", 
+        accessToken: "EAAb7wyx9POsBQZA6xqf8Wc49ZAUjhqZAWv8zdjgBqebt7nHoNCKTZCZAbttOGxUsuWNQfnrYjqjs47aZAwWWlFJ7FmxtZC2ct2CH5fhGINNwGtBQoWGwYGZAwa2Tz3z43hlkZBkynZCQi6QsvITiaITkxxRQDozwX0ZBmEUFHuWLEwRdMfWM3Ts2ZBss5MrZCYsl7OgZDZD"
+    };
+
+    const { data: leadPedro } = await supabase
+      .from("bet_leads_pedrozutti")
       .select("*")
       .eq("email", email.toLowerCase().trim())
       .single();
+
+    if (leadPedro) {
+        lead = leadPedro;
+        console.log(`[BET WEBHOOK] Lead encontrado na tabela Pedro Zutti: ${email}`);
+    } else {
+        // 2. Se não achou, tentar na Tabela Padrão (Lucas)
+        const { data: leadLucas } = await supabase
+          .from("bet_leads")
+          .select("*")
+          .eq("email", email.toLowerCase().trim())
+          .single();
+        
+        if (leadLucas) {
+            lead = leadLucas;
+            targetTable = "bet_leads";
+            pixelConfig = {
+                pixelId: "1254338099849797",
+                accessToken: "EAAkK1oRLUisBQMhcDyobaYzlnZBNODTNWrmVH7FvWTQiHlmZBl7MvRKNvKoJ4uXx17v92TZC88oxDbnU9eZA84zDmyuC2xiTcZCgLXX3h95plBYp7kfRz8Ne0ZBiBuQugGaL3aOVj0HXuaURN17S97ZA0L5ZBLlZBf9ruTS3faC7U40qgtnYxjS9QMpwLxbtqzQZDZD"
+            };
+            console.log(`[BET WEBHOOK] Lead encontrado na tabela Padrão (Lucas): ${email}`);
+        }
+    }
 
     // Determinar tipo de evento
     // É depósito se tiver valor E status PAID/completed
@@ -232,9 +261,9 @@ export async function POST(request: NextRequest) {
 
     console.log(`[BET WEBHOOK] Event type: ${eventType}, FB Event: ${fbEventName}, valor: ${valor}`);
 
-    // Se encontrou o lead, temos os dados de tracking
+    // Se encontrou o lead (em qualquer tabela), temos os dados de tracking
     if (lead) {
-      // Atualizar status do lead
+      // Atualizar status do lead na tabela correta
       const updateData: Record<string, any> = {
         status: isDeposit ? "deposited" : "registered",
         updated_at: new Date().toISOString(),
@@ -250,13 +279,13 @@ export async function POST(request: NextRequest) {
       }
 
       await supabase
-        .from("bet_leads")
+        .from(targetTable) // Tabela dinâmica
         .update(updateData)
         .eq("id", lead.id);
 
-      // Pixel fixo - Lucas Magnotti
-      const PIXEL_ID = "1254338099849797";
-      const ACCESS_TOKEN = "EAAkK1oRLUisBQMhcDyobaYzlnZBNODTNWrmVH7FvWTQiHlmZBl7MvRKNvKoJ4uXx17v92TZC88oxDbnU9eZA84zDmyuC2xiTcZCgLXX3h95plBYp7kfRz8Ne0ZBiBuQugGaL3aOVj0HXuaURN17S97ZA0L5ZBLlZBf9ruTS3faC7U40qgtnYxjS9QMpwLxbtqzQZDZD";
+      // Usar config dinâmica
+      const PIXEL_ID = pixelConfig.pixelId;
+      const ACCESS_TOKEN = pixelConfig.accessToken;
 
       let capiSent = false;
 
@@ -296,13 +325,15 @@ export async function POST(request: NextRequest) {
         message: `Evento ${eventType} processado`,
         matched: true,
         lead_id: lead.id,
+        table: targetTable,
         capi_sent: capiSent,
         fb_event: fbEventName,
         value: isDeposit ? valor : 0,
       });
 
     } else {
-      // Lead não encontrado - salvar mesmo assim para histórico
+      // Lead não encontrado - salvar na tabela PADRÃO (Lucas) como fallback
+      // Ou na Pedro se preferir, mas padrão é mais seguro.
       const { data: newLead } = await supabase
         .from("bet_leads")
         .insert({
@@ -315,10 +346,9 @@ export async function POST(request: NextRequest) {
         .select()
         .single();
 
-      console.log(`[BET WEBHOOK] Lead ${email} não tinha tracking prévio, salvo para histórico`);
+      console.log(`[BET WEBHOOK] Lead ${email} não tinha tracking prévio, salvo em bet_leads (fallback)`);
 
-      // Tentar enviar CAPI mesmo sem tracking (usando apenas email hash)
-      // Pixel fixo - Lucas Magnotti
+      // Tentar enviar CAPI para Lucas (Fallback)
       const PIXEL_ID = "1254338099849797";
       const ACCESS_TOKEN = "EAAkK1oRLUisBQMhcDyobaYzlnZBNODTNWrmVH7FvWTQiHlmZBl7MvRKNvKoJ4uXx17v92TZC88oxDbnU9eZA84zDmyuC2xiTcZCgLXX3h95plBYp7kfRz8Ne0ZBiBuQugGaL3aOVj0HXuaURN17S97ZA0L5ZBLlZBf9ruTS3faC7U40qgtnYxjS9QMpwLxbtqzQZDZD";
       
