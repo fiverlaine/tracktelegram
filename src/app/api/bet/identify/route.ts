@@ -384,26 +384,42 @@ export async function POST(request: NextRequest) {
     }
 
     // ========================================
-    // LÓGICA DE ROTEAMENTO (Lucas vs Pedro Zutti)
+    // LÓGICA DE ROTEAMENTO (Lucas vs Pedro Zutti vs Desconhecido)
     // ========================================
-    // Agora verifica o parametro customizado 'funnel_id' para evitar misturar com UTMs reais
-    const isPedroZutti = (funnel_id && funnel_id.toLowerCase() === "pedrozutti") || 
-                         (utm_campaign && utm_campaign.toLowerCase().includes("pedrozutti")); // Compatibilidade retroativa
-
-    const targetTable = isPedroZutti ? "bet_leads_pedrozutti" : "bet_leads";
+    // IMPORTANTE: Agora EXIGIMOS funnel_id para enviar eventos CAPI
+    // Isso evita poluição de leads de afiliados aleatórios
     
-    // Configurações do Pixel
-    const PIXEL_CONFIG = isPedroZutti ? {
-        // PEDRO ZUTTI
-        pixelId: "1217675423556541", 
-        accessToken: "EAAb7wyx9POsBQZA6xqf8Wc49ZAUjhqZAWv8zdjgBqebt7nHoNCKTZCZAbttOGxUsuWNQfnrYjqjs47aZAwWWlFJ7FmxtZC2ct2CH5fhGINNwGtBQoWGwYGZAwa2Tz3z43hlkZBkynZCQi6QsvITiaITkxxRQDozwX0ZBmEUFHuWLEwRdMfWM3Ts2ZBss5MrZCYsl7OgZDZD"
-    } : {
-        // LUCAS MAGNOTTI (Padrão)
-        pixelId: "1254338099849797",
-        accessToken: "EAAkK1oRLUisBQMhcDyobaYzlnZBNODTNWrmVH7FvWTQiHlmZBl7MvRKNvKoJ4uXx17v92TZC88oxDbnU9eZA84zDmyuC2xiTcZCgLXX3h95plBYp7kfRz8Ne0ZBiBuQugGaL3aOVj0HXuaURN17S97ZA0L5ZBLlZBf9ruTS3faC7U40qgtnYxjS9QMpwLxbtqzQZDZD"
-    };
+    const funnelIdLower = funnel_id?.toLowerCase() || "";
+    
+    // Identificar funil
+    const isPedroZutti = funnelIdLower === "pedrozutti";
+    const isLucasMagnotti = funnelIdLower === "lucasmagnotti" || funnelIdLower === "lucas";
+    const isKnownFunnel = isPedroZutti || isLucasMagnotti;
+    
+    // Definir tabela e config de pixel baseado no funil
+    let targetTable: string;
+    let PIXEL_CONFIG: { pixelId: string; accessToken: string } | null = null;
+    
+    if (isPedroZutti) {
+        targetTable = "bet_leads_pedrozutti";
+        PIXEL_CONFIG = {
+            pixelId: "1217675423556541", 
+            accessToken: "EAAb7wyx9POsBQZA6xqf8Wc49ZAUjhqZAWv8zdjgBqebt7nHoNCKTZCZAbttOGxUsuWNQfnrYjqjs47aZAwWWlFJ7FmxtZC2ct2CH5fhGINNwGtBQoWGwYGZAwa2Tz3z43hlkZBkynZCQi6QsvITiaITkxxRQDozwX0ZBmEUFHuWLEwRdMfWM3Ts2ZBss5MrZCYsl7OgZDZD"
+        };
+    } else if (isLucasMagnotti) {
+        targetTable = "bet_leads_lucasmagnotti";
+        PIXEL_CONFIG = {
+            pixelId: "1254338099849797",
+            accessToken: "EAAkK1oRLUisBQMhcDyobaYzlnZBNODTNWrmVH7FvWTQiHlmZBl7MvRKNvKoJ4uXx17v92TZC88oxDbnU9eZA84zDmyuC2xiTcZCgLXX3h95plBYp7kfRz8Ne0ZBiBuQugGaL3aOVj0HXuaURN17S97ZA0L5ZBLlZBf9ruTS3faC7U40qgtnYxjS9QMpwLxbtqzQZDZD"
+        };
+    } else {
+        // Funil desconhecido (afiliados aleatórios) - salvar em bet_leads mas NÃO enviar CAPI
+        targetTable = "bet_leads";
+        PIXEL_CONFIG = null; // Não envia para nenhum pixel!
+        console.log(`[BET IDENTIFY] ⚠️ Funil desconhecido (funnel_id: ${funnel_id || "vazio"}). Salvando em bet_leads mas SEM enviar CAPI.`);
+    }
 
-    console.log(`[BET IDENTIFY] Roteando para: ${isPedroZutti ? "Pedro Zutti" : "Lucas Magnotti"} (Tabela: ${targetTable})`);
+    console.log(`[BET IDENTIFY] Roteando para: ${isPedroZutti ? "Pedro Zutti" : isLucasMagnotti ? "Lucas Magnotti" : "DESCONHECIDO"} (Tabela: ${targetTable}, CAPI: ${PIXEL_CONFIG ? "SIM" : "NÃO"})`);
 
     // Upsert: Salvar todo o conhecimento acumulado na tabela correta
     const { data, error } = await supabase
@@ -469,15 +485,14 @@ export async function POST(request: NextRequest) {
     // ========================================
     let capiSent = false;
     
-    // Agora enviamos SEMPRE, pois temos enriquecimento via GeoIP e Cookies
-    // que aumentam muito a chance do Facebook fazer match
-    if (email) {
-      const PIXEL_ID = PIXEL_CONFIG.pixelId;
-      const ACCESS_TOKEN = PIXEL_CONFIG.accessToken;
-
+    // SÓ envia CAPI se:
+    // 1. Tem email
+    // 2. Tem PIXEL_CONFIG (funil conhecido - Lucas ou Pedro)
+    // Funis desconhecidos (afiliados) são SALVOS mas NÃO enviam CAPI
+    if (email && PIXEL_CONFIG) {
       const capiResult = await sendCAPIEvent(
-        PIXEL_ID,
-        ACCESS_TOKEN,
+        PIXEL_CONFIG.pixelId,
+        PIXEL_CONFIG.accessToken,
         "Cadastrou_bet", 
         {
           email: email,
@@ -499,6 +514,8 @@ export async function POST(request: NextRequest) {
       );
       
       capiSent = capiResult?.events_received > 0;
+    } else if (!PIXEL_CONFIG) {
+      console.log(`[BET IDENTIFY] ⚠️ CAPI não enviado - funil desconhecido`);
     }
 
     return NextResponse.json(

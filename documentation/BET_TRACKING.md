@@ -9,8 +9,8 @@ Este sistema permite rastrear leads que passam pelo seu funil (Landing Page → 
 ```
 1. Anúncio Facebook → Landing Page (TrackGram captura vid, fbc, fbp)
 2. Landing Page → /t/slug → Telegram
-3. Canal do Telegram envia esse link unico → betia.io/codigo/ (Script decora link da bet)
-4. betia.io → betlionpro.com (Script captura dados e envia no cadastro)
+3. Canal do Telegram envia esse link unico → betia.io/codigo/ (Script betia-tracker.js)
+4. betia.io → betlionpro.com (Script bet-tracker.js)
 5. Bet → Webhook de Cadastro/Depósito → /api/bet/webhook
 6. TrackGram faz match e dispara CAPI pro Facebook
 ```

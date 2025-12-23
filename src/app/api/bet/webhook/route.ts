@@ -215,14 +215,18 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // 1. Tentar encontrar na Tabela Pedro Zutti
+    // ========================================
+    // BUSCAR LEAD EM TODAS AS TABELAS (ordem de prioridade)
+    // ========================================
+    // 1. Pedro Zutti (tabela dedicada)
+    // 2. Lucas Magnotti (tabela dedicada - NOVA)
+    // 3. bet_leads (afiliados desconhecidos - NÃO envia CAPI)
+    
     let lead = null;
-    let targetTable = "bet_leads_pedrozutti";
-    let pixelConfig = {
-        pixelId: "1217675423556541", 
-        accessToken: "EAAb7wyx9POsBQZA6xqf8Wc49ZAUjhqZAWv8zdjgBqebt7nHoNCKTZCZAbttOGxUsuWNQfnrYjqjs47aZAwWWlFJ7FmxtZC2ct2CH5fhGINNwGtBQoWGwYGZAwa2Tz3z43hlkZBkynZCQi6QsvITiaITkxxRQDozwX0ZBmEUFHuWLEwRdMfWM3Ts2ZBss5MrZCYsl7OgZDZD"
-    };
-
+    let targetTable: string = "";
+    let pixelConfig: { pixelId: string; accessToken: string } | null = null;
+    
+    // 1. Tentar encontrar na Tabela Pedro Zutti
     const { data: leadPedro } = await supabase
       .from("bet_leads_pedrozutti")
       .select("*")
@@ -231,23 +235,42 @@ export async function POST(request: NextRequest) {
 
     if (leadPedro) {
         lead = leadPedro;
+        targetTable = "bet_leads_pedrozutti";
+        pixelConfig = {
+            pixelId: "1217675423556541", 
+            accessToken: "EAAb7wyx9POsBQZA6xqf8Wc49ZAUjhqZAWv8zdjgBqebt7nHoNCKTZCZAbttOGxUsuWNQfnrYjqjs47aZAwWWlFJ7FmxtZC2ct2CH5fhGINNwGtBQoWGwYGZAwa2Tz3z43hlkZBkynZCQi6QsvITiaITkxxRQDozwX0ZBmEUFHuWLEwRdMfWM3Ts2ZBss5MrZCYsl7OgZDZD"
+        };
         console.log(`[BET WEBHOOK] Lead encontrado na tabela Pedro Zutti: ${email}`);
     } else {
-        // 2. Se não achou, tentar na Tabela Padrão (Lucas)
+        // 2. Tentar na Tabela Lucas Magnotti
         const { data: leadLucas } = await supabase
-          .from("bet_leads")
+          .from("bet_leads_lucasmagnotti")
           .select("*")
           .eq("email", email.toLowerCase().trim())
           .single();
         
         if (leadLucas) {
             lead = leadLucas;
-            targetTable = "bet_leads";
+            targetTable = "bet_leads_lucasmagnotti";
             pixelConfig = {
                 pixelId: "1254338099849797",
                 accessToken: "EAAkK1oRLUisBQMhcDyobaYzlnZBNODTNWrmVH7FvWTQiHlmZBl7MvRKNvKoJ4uXx17v92TZC88oxDbnU9eZA84zDmyuC2xiTcZCgLXX3h95plBYp7kfRz8Ne0ZBiBuQugGaL3aOVj0HXuaURN17S97ZA0L5ZBLlZBf9ruTS3faC7U40qgtnYxjS9QMpwLxbtqzQZDZD"
             };
-            console.log(`[BET WEBHOOK] Lead encontrado na tabela Padrão (Lucas): ${email}`);
+            console.log(`[BET WEBHOOK] Lead encontrado na tabela Lucas Magnotti: ${email}`);
+        } else {
+            // 3. Tentar na Tabela Padrão (afiliados desconhecidos)
+            const { data: leadUnknown } = await supabase
+              .from("bet_leads")
+              .select("*")
+              .eq("email", email.toLowerCase().trim())
+              .single();
+            
+            if (leadUnknown) {
+                lead = leadUnknown;
+                targetTable = "bet_leads";
+                pixelConfig = null; // NÃO envia CAPI para funis desconhecidos!
+                console.log(`[BET WEBHOOK] ⚠️ Lead encontrado na tabela PADRÃO (afiliado desconhecido): ${email} - CAPI desabilitado`);
+            }
         }
     }
 
@@ -283,18 +306,16 @@ export async function POST(request: NextRequest) {
         .update(updateData)
         .eq("id", lead.id);
 
-      // Usar config dinâmica
-      const PIXEL_ID = pixelConfig.pixelId;
-      const ACCESS_TOKEN = pixelConfig.accessToken;
-
       let capiSent = false;
 
-      // Enviar para CAPI se tiver fbc OU é depósito
-      // Para depósito, enviamos mesmo sem fbc (usando email hash)
-      if (lead.fbc || isDeposit) {
+      // SÓ envia CAPI se:
+      // 1. pixelConfig existe (funil conhecido - Lucas ou Pedro)
+      // 2. Tem fbc OU é depósito
+      // Funis desconhecidos (afiliados) NÃO enviam CAPI
+      if (pixelConfig && (lead.fbc || isDeposit)) {
         const capiResult = await sendCAPIEvent(
-          PIXEL_ID,
-          ACCESS_TOKEN,
+          pixelConfig.pixelId,
+          pixelConfig.accessToken,
           fbEventName,
           {
             email: email,
@@ -316,6 +337,8 @@ export async function POST(request: NextRequest) {
 
         capiSent = capiResult?.events_received > 0;
         console.log(`[BET WEBHOOK] ${fbEventName} event sent for ${email}, success: ${capiSent}`);
+      } else if (!pixelConfig) {
+        console.log(`[BET WEBHOOK] ⚠️ CAPI não enviado - funil desconhecido (tabela: ${targetTable})`);
       } else {
         console.log(`[BET WEBHOOK] Skipping CAPI - no fbc and not a deposit`);
       }
