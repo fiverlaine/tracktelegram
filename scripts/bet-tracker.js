@@ -30,10 +30,26 @@
     // Chaves de storage
     const STORAGE_PREFIX = 'bet_track_';
 
-    // Função para pegar parâmetro da URL
+    // Função para pegar parâmetro da URL (Robusta)
     function getUrlParam(name) {
+        // 1. Tentar URLSearchParams padrão
         const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get(name) || '';
+        let val = urlParams.get(name);
+        if (val) return val;
+        
+        // 2. Fallback: Tentar extrair da URL completa (útil se estiver após #)
+        try {
+            const url = new URL(window.location.href);
+            val = url.searchParams.get(name);
+            if (val) return val;
+        } catch(e) {}
+        
+        // 3. Fallback manual regex (último recurso)
+        const regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)');
+        const results = regex.exec(window.location.href);
+        if (!results) return null;
+        if (!results[2]) return '';
+        return decodeURIComponent(results[2].replace(/\+/g, ' '));
     }
 
     // Função para salvar no localStorage

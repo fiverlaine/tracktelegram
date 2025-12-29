@@ -34,7 +34,6 @@ async function sendCAPIEvent(
   eventData: {
     email?: string;
     phone?: string;
-
     fbc?: string;
     fbp?: string;
     ip?: string;
@@ -42,55 +41,99 @@ async function sendCAPIEvent(
     currency?: string;
     value?: number;
     eventSourceUrl?: string;
-    // Novos campos de geolocalização
+    // Campos de geolocalização
     city?: string;
     state?: string;
     country?: string;
     postalCode?: string;
-    externalId?: string; // visitor_id
+    externalId?: string; // visitor_id - CRÍTICO para matching (+13%)
   }
 ) {
   const url = `https://graph.facebook.com/v18.0/${pixelId}/events`;
   
-  // Construir user_data removendo campos undefined
+  // Construir user_data conforme documentação Meta CAPI
+  // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/customer-information-parameters
   const userData: Record<string, any> = {};
   
+  // ========================================
+  // CAMPOS DE PII (devem ser hasheados)
+  // ========================================
   if (eventData.email) {
+    // Email: lowercase, trim, hash SHA256
     userData.em = [hashSHA256(eventData.email.toLowerCase().trim())];
   }
   if (eventData.phone) {
-    userData.ph = [hashSHA256(eventData.phone.replace(/\D/g, ""))];
+    // Phone: apenas dígitos, hash SHA256
+    const cleanPhone = eventData.phone.replace(/\D/g, "");
+    if (cleanPhone.length >= 10) {
+      userData.ph = [hashSHA256(cleanPhone)];
+    }
   }
 
 
-  if (eventData.fbc) {
-    userData.fbc = eventData.fbc;
+  // ========================================
+  // FBC e FBP - CRÍTICOS PARA MATCHING (+16%)
+  // NÃO hashear - são identificadores técnicos
+  // ========================================
+  // Validar formato do fbc: deve começar com "fb.1." e ter o fbclid
+  if (eventData.fbc && typeof eventData.fbc === 'string') {
+    const fbcTrimmed = eventData.fbc.trim();
+    // Formato válido: fb.1.<timestamp>.<fbclid>
+    if (fbcTrimmed.startsWith('fb.1.') && fbcTrimmed.length > 20) {
+      userData.fbc = fbcTrimmed;
+      console.log(`[CAPI] ✅ fbc válido incluído: ${fbcTrimmed.substring(0, 30)}...`);
+    } else {
+      console.warn(`[CAPI] ⚠️ fbc com formato inválido ignorado: ${fbcTrimmed.substring(0, 30)}`);
+    }
   }
-  if (eventData.fbp) {
-    userData.fbp = eventData.fbp;
+  
+  // Validar formato do fbp: deve começar com "fb.1."
+  if (eventData.fbp && typeof eventData.fbp === 'string') {
+    const fbpTrimmed = eventData.fbp.trim();
+    if (fbpTrimmed.startsWith('fb.1.') && fbpTrimmed.length > 15) {
+      userData.fbp = fbpTrimmed;
+      console.log(`[CAPI] ✅ fbp válido incluído: ${fbpTrimmed.substring(0, 30)}...`);
+    } else {
+      console.warn(`[CAPI] ⚠️ fbp com formato inválido ignorado: ${fbpTrimmed.substring(0, 30)}`);
+    }
   }
-  if (eventData.ip && eventData.ip !== "unknown") {
+  
+  // IP e User-Agent (não hasheados)
+  if (eventData.ip && eventData.ip !== "unknown" && eventData.ip !== "0.0.0.0") {
     userData.client_ip_address = eventData.ip;
   }
-  if (eventData.userAgent) {
+  if (eventData.userAgent && eventData.userAgent.length > 10) {
     userData.client_user_agent = eventData.userAgent;
   }
   
-  // Novos campos de geolocalização (hasheados conforme requisito do Facebook)
-  if (eventData.city) {
+  // ========================================
+  // GEOLOCALIZAÇÃO (hasheados, lowercase)
+  // ========================================
+  if (eventData.city && eventData.city.length > 1) {
     userData.ct = [hashSHA256(eventData.city.toLowerCase().trim())];
   }
-  if (eventData.state) {
+  if (eventData.state && eventData.state.length > 1) {
     userData.st = [hashSHA256(eventData.state.toLowerCase().trim())];
   }
-  if (eventData.country) {
+  if (eventData.country && eventData.country.length >= 2) {
+    // Country code deve ser ISO 3166-1 alpha-2 (ex: "br", "us")
     userData.country = [hashSHA256(eventData.country.toLowerCase().trim())];
   }
   if (eventData.postalCode) {
-    userData.zp = [hashSHA256(eventData.postalCode.replace(/\D/g, ""))];
+    const cleanZip = eventData.postalCode.replace(/\D/g, "");
+    if (cleanZip.length >= 5) {
+      userData.zp = [hashSHA256(cleanZip)];
+    }
   }
-  if (eventData.externalId) {
+  
+  // ========================================
+  // EXTERNAL_ID - CRÍTICO (+13% EMQ)
+  // Deve ser STRING hasheada (não array!)
+  // ========================================
+  if (eventData.externalId && eventData.externalId.length > 5) {
+    // Conforme documentação: external_id como string única hasheada
     userData.external_id = [hashSHA256(eventData.externalId)];
+    console.log(`[CAPI] ✅ external_id incluído (visitor_id): ${eventData.externalId.substring(0, 8)}...`);
   }
 
   const payload: Record<string, any> = {
@@ -116,21 +159,22 @@ async function sendCAPIEvent(
   }
 
   try {
-    // Log detalhado do que está sendo enviado
+    // Log detalhado do que está sendo enviado - ajuda a debugar EMQ
     console.log(`[CAPI] ========================================`);
-    console.log(`[CAPI] Sending ${eventName} event`);
-    console.log(`[CAPI] Pixel: ${pixelId}`);
-    console.log(`[CAPI] User Data (resumo):`, {
-      em: !!eventData.email,
-      ph: !!eventData.phone,
-
-      fbc: !!eventData.fbc,
-      fbp: !!eventData.fbp,
-      geo: {
-          city: !!eventData.city,
-          state: !!eventData.state
-      }
-    });
+    console.log(`[CAPI] 📊 Enviando evento: ${eventName}`);
+    console.log(`[CAPI] 🎯 Pixel: ${pixelId}`);
+    console.log(`[CAPI] 📋 Campos para EMQ (Event Match Quality):`);
+    console.log(`[CAPI]   ├─ em (email): ${userData.em ? '✅' : '❌'}`);
+    console.log(`[CAPI]   ├─ ph (phone): ${userData.ph ? '✅' : '❌'}`);
+    console.log(`[CAPI]   ├─ fbc (+16% EMQ): ${userData.fbc ? '✅ ' + userData.fbc.substring(0, 25) + '...' : '❌ AUSENTE'}`);
+    console.log(`[CAPI]   ├─ fbp: ${userData.fbp ? '✅ ' + userData.fbp.substring(0, 25) + '...' : '❌ AUSENTE'}`);
+    console.log(`[CAPI]   ├─ external_id (+13% EMQ): ${userData.external_id ? '✅' : '❌ AUSENTE'}`);
+    console.log(`[CAPI]   ├─ client_ip: ${userData.client_ip_address ? '✅' : '❌'}`);
+    console.log(`[CAPI]   ├─ client_ua: ${userData.client_user_agent ? '✅' : '❌'}`);
+    console.log(`[CAPI]   ├─ ct (city): ${userData.ct ? '✅' : '❌'}`);
+    console.log(`[CAPI]   ├─ st (state): ${userData.st ? '✅' : '❌'}`);
+    console.log(`[CAPI]   ├─ country: ${userData.country ? '✅' : '❌'}`);
+    console.log(`[CAPI]   └─ zp (zip): ${userData.zp ? '✅' : '❌'}`);
     console.log(`[CAPI] ========================================`);
     
     const response = await fetch(url, {

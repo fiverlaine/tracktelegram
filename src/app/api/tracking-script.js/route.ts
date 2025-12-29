@@ -118,8 +118,24 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
   }
 
   function getUrlParam(name) {
+    // 1. Tentar URLSearchParams padrão
     var urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get(name);
+    var val = urlParams.get(name);
+    if (val) return val;
+    
+    // 2. Fallback: Tentar extrair da URL completa (útil se estiver após # ou se search estiver vazio mas href não)
+    try {
+        var url = new URL(window.location.href);
+        val = url.searchParams.get(name);
+        if (val) return val;
+    } catch(e) {}
+    
+    // 3. Fallback manual regex (último recurso)
+    var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)');
+    var results = regex.exec(window.location.href);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, ' '));
   }
 
   // 2. Identify / Create Visitor
@@ -140,14 +156,21 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
   const fbcParam = getUrlParam('fbc');
   const fbpParam = getUrlParam('fbp');
   
+  // Debug logs
+  if (window.location.href.includes('fbclid') && !fbclid) {
+      console.warn('[TeleTrack] fbclid presente na URL mas não capturado via URLSearchParams!');
+  }
+  
   // FBC - Click ID
   let fbc = getCookie('_fbc');
   if (fbcParam) {
      fbc = fbcParam;
      setCookie('_fbc', fbc, 90);
   } else if (fbclid && !fbc) {
+    // Gerar fbc apenas se tiver fbclid válido
     fbc = 'fb.1.' + Date.now() + '.' + fbclid;
     setCookie('_fbc', fbc, 90);
+    console.log('[TeleTrack] fbc gerado:', fbc);
   }
   
   // FBP - Browser ID

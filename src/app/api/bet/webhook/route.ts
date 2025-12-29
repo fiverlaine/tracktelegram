@@ -42,53 +42,89 @@ async function sendCAPIEvent(
     currency?: string;
     value?: number;
     eventSourceUrl?: string;
-    // Novos campos de geolocalização
+    // Campos de geolocalização
     city?: string;
     state?: string;
     country?: string;
     postalCode?: string;
-    externalId?: string;
+    externalId?: string; // visitor_id - CRÍTICO para matching (+13%)
   }
 ) {
   const url = `https://graph.facebook.com/v18.0/${pixelId}/events`;
   
-  // Construir user_data removendo campos undefined
+  // Construir user_data conforme documentação Meta CAPI
   const userData: Record<string, any> = {};
   
+  // ========================================
+  // CAMPOS DE PII (devem ser hasheados)
+  // ========================================
   if (eventData.email) {
     userData.em = [hashSHA256(eventData.email.toLowerCase().trim())];
   }
   if (eventData.phone) {
-    userData.ph = [hashSHA256(eventData.phone.replace(/\D/g, ""))];
+    const cleanPhone = eventData.phone.replace(/\D/g, "");
+    if (cleanPhone.length >= 10) {
+      userData.ph = [hashSHA256(cleanPhone)];
+    }
   }
-  if (eventData.fbc) {
-    userData.fbc = eventData.fbc;
+
+
+  // ========================================
+  // FBC e FBP - CRÍTICOS PARA MATCHING (+16%)
+  // ========================================
+  if (eventData.fbc && typeof eventData.fbc === 'string') {
+    const fbcTrimmed = eventData.fbc.trim();
+    if (fbcTrimmed.startsWith('fb.1.') && fbcTrimmed.length > 20) {
+      userData.fbc = fbcTrimmed;
+      console.log(`[CAPI] ✅ fbc válido incluído: ${fbcTrimmed.substring(0, 30)}...`);
+    } else {
+      console.warn(`[CAPI] ⚠️ fbc com formato inválido ignorado: ${fbcTrimmed.substring(0, 30)}`);
+    }
   }
-  if (eventData.fbp) {
-    userData.fbp = eventData.fbp;
+  
+  if (eventData.fbp && typeof eventData.fbp === 'string') {
+    const fbpTrimmed = eventData.fbp.trim();
+    if (fbpTrimmed.startsWith('fb.1.') && fbpTrimmed.length > 15) {
+      userData.fbp = fbpTrimmed;
+      console.log(`[CAPI] ✅ fbp válido incluído: ${fbpTrimmed.substring(0, 30)}...`);
+    } else {
+      console.warn(`[CAPI] ⚠️ fbp com formato inválido ignorado: ${fbpTrimmed.substring(0, 30)}`);
+    }
   }
-  if (eventData.ip && eventData.ip !== "unknown") {
+  
+  // IP e User-Agent (não hasheados)
+  if (eventData.ip && eventData.ip !== "unknown" && eventData.ip !== "0.0.0.0") {
     userData.client_ip_address = eventData.ip;
   }
-  if (eventData.userAgent) {
+  if (eventData.userAgent && eventData.userAgent.length > 10) {
     userData.client_user_agent = eventData.userAgent;
   }
   
-  // Campos de geolocalização (hasheados)
-  if (eventData.city) {
+  // ========================================
+  // GEOLOCALIZAÇÃO (hasheados)
+  // ========================================
+  if (eventData.city && eventData.city.length > 1) {
     userData.ct = [hashSHA256(eventData.city.toLowerCase().trim())];
   }
-  if (eventData.state) {
+  if (eventData.state && eventData.state.length > 1) {
     userData.st = [hashSHA256(eventData.state.toLowerCase().trim())];
   }
-  if (eventData.country) {
+  if (eventData.country && eventData.country.length >= 2) {
     userData.country = [hashSHA256(eventData.country.toLowerCase().trim())];
   }
   if (eventData.postalCode) {
-    userData.zp = [hashSHA256(eventData.postalCode.replace(/\D/g, ""))];
+    const cleanZip = eventData.postalCode.replace(/\D/g, "");
+    if (cleanZip.length >= 5) {
+      userData.zp = [hashSHA256(cleanZip)];
+    }
   }
-  if (eventData.externalId) {
+  
+  // ========================================
+  // EXTERNAL_ID - CRÍTICO (+13% EMQ)
+  // ========================================
+  if (eventData.externalId && eventData.externalId.length > 5) {
     userData.external_id = [hashSHA256(eventData.externalId)];
+    console.log(`[CAPI] ✅ external_id incluído (visitor_id): ${eventData.externalId.substring(0, 8)}...`);
   }
 
   const payload: Record<string, any> = {
@@ -114,26 +150,23 @@ async function sendCAPIEvent(
   }
 
   try {
-    // Log detalhado do que está sendo enviado
+    // Log detalhado do que está sendo enviado - ajuda a debugar EMQ
     console.log(`[CAPI] ========================================`);
-    console.log(`[CAPI] Sending ${eventName} event`);
-    console.log(`[CAPI] Pixel: ${pixelId}`);
-    console.log(`[CAPI] User Data (raw):`, {
-      email: eventData.email,
-      phone: eventData.phone,
-      fbc: eventData.fbc ? "✓ presente" : "✗ ausente",
-      fbp: eventData.fbp ? "✓ presente" : "✗ ausente",
-      ip: eventData.ip,
-      city: eventData.city || "✗ ausente",
-      state: eventData.state || "✗ ausente",
-      country: eventData.country || "✗ ausente",
-      postalCode: eventData.postalCode || "✗ ausente",
-      externalId: eventData.externalId ? "✓ presente" : "✗ ausente",
-    });
-    console.log(`[CAPI] Custom Data:`, {
-      currency: eventData.currency || "BRL",
-      value: eventData.value || 0,
-    });
+    console.log(`[CAPI] 📊 Enviando evento: ${eventName}`);
+    console.log(`[CAPI] 🎯 Pixel: ${pixelId}`);
+    console.log(`[CAPI] 💰 Value: ${eventData.value || 0} ${eventData.currency || 'BRL'}`);
+    console.log(`[CAPI] 📋 Campos para EMQ (Event Match Quality):`);
+    console.log(`[CAPI]   ├─ em (email): ${userData.em ? '✅' : '❌'}`);
+    console.log(`[CAPI]   ├─ ph (phone): ${userData.ph ? '✅' : '❌'}`);
+    console.log(`[CAPI]   ├─ fbc (+16% EMQ): ${userData.fbc ? '✅ ' + userData.fbc.substring(0, 25) + '...' : '❌ AUSENTE'}`);
+    console.log(`[CAPI]   ├─ fbp: ${userData.fbp ? '✅ ' + userData.fbp.substring(0, 25) + '...' : '❌ AUSENTE'}`);
+    console.log(`[CAPI]   ├─ external_id (+13% EMQ): ${userData.external_id ? '✅' : '❌ AUSENTE'}`);
+    console.log(`[CAPI]   ├─ client_ip: ${userData.client_ip_address ? '✅' : '❌'}`);
+    console.log(`[CAPI]   ├─ client_ua: ${userData.client_user_agent ? '✅' : '❌'}`);
+    console.log(`[CAPI]   ├─ ct (city): ${userData.ct ? '✅' : '❌'}`);
+    console.log(`[CAPI]   ├─ st (state): ${userData.st ? '✅' : '❌'}`);
+    console.log(`[CAPI]   ├─ country: ${userData.country ? '✅' : '❌'}`);
+    console.log(`[CAPI]   └─ zp (zip): ${userData.zp ? '✅' : '❌'}`);
     console.log(`[CAPI] ========================================`);
     
     const response = await fetch(url, {
@@ -281,6 +314,7 @@ export async function POST(request: NextRequest) {
     
     const eventType = isDeposit ? "deposit" : "register";
     const fbEventName = isDeposit ? "Purchase" : "Cadastrou_bet";
+
 
     console.log(`[BET WEBHOOK] Event type: ${eventType}, FB Event: ${fbEventName}, valor: ${valor}`);
 
