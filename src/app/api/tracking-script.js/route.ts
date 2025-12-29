@@ -58,7 +58,6 @@ export async function GET(request: Request) {
           .map(pid => `fbq('init', '${pid}');`)
           .join('\n');
 
-
         pixelCode = `
 // --- Auto-Injected Facebook Pixel ---
 !function(f,b,e,v,n,t,s)
@@ -78,7 +77,7 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
 `;
       }
     } catch (err) {
-
+      console.error("Erro ao buscar domínio:", err);
     }
   }
 
@@ -108,15 +107,18 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
 
   const scriptContent = `
 (function() {
-    // --- TeleTrack / TrackGram v4.0 (Direct Link Mode) ---
-    // Modo sem /t/slug - gera link e substitui automaticamente
+    'use strict';
     
+    // ==================== PREVENT MULTIPLE LOADS ====================
+    if (window.__trackgram_v4_loaded) return;
+    window.__trackgram_v4_loaded = true;
+
     // --- Branding Logs ---
     if (!window.__teletrack_branded) {
         window.__teletrack_branded = true;
         try {
             console.log("%c████████╗██████╗  █████╗  ██████╗██╗  ██╗ ██████╗ ██████╗  █████╗ ███╗   ███╗\\n╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝██╔════╝ ██╔══██╗██╔══██╗████╗ ████║\\n   ██║   ██████╔╝███████║██║     █████╔╝ ██║  ███╗██████╔╝███████║██╔████╔██║\\n   ██║   ██╔══██╗██╔══██║██║     ██╔═██╗ ██║   ██║██╔══██╗██╔══██║██║╚██╔╝██║\\n   ██║   ██║  ██║██║  ██║╚██████╗██║  ██╗╚██████╔╝██║  ██║██║  ██║██║ ╚═╝ ██║\\n   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝", "color: #8B5CF6; font-family: monospace; font-size: 10px;");
-            console.log("%c🚀 TrackGram v4.0 - Direct Link Mode", "color: #8B5CF6; font-size: 14px; font-weight: bold; padding: 8px 0;");
+            console.log("%c🚀 TrackGram v4.1 - Direct Link Mode (Instant Intercept)", "color: #8B5CF6; font-size: 14px; font-weight: bold; padding: 8px 0;");
             console.log("%c📊 Atribuição avançada para Telegram + Facebook CAPI", "color: #6B7280; font-size: 12px;");
             console.log("%c─────────────────────────────────────────────────────", "color: #E5E7EB;");
         } catch (e) {}
@@ -130,8 +132,14 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
     DOMAIN_ID: "${id || ''}",
     FUNNEL_ID: "${funnelId || ''}",
     FORCED_SLUG: "${forcedSlug}",
-    TELEGRAM_LINK_PATTERN: /https?:\\/\\/(t\\.me|telegram\\.me|telegram\\.dog)\\/([a-zA-Z0-9_]+|\\+[a-zA-Z0-9_\\-]+)/i
+    TELEGRAM_LINK_PATTERN: /^https?:\\/\\/(t\\.me|telegram\\.me|telegram\\.dog)\\//i
   };
+
+  // ==================== STATE ====================
+  let trackedInviteLink = null;
+  let isLinkReady = false;
+  let linkPromise = null;
+  let pendingRedirect = false;
 
   // ==================== HELPERS ====================
   function generateUUID() {
@@ -158,6 +166,11 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
     return urlParams.get(name);
   }
 
+  function isTelegramLink(href) {
+    if (!href) return false;
+    return CONFIG.TELEGRAM_LINK_PATTERN.test(href);
+  }
+
   // ==================== VISITOR ID ====================
   let vid = localStorage.getItem('visitor_id');
   let urlVid = getUrlParam('vid');
@@ -169,6 +182,8 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
     vid = generateUUID();
     localStorage.setItem('visitor_id', vid);
   }
+  
+  console.log('[TrackGram] 🆔 Visitor ID:', vid);
 
   // ==================== FACEBOOK PARAMETERS ====================
   const fbclid = getUrlParam('fbclid');
@@ -199,8 +214,6 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
   const utmCampaign = getUrlParam('utm_campaign');
   const utmContent = getUrlParam('utm_content');
   const utmTerm = getUrlParam('utm_term');
-  
-  // Ads IDs (NOVO)
   const campaignId = getUrlParam('campaign_id') || getUrlParam('campaignid');
   const adsetId = getUrlParam('adset_id') || getUrlParam('adsetid');
   const adId = getUrlParam('ad_id') || getUrlParam('adid');
@@ -215,86 +228,12 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
   if (adsetId) localStorage.setItem('track_adset_id', adsetId);
   if (adId) localStorage.setItem('track_ad_id', adId);
 
-  // ==================== TRACKED INVITE LINK ====================
-  let trackedInviteLink = null;
-  let isAssigningLink = false;
-
   // ==================== LOADING UI ====================
-  function showLoadingUI() {
-    if (document.getElementById('trackgram-loading')) return;
+  function injectStyles() {
+    if (document.getElementById('trackgram-styles')) return;
     
-    const overlay = document.createElement('div');
-    overlay.id = 'trackgram-loading';
-    overlay.innerHTML = \`
-      <div style="
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.7);
-        z-index: 999999;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        animation: tgFadeIn 0.3s ease-out;
-      ">
-        <!-- Spinner -->
-        <div style="
-          width: 70px;
-          height: 70px;
-          border: 4px solid rgba(139, 92, 246, 0.3);
-          border-top: 4px solid #8B5CF6;
-          border-radius: 50%;
-          animation: tgSpin 0.8s linear infinite;
-          margin-bottom: 28px;
-        "></div>
-        
-        <!-- Texto Principal -->
-        <div style="
-          color: #ffffff;
-          font-size: 22px;
-          font-weight: 700;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          margin-bottom: 12px;
-          text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-          animation: tgPulse 1.5s ease-in-out infinite;
-        ">REDIRECIONANDO</div>
-        
-        <!-- Subtexto -->
-        <div style="
-          color: rgba(255, 255, 255, 0.6);
-          font-size: 14px;
-          margin-bottom: 24px;
-        ">Gerando seu link exclusivo...</div>
-        
-        <!-- Link Manual -->
-        <a 
-          href="#" 
-          id="trackgram-manual-link"
-          style="
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 13px;
-            text-decoration: none;
-            transition: all 0.2s ease;
-            cursor: pointer;
-            padding: 10px 20px;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.1);
-          "
-          onmouseover="this.style.color='#ffffff'; this.style.background='rgba(255, 255, 255, 0.2)';"
-          onmouseout="this.style.color='rgba(255, 255, 255, 0.7)'; this.style.background='rgba(255, 255, 255, 0.1)';"
-        >Não foi redirecionado? Clique aqui</a>
-      </div>
-    \`;
-
     const style = document.createElement('style');
-    style.id = 'trackgram-loading-styles';
+    style.id = 'trackgram-styles';
     style.textContent = \`
       @keyframes tgFadeIn {
         from { opacity: 0; }
@@ -305,40 +244,125 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
         100% { transform: rotate(360deg); }
       }
       @keyframes tgPulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.7; }
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.8; transform: scale(0.98); }
+      }
+      @keyframes tgBounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+      }
+      #trackgram-overlay {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: rgba(0, 0, 0, 0.85) !important;
+        z-index: 2147483647 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif !important;
+        backdrop-filter: blur(8px) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
+        animation: tgFadeIn 0.2s ease-out !important;
+      }
+      #trackgram-overlay * {
+        box-sizing: border-box !important;
+      }
+      .tg-spinner {
+        width: 60px !important;
+        height: 60px !important;
+        border: 4px solid rgba(139, 92, 246, 0.3) !important;
+        border-top: 4px solid #8B5CF6 !important;
+        border-radius: 50% !important;
+        animation: tgSpin 0.7s linear infinite !important;
+        margin-bottom: 24px !important;
+      }
+      .tg-text {
+        color: #ffffff !important;
+        font-size: 20px !important;
+        font-weight: 700 !important;
+        letter-spacing: 2px !important;
+        text-transform: uppercase !important;
+        margin-bottom: 8px !important;
+        animation: tgPulse 1.5s ease-in-out infinite !important;
+      }
+      .tg-subtext {
+        color: rgba(255, 255, 255, 0.6) !important;
+        font-size: 14px !important;
+        margin-bottom: 24px !important;
+      }
+      .tg-manual-btn {
+        color: rgba(255, 255, 255, 0.8) !important;
+        font-size: 13px !important;
+        text-decoration: none !important;
+        padding: 12px 24px !important;
+        border-radius: 8px !important;
+        background: rgba(139, 92, 246, 0.3) !important;
+        border: 1px solid rgba(139, 92, 246, 0.5) !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+        display: none !important;
+      }
+      .tg-manual-btn.visible {
+        display: block !important;
+        animation: tgBounce 2s ease-in-out infinite !important;
+      }
+      .tg-manual-btn:hover {
+        background: rgba(139, 92, 246, 0.5) !important;
+        color: #ffffff !important;
       }
     \`;
-    
     document.head.appendChild(style);
+  }
+
+  function showLoadingOverlay() {
+    if (document.getElementById('trackgram-overlay')) return;
+    
+    injectStyles();
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'trackgram-overlay';
+    overlay.innerHTML = \`
+      <div class="tg-spinner"></div>
+      <div class="tg-text">REDIRECIONANDO</div>
+      <div class="tg-subtext">Gerando seu link exclusivo...</div>
+      <a href="#" class="tg-manual-btn" id="tg-manual-btn">Clique aqui se não redirecionar</a>
+    \`;
+    
     document.body.appendChild(overlay);
     
-    // Configurar link manual
+    // Mostrar botão manual após 3 segundos
     setTimeout(() => {
-      const manualLink = document.getElementById('trackgram-manual-link');
-      if (manualLink && trackedInviteLink) {
-        manualLink.href = trackedInviteLink;
-        manualLink.onclick = function(e) {
-          if (trackedInviteLink) {
-            window.location.href = trackedInviteLink;
-          }
-        };
+      const btn = document.getElementById('tg-manual-btn');
+      if (btn) {
+        btn.classList.add('visible');
+        if (trackedInviteLink) {
+          btn.href = trackedInviteLink;
+          btn.onclick = function(e) {
+            e.preventDefault();
+            redirectTo(trackedInviteLink);
+          };
+        }
       }
-    }, 100);
+    }, 3000);
   }
 
-  function hideLoadingUI() {
-    const overlay = document.getElementById('trackgram-loading');
+  function hideLoadingOverlay() {
+    const overlay = document.getElementById('trackgram-overlay');
     if (overlay) overlay.remove();
-    const style = document.getElementById('trackgram-loading-styles');
-    if (style) style.remove();
   }
 
-  function redirectToInvite(url) {
-    hideLoadingUI();
-    if (window.location.replace) {
+  function redirectTo(url) {
+    console.log('[TrackGram] 🚀 Redirecionando para:', url);
+    hideLoadingOverlay();
+    
+    // Múltiplos métodos para garantir redirecionamento
+    try {
       window.location.replace(url);
-    } else {
+    } catch(e) {
       window.location.href = url;
     }
   }
@@ -360,7 +384,7 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
       campaign_id: campaignId || localStorage.getItem('track_campaign_id'),
       adset_id: adsetId || localStorage.getItem('track_adset_id'),
       ad_id: adId || localStorage.getItem('track_ad_id'),
-      source: 'tracking_script_v4'
+      source: 'tracking_script_v4.1'
     };
   }
 
@@ -384,13 +408,64 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
     }).catch(err => console.error('[TrackGram] Erro ao enviar evento:', err));
   }
 
+  // ==================== INVITE LINK GENERATION ====================
+  function fetchInviteLink() {
+    // Se já tem promise em andamento, retorna ela
+    if (linkPromise) return linkPromise;
+    
+    if (!CONFIG.FUNNEL_ID) {
+      console.warn('[TrackGram] ⚠️ funnel_id não configurado');
+      return Promise.resolve(null);
+    }
+
+    console.log('[TrackGram] 📡 Buscando link único...');
+
+    linkPromise = fetch(CONFIG.API_URL + '/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        funnel_id: CONFIG.FUNNEL_ID,
+        visitor_id: vid,
+        metadata: getMetadata()
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.invite_link) {
+        trackedInviteLink = data.invite_link;
+        isLinkReady = true;
+        console.log('%c[TrackGram] ✅ Link gerado: ' + trackedInviteLink, 'color: #10B981; font-weight: bold');
+        
+        // Atualizar todos os links que foram marcados
+        updateAllTelegramLinks();
+        
+        // Se há redirect pendente, executar
+        if (pendingRedirect) {
+          pendingRedirect = false;
+          redirectTo(trackedInviteLink);
+        }
+        
+        return trackedInviteLink;
+      } else {
+        console.error('[TrackGram] ❌ Erro:', data.error);
+        return null;
+      }
+    })
+    .catch(err => {
+      console.error('[TrackGram] ❌ Erro na requisição:', err);
+      return null;
+    });
+
+    return linkPromise;
+  }
+
   // ==================== TELEGRAM LINK MANAGEMENT ====================
-  function findTelegramLinks() {
-    const allLinks = document.querySelectorAll('a[href]');
+  function findAllTelegramLinks() {
+    const links = document.querySelectorAll('a[href]');
     const telegramLinks = [];
     
-    allLinks.forEach(link => {
-      if (CONFIG.TELEGRAM_LINK_PATTERN.test(link.href)) {
+    links.forEach(link => {
+      if (isTelegramLink(link.getAttribute('href'))) {
         telegramLinks.push(link);
       }
     });
@@ -398,148 +473,117 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
     return telegramLinks;
   }
 
-  async function fetchInviteLink() {
-    if (!CONFIG.FUNNEL_ID) {
-      console.warn('[TrackGram] ⚠️ funnel_id não configurado - links não serão substituídos');
-      return null;
-    }
-
-    if (isAssigningLink) return trackedInviteLink;
-    isAssigningLink = true;
-
-    try {
-      const response = await fetch(CONFIG.API_URL + '/invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          funnel_id: CONFIG.FUNNEL_ID,
-          visitor_id: vid,
-          metadata: getMetadata()
-        })
-      });
-
-      const data = await response.json();
-
-      if (data.invite_link) {
-        trackedInviteLink = data.invite_link;
-        console.log('%c[TrackGram] ✅ Link gerado com sucesso', 'color: #10B981; font-weight: bold');
-        return trackedInviteLink;
-      } else {
-        console.error('[TrackGram] ❌ Erro ao gerar link:', data.error);
-        return null;
-      }
-    } catch (error) {
-      console.error('[TrackGram] ❌ Erro na requisição:', error);
-      return null;
-    } finally {
-      isAssigningLink = false;
-    }
-  }
-
-  async function replaceAllTelegramLinks() {
-    const telegramLinks = findTelegramLinks();
+  function markAndProtectLinks() {
+    const links = findAllTelegramLinks();
     
-    if (telegramLinks.length === 0) {
-      console.log('[TrackGram] ℹ️ Nenhum link do Telegram encontrado na página');
+    if (links.length === 0) {
+      console.log('[TrackGram] ℹ️ Nenhum link do Telegram encontrado');
       return;
     }
 
-    console.log('[TrackGram] 🔍 Links do Telegram encontrados:', telegramLinks.length);
+    console.log('[TrackGram] 🔍 Links do Telegram encontrados:', links.length);
 
-    // Buscar link se ainda não temos
-    if (!trackedInviteLink) {
-      await fetchInviteLink();
-    }
-
-    if (!trackedInviteLink) {
-      console.warn('[TrackGram] ⚠️ Não foi possível gerar link - links originais mantidos');
-      return;
-    }
-
-    // Substituir todos os links
-    let replacedCount = 0;
-    telegramLinks.forEach(link => {
-      if (!link.hasAttribute('data-trackgram-replaced')) {
-        link.setAttribute('data-trackgram-original', link.href);
-        link.setAttribute('data-trackgram-replaced', 'true');
-        link.href = trackedInviteLink;
-        replacedCount++;
-      }
+    links.forEach((link, index) => {
+      if (link.hasAttribute('data-tg-protected')) return;
+      
+      // Salvar href original
+      const originalHref = link.getAttribute('href');
+      link.setAttribute('data-tg-original', originalHref);
+      link.setAttribute('data-tg-protected', 'true');
+      link.setAttribute('data-tg-index', index.toString());
+      
+      // IMPORTANTE: Não mudar o href ainda, o click handler vai interceptar
+      console.log('[TrackGram] 🔒 Link protegido:', originalHref);
     });
 
-    console.log('%c[TrackGram] ✅ ' + replacedCount + ' links substituídos', 'color: #10B981; font-weight: bold');
+    // Iniciar busca do link se ainda não iniciou
+    if (!linkPromise && CONFIG.FUNNEL_ID) {
+      fetchInviteLink();
+    }
   }
 
-  // ==================== CLICK HANDLER ====================
-  async function handleTelegramClick(event) {
-    // SEMPRE prevenir navegação primeiro - decisão depois
-    event.preventDefault();
-    event.stopPropagation();
-    event.stopImmediatePropagation();
+  function updateAllTelegramLinks() {
+    if (!trackedInviteLink) return;
     
-    const link = event.currentTarget || event.target.closest('a');
-    if (!link) return;
+    const links = document.querySelectorAll('a[data-tg-protected="true"]');
+    let count = 0;
     
-    // Salvar href original se ainda não foi salvo
-    if (!link.hasAttribute('data-trackgram-original')) {
-      link.setAttribute('data-trackgram-original', link.href);
+    links.forEach(link => {
+      if (!link.hasAttribute('data-tg-replaced')) {
+        link.setAttribute('href', trackedInviteLink);
+        link.setAttribute('data-tg-replaced', 'true');
+        count++;
+      }
+    });
+    
+    if (count > 0) {
+      console.log('%c[TrackGram] ✅ ' + count + ' links atualizados com link trackado', 'color: #10B981; font-weight: bold');
     }
-    
-    const originalHref = link.getAttribute('data-trackgram-original') || link.href;
-    
-    // Se já temos link trackado, redirecionar direto
-    if (trackedInviteLink) {
-      console.log('[TrackGram] 🚀 Redirecionando via link trackado');
-      sendEvent('click', { button_type: 'telegram_link' });
-      window.location.href = trackedInviteLink;
-      return;
-    }
-    
-    // Se não temos link trackado, mostrar loading e gerar
-    console.log('[TrackGram] ⏳ Link ainda não substituído - gerando...');
-    showLoadingUI();
-    
-    // Registrar click
-    sendEvent('click', { button_type: 'telegram_link_pending' });
+  }
 
-    // Tentar gerar link
-    const inviteLink = await fetchInviteLink();
-    
-    if (inviteLink) {
-      // Atualizar link manual no loading
-      const manualLink = document.getElementById('trackgram-manual-link');
-      if (manualLink) {
-        manualLink.href = inviteLink;
-        manualLink.onclick = function() {
-          window.location.href = inviteLink;
-        };
+  // ==================== CLICK INTERCEPTOR ====================
+  // Usando capture: true para interceptar ANTES de qualquer outro handler
+  function setupGlobalClickInterceptor() {
+    document.addEventListener('click', function(event) {
+      // Encontrar o link clicado (pode ser o target ou um ancestor)
+      let link = event.target;
+      while (link && link.tagName !== 'A') {
+        link = link.parentElement;
       }
       
-      // Redirecionar após pequeno delay para mostrar o loading
-      setTimeout(() => {
-        redirectToInvite(inviteLink);
-      }, 300);
-    } else {
-      // Fallback: usar link original (sem tracking)
-      console.warn('[TrackGram] ⚠️ Falha ao gerar link - usando original');
-      hideLoadingUI();
-      window.location.href = originalHref;
-    }
-  }
-
-  function setupClickHandlers() {
-    const telegramLinks = findTelegramLinks();
-    
-    telegramLinks.forEach(link => {
-      if (!link.hasAttribute('data-trackgram-handler')) {
-        link.setAttribute('data-trackgram-handler', 'true');
-        // Usar capture: true para garantir que nosso handler seja chamado primeiro
-        link.addEventListener('click', handleTelegramClick, { capture: true });
+      if (!link) return;
+      
+      const href = link.getAttribute('href');
+      
+      // Verificar se é link do Telegram
+      if (!isTelegramLink(href) && !link.hasAttribute('data-tg-protected')) {
+        return;
       }
-    });
+      
+      // SEMPRE interceptar o click
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      
+      console.log('[TrackGram] 🖱️ Click interceptado');
+      
+      // Registrar click
+      sendEvent('click', { 
+        button_type: 'telegram_link',
+        original_href: link.getAttribute('data-tg-original') || href
+      });
+      
+      // Se link já está pronto, redirecionar imediatamente
+      if (isLinkReady && trackedInviteLink) {
+        console.log('[TrackGram] ⚡ Link pronto - redirecionando imediatamente');
+        redirectTo(trackedInviteLink);
+        return;
+      }
+      
+      // Link não está pronto - mostrar loading e aguardar
+      console.log('[TrackGram] ⏳ Aguardando link...');
+      showLoadingOverlay();
+      pendingRedirect = true;
+      
+      // Garantir que a busca está em andamento
+      if (!linkPromise) {
+        fetchInviteLink();
+      }
+      
+      // Fallback: se demorar muito, usar link original
+      setTimeout(() => {
+        if (pendingRedirect && !isLinkReady) {
+          console.warn('[TrackGram] ⚠️ Timeout - usando link original');
+          const originalHref = link.getAttribute('data-tg-original') || href;
+          pendingRedirect = false;
+          redirectTo(originalHref);
+        }
+      }, 10000); // 10 segundos de timeout
+      
+    }, true); // IMPORTANTE: capture: true
   }
 
-  // ==================== MUTATION OBSERVER (SPA Support) ====================
+  // ==================== MUTATION OBSERVER ====================
   function setupMutationObserver() {
     if (typeof MutationObserver === 'undefined') return;
 
@@ -549,13 +593,13 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
       mutations.forEach(mutation => {
         mutation.addedNodes.forEach(node => {
           if (node.nodeType === Node.ELEMENT_NODE) {
-            if (node.tagName === 'A' && CONFIG.TELEGRAM_LINK_PATTERN.test(node.href)) {
+            if (node.tagName === 'A' && isTelegramLink(node.getAttribute('href'))) {
               hasNewLinks = true;
             }
             if (node.querySelectorAll) {
               const links = node.querySelectorAll('a[href]');
               links.forEach(link => {
-                if (CONFIG.TELEGRAM_LINK_PATTERN.test(link.href) && !link.hasAttribute('data-trackgram-replaced')) {
+                if (isTelegramLink(link.getAttribute('href')) && !link.hasAttribute('data-tg-protected')) {
                   hasNewLinks = true;
                 }
               });
@@ -564,29 +608,16 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
         });
       });
 
-      if (hasNewLinks && trackedInviteLink) {
-        // Se já temos o link, substituir imediatamente
-        const newLinks = findTelegramLinks().filter(link => !link.hasAttribute('data-trackgram-replaced'));
-        if (newLinks.length > 0) {
-          console.log('[TrackGram] 🔄 Novos links detectados:', newLinks.length);
-          newLinks.forEach(link => {
-            link.setAttribute('data-trackgram-original', link.href);
-            link.setAttribute('data-trackgram-replaced', 'true');
-            link.href = trackedInviteLink;
-            link.setAttribute('data-trackgram-handler', 'true');
-            link.addEventListener('click', handleTelegramClick);
-          });
-        }
-      } else if (hasNewLinks) {
-        // Se ainda não temos o link, configurar handlers
-        setupClickHandlers();
+      if (hasNewLinks) {
+        console.log('[TrackGram] 🔄 Novos links detectados');
+        markAndProtectLinks();
       }
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  // ==================== LEGACY: Decorar links /t/ (Compatibilidade) ====================
+  // ==================== LEGACY: Links /t/ ====================
   function decorateLegacyLinks() {
     var links = document.getElementsByTagName('a');
     
@@ -600,15 +631,9 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
           continue;
         }
 
-        if (!url.searchParams.has('vid')) {
-          url.searchParams.set('vid', vid);
-        }
-        if (fbc && !url.searchParams.has('fbc')) {
-          url.searchParams.set('fbc', fbc);
-        }
-        if (fbp && !url.searchParams.has('fbp')) {
-          url.searchParams.set('fbp', fbp);
-        }
+        if (!url.searchParams.has('vid')) url.searchParams.set('vid', vid);
+        if (fbc && !url.searchParams.has('fbc')) url.searchParams.set('fbc', fbc);
+        if (fbp && !url.searchParams.has('fbp')) url.searchParams.set('fbp', fbp);
 
         var utms = {
           'utm_source': utmSource || localStorage.getItem('track_utm_source'),
@@ -638,41 +663,55 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
     }
   }
 
-  // ==================== INICIALIZAÇÃO ====================
-  async function init() {
-    console.log('[TrackGram] 🚀 Inicializando v4.0 (Direct Link Mode)');
-    console.log('[TrackGram] 📍 Visitor ID:', vid);
+  // ==================== INITIALIZATION ====================
+  function init() {
+    console.log('[TrackGram] 🚀 Inicializando v4.1 (Instant Intercept)');
     
-    // 1. Enviar PageView imediatamente
+    // 1. Injetar estilos
+    injectStyles();
+    
+    // 2. Configurar interceptador global de clicks (ANTES de qualquer coisa)
+    setupGlobalClickInterceptor();
+    
+    // 3. Enviar PageView
     sendEvent('pageview');
-
-    // 2. Decorar links /t/ legados (compatibilidade)
+    
+    // 4. Decorar links legados /t/
     decorateLegacyLinks();
-
-    // 3. Configurar click handlers para links do Telegram
-    setupClickHandlers();
-
-    // 4. Buscar e substituir links do Telegram (assíncrono)
-    replaceAllTelegramLinks();
-
-    // 5. Observar DOM para SPAs
+    
+    // 5. Marcar e proteger links do Telegram
+    markAndProtectLinks();
+    
+    // 6. Iniciar busca do link em background
+    if (CONFIG.FUNNEL_ID) {
+      fetchInviteLink();
+    }
+    
+    // 7. Observar DOM para SPAs
     setupMutationObserver();
-
-    // 6. Re-executar periodicamente (fallback para SPAs lentos)
+    
+    // 8. Re-executar periodicamente
     setInterval(() => {
       decorateLegacyLinks();
-      if (!trackedInviteLink) {
-        replaceAllTelegramLinks();
-      }
-    }, 3000);
+      markAndProtectLinks();
+    }, 2000);
   }
 
-  // Aguardar DOM ready
+  // Aguardar DOM ready ou executar imediatamente
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
+    // DOM já carregou - executar imediatamente
     init();
   }
+
+  // Também executar no load como backup
+  window.addEventListener('load', function() {
+    markAndProtectLinks();
+    if (CONFIG.FUNNEL_ID && !linkPromise) {
+      fetchInviteLink();
+    }
+  });
 
 })();
 `;
@@ -680,7 +719,7 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
   return new Response(scriptContent, {
     headers: {
       'Content-Type': 'application/javascript',
-      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30',
       'Access-Control-Allow-Origin': '*',
     },
   });
