@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
+import * as crypto from "crypto";
 
 /**
  * API Route: /api/bet/webhook
