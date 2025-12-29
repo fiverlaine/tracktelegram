@@ -1,7 +1,7 @@
 # TrackGram - Sistema de Rastreamento para Telegram
 
-**Última atualização**: Janeiro 2025  
-**Versão do Sistema**: 3.1+  
+**Última atualização**: Dezembro 2025  
+**Versão do Sistema**: 4.0  
 **Status**: Produção
 
 ---
@@ -15,14 +15,15 @@
 5. [Estrutura de Pastas](#estrutura-de-pastas)
 6. [Fluxos Principais](#fluxos-principais)
 7. [Integração com Telegram](#integração-com-telegram)
-8. [Integração com Supabase](#integração-com-supabase)
-9. [Banco de Dados](#banco-de-dados)
-10. [Tracking e UTMs](#tracking-e-utms)
-11. [Autenticação e Segurança](#autenticação-e-segurança)
-12. [Sistema de Assinaturas](#sistema-de-assinaturas)
-13. [Deploy e Ambientes](#deploy-e-ambientes)
-14. [Variáveis de Ambiente](#variáveis-de-ambiente)
-15. [Pontos de Atenção e Melhorias](#pontos-de-atenção-e-melhorias)
+8. [Bet Tracking System](#bet-tracking-system)
+9. [Integração com Supabase](#integração-com-supabase)
+10. [Banco de Dados](#banco-de-dados)
+11. [Tracking e UTMs](#tracking-e-utms)
+12. [Autenticação e Segurança](#autenticação-e-segurança)
+13. [Sistema de Assinaturas](#sistema-de-assinaturas)
+14. [Deploy e Ambientes](#deploy-e-ambientes)
+15. [Variáveis de Ambiente](#variáveis-de-ambiente)
+16. [Pontos de Atenção e Melhorias](#pontos-de-atenção-e-melhorias)
 
 ---
 
@@ -239,6 +240,11 @@ trackgram/
 │   │   │   │   └── page.tsx
 │   │   │   ├── utms/                # Análise de UTMs
 │   │   │   │   └── page.tsx
+│   │   │   ├── integrations/        # Integrações (NOVO)
+│   │   │   │   ├── pushcut/         # Configuração Pushcut
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── scripts/         # Scripts de tracking
+│   │   │   │       └── page.tsx
 │   │   │   └── postbacks/           # Postbacks (futuro)
 │   │   │       └── page.tsx
 │   │   ├── api/                     # API Routes
@@ -246,6 +252,11 @@ trackgram/
 │   │   │   │   └── route.ts
 │   │   │   ├── invite/              # Gerar links de convite
 │   │   │   │   └── route.ts
+│   │   │   ├── bet/                 # Bet Tracking System (NOVO)
+│   │   │   │   ├── identify/        # Identificar leads da bet
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── webhook/         # Webhook de cadastro/depósito
+│   │   │   │       └── route.ts
 │   │   │   ├── webhook/
 │   │   │   │   ├── telegram/
 │   │   │   │   │   └── [bot_id]/
@@ -305,13 +316,23 @@ trackgram/
 │   │   │   ├── server.ts            # Cliente server
 │   │   │   └── middleware.ts        # Middleware de sessão
 │   │   ├── facebook-capi.ts         # Função CAPI
+│   │   ├── pushcut.ts               # Integração Pushcut (NOVO)
 │   │   ├── telegram-service.ts      # Serviço Telegram
 │   │   └── utils.ts                 # Utilitários
+│   ├── services/                    # Serviços refatorados (NOVO)
+│   │   └── telegram/
+│   │       ├── join-handler.ts      # Handler de entradas
+│   │       ├── message-handler.ts   # Handler de mensagens
+│   │       ├── conversion-service.ts # Serviço de conversões CAPI
+│   │       ├── attribution-service.ts # Atribuição visitor↔telegram
+│   │       ├── welcome-service.ts   # Mensagens de boas-vindas
+│   │       └── pushcut-service.ts   # Notificações Pushcut
 │   ├── actions/                     # Server Actions
 │   │   ├── channels.ts              # CRUD canais
 │   │   ├── funnels.ts               # CRUD funis
 │   │   ├── domains.ts               # CRUD domínios
 │   │   ├── messages.ts              # Mensagens e welcome settings
+│   │   ├── pushcut.ts               # Integrações Pushcut (NOVO)
 │   │   └── telegram.ts              # Ações Telegram (webhook setup)
 │   ├── hooks/
 │   │   └── use-subscription.ts      # Hook de assinatura
@@ -319,9 +340,13 @@ trackgram/
 │   │   └── subscription-plans.ts    # Configuração de planos
 │   └── types/
 │       └── facebook-sdk.d.ts        # Tipos Facebook SDK
+├── scripts/                         # Scripts externos (NOVO)
+│   ├── bet-tracker.js               # Script para bet (betlionpro)
+│   └── betia-tracker.js             # Script para betia.io/codigo
 ├── documentation/                   # Documentação
 │   ├── SISTEMA.md                   # Esta documentação
-│   ├── ANALISE_COMPLETA.md          # Análise técnica
+│   ├── BET_TRACKING.md              # Guia Bet Tracking (NOVO)
+│   ├── TrackGram.md                 # Documentação geral
 │   └── Meta CAPI Documentacao.md    # Docs CAPI
 ├── public/                          # Arquivos estáticos
 ├── .agent/                          # Regras do agente
@@ -414,37 +439,51 @@ trackgram/
 4. Retorna 200 OK
 ```
 
-### 4. Fluxo de Tracking Externo (Script)
+### 4. Fluxo de Tracking Externo - Direct Link Mode (v4.0)
+
+O novo script v4.0 elimina a necessidade da página intermediária `/t/slug`, gerando o link diretamente na landing page:
 
 ```
 1. Landing page externa inclui:
    <script src="https://app.com/api/tracking-script.js?id={domain_id}"></script>
+   OU
+   <script src="https://app.com/api/tracking-script.js?funnel={slug}"></script>
    ↓
-2. Script injeta:
-   - Facebook Pixel (multi-pixel support)
-   - Tracking de pageview/click
+2. Script inicializa:
+   - Gera/recupera visitor_id (localStorage)
+   - Captura fbclid, fbc, fbp (URL/cookies)
+   - Captura UTMs e Ads IDs (campaign_id, adset_id, ad_id)
+   - Injeta Facebook Pixel (multi-pixel)
+   - Envia evento PageView para /api/track
    ↓
-3. Script captura:
-   - visitor_id (localStorage ou URL)
-   - fbclid, fbc, fbp (URL ou cookies)
-   - UTMs
-   - User-Agent, IP (via API)
+3. Script detecta links do Telegram (t.me/*, telegram.me/*):
+   - Configura click handlers
+   - Chama /api/invite para gerar link único
    ↓
-4. Envia eventos para /api/track:
-   - PageView (com filtro de origem paga)
-   - Click (quando botão é clicado)
+4. Ao receber resposta do /api/invite:
+   - Substitui href de TODOS os links Telegram pelo link único
+   - Marca links com data-trackgram-replaced="true"
    ↓
-5. API /api/track:
-   - Valida origem (fbclid ou fbc)
-   - Deduplica (5 minutos)
-   - Salva evento no Supabase
-   - Envia CAPI PageView (se origem paga)
+5. Usuário clica no link:
+   A) Se link já foi substituído:
+      → Navega direto para t.me/+XXXXX (link único)
+   B) Se link NÃO foi substituído (click rápido):
+      → Mostra UI de loading elegante com spinner
+      → Aguarda link ser gerado
+      → Redireciona automaticamente
+      → Fallback: link manual "Clique aqui"
    ↓
-6. Usuário clica em botão:
-   - Script captura click
-   - Redireciona para /t/{slug}?vid={visitor_id}
-   - Continua fluxo normal
+6. Telegram recebe usuário via webhook
+   - Atribuição normal via invite_link.name
 ```
+
+**Vantagens do Direct Link Mode:**
+
+- ✅ **Sem página intermediária**: Usuário vai direto do site para o Telegram
+- ✅ **Menor fricção**: Menos etapas = maior conversão
+- ✅ **Fallback elegante**: UI de loading se click acontecer antes da substituição
+- ✅ **Compatível com SPAs**: MutationObserver detecta links adicionados dinamicamente
+- ✅ **Retrocompatível**: Ainda suporta /t/slug para links existentes
 
 ### 5. Fluxo de Autenticação
 
@@ -532,6 +571,169 @@ O sistema usa 3 métodos em cascata para vincular `telegram_user_id` a `visitor_
    - Busca últimos 10 minutos de eventos "click"
    - Filtra por funis do bot atual
    - Pega primeiro click sem join correspondente
+
+---
+
+## Bet Tracking System
+
+### Visão Geral
+
+O **Bet Tracking System** é uma extensão do TrackGram que permite rastrear leads que passam pelo funil completo: **Landing Page → Telegram → Bet (Casa de Apostas)**. O sistema identifica usuários na bet através do email e dispara eventos CAPI para Facebook quando ocorrem cadastros e depósitos.
+
+### Fluxo Completo
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    FLUXO DE BET TRACKING (FUNIL COMPLETO)                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. Facebook Ads → Landing Page (TrackGram captura vid, fbc, fbp)          │
+│     ↓                                                                       │
+│  2. Landing Page → /t/slug → Telegram                                       │
+│     ↓                                                                       │
+│  3. Canal Telegram → betia.io/codigo/ (Script betia-tracker.js)            │
+│     - Lê localStorage com dados de tracking                                │
+│     - Decora link para bet com parâmetros: ?vid=x&fbc=y&fbp=z              │
+│     ↓                                                                       │
+│  4. betia.io → betlionpro.com (Script bet-tracker.js)                      │
+│     - Lê parâmetros da URL                                                 │
+│     - Salva no localStorage do domínio da bet                              │
+│     - No cadastro: POST /api/bet/identify (email + tracking data)          │
+│     ↓                                                                       │
+│  5. Webhook da Bet (N8N) → /api/bet/webhook                                │
+│     - Cadastro: { email, phone }                                           │
+│     - Depósito: { email, phone, valor, status: "PAID" }                    │
+│     ↓                                                                       │
+│  6. TrackGram faz match email ↔ visitor_id                                 │
+│     - Busca na tabela bet_leads (ou bet_leads_lucasmagnotti, etc)          │
+│     - Recupera fbc, fbp, geo para envio CAPI                               │
+│     ↓                                                                       │
+│  7. Dispara CAPI para Facebook                                              │
+│     - Cadastro: Evento "Cadastrou_bet"                                      │
+│     - Depósito: Evento "Purchase" (com valor)                               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### APIs do Bet Tracking
+
+#### POST `/api/bet/identify`
+
+Identifica um lead da bet, vinculando email aos dados de tracking.
+
+**Request Body:**
+
+```json
+{
+  "email": "usuario@email.com",
+  "phone": "11999999999",
+  "visitor_id": "abc123-def456",
+  "fbc": "fb.1.123456.xxxx",
+  "fbp": "fb.1.123456.yyyy",
+  "utm_source": "facebook",
+  "utm_medium": "cpc",
+  "utm_campaign": "campanha1",
+  "ip_address": "189.123.45.67",
+  "user_agent": "Mozilla/5.0...",
+  "city": "São Paulo",
+  "state": "SP",
+  "country": "BR",
+  "postal_code": "01310-100",
+  "funnel_id": "lucasmagnotti"
+}
+```
+
+**Comportamento:**
+
+- Se `funnel_id` = `"lucasmagnotti"` → Salva em `bet_leads_lucasmagnotti`
+- Se `funnel_id` = `"pedrozutti"` → Salva em `bet_leads_pedrozutti`
+- Outros/genérico → Salva em `bet_leads`
+
+#### POST `/api/bet/webhook`
+
+Recebe webhooks da bet (cadastro/depósito) e dispara CAPI.
+
+**Request Body (Cadastro):**
+
+```json
+{
+  "email": "usuario@email.com",
+  "phone": "11999999999"
+}
+```
+
+**Request Body (Depósito):**
+
+```json
+{
+  "email": "usuario@email.com",
+  "phone": "11999999999",
+  "valor": 100.0,
+  "status": "PAID",
+  "currency": "BRL"
+}
+```
+
+**Eventos CAPI:**
+
+- **Cadastro**: `Cadastrou_bet` (evento customizado)
+- **Depósito**: `Purchase` (evento padrão com valor)
+
+### Tabelas do Bet Tracking
+
+#### `bet_leads` (Genérica)
+
+Armazena leads da bet para match email ↔ tracking data.
+
+| Coluna          | Tipo        | Descrição            | Constraints         |
+| --------------- | ----------- | -------------------- | ------------------- |
+| `id`            | UUID        | ID único             | PK                  |
+| `email`         | TEXT        | Email do lead        | NOT NULL, UNIQUE    |
+| `phone`         | TEXT        | Telefone             | Nullable            |
+| `visitor_id`    | TEXT        | ID do visitante      | Nullable            |
+| `fbc`           | TEXT        | Facebook Click ID    | Nullable            |
+| `fbp`           | TEXT        | Facebook Browser ID  | Nullable            |
+| `utm_source`    | TEXT        | UTM Source           | Nullable            |
+| `utm_medium`    | TEXT        | UTM Medium           | Nullable            |
+| `utm_campaign`  | TEXT        | UTM Campaign         | Nullable            |
+| `utm_content`   | TEXT        | UTM Content          | Nullable            |
+| `utm_term`      | TEXT        | UTM Term             | Nullable            |
+| `ip_address`    | TEXT        | IP do usuário        | Nullable            |
+| `user_agent`    | TEXT        | User Agent           | Nullable            |
+| `city`          | TEXT        | Cidade (geo)         | Nullable            |
+| `state`         | TEXT        | Estado (geo)         | Nullable            |
+| `country`       | TEXT        | País (geo)           | Nullable            |
+| `postal_code`   | TEXT        | CEP (geo)            | Nullable            |
+| `status`        | TEXT        | registered/deposited | Default: registered |
+| `deposit_value` | NUMERIC     | Valor do depósito    | Nullable            |
+| `deposit_at`    | TIMESTAMPTZ | Data do depósito     | Nullable            |
+| `created_at`    | TIMESTAMPTZ | Data de criação      | Default: now()      |
+| `updated_at`    | TIMESTAMPTZ | Data de atualização  | Default: now()      |
+
+#### `bet_leads_lucasmagnotti`
+
+Tabela dedicada para o funil **Lucas Magnotti** (mesma estrutura de `bet_leads`).
+
+#### `bet_leads_pedrozutti`
+
+Tabela dedicada para o funil **Pedro Zutti** (mesma estrutura de `bet_leads`).
+
+### Scripts do Bet Tracking
+
+#### `scripts/betia-tracker.js`
+
+Instalado em **betia.io/codigo/** - Decora links para a bet com parâmetros de tracking.
+
+#### `scripts/bet-tracker.js`
+
+Instalado na **bet (betlionpro.com)** - Captura parâmetros da URL e envia para `/api/bet/identify` no cadastro.
+
+### Vantagens do Sistema
+
+- ✅ **Atribuição Completa**: Rastreia desde o anúncio até o depósito
+- ✅ **CAPI com Geolocalização**: Envia dados de geo para melhor match quality
+- ✅ **Funis Isolados**: Cada afiliado tem sua tabela dedicada (evita poluição de dados)
+- ✅ **Evento Purchase com Valor**: Facebook recebe o valor exato do depósito
 
 ---
 
@@ -1018,6 +1220,26 @@ Logs de mensagens enviadas/recebidas via Telegram.
 
 ---
 
+#### 14. `funnel_webhooks`
+
+Configuração de webhooks customizados para funis.
+
+| Coluna       | Tipo        | Descrição            | Constraints                     |
+| ------------ | ----------- | -------------------- | ------------------------------- |
+| `id`         | UUID        | ID único             | PK, Default: uuid_generate_v4() |
+| `funnel_id`  | UUID        | Funil                | FK → funnels.id, Nullable       |
+| `name`       | TEXT        | Nome do webhook      | NOT NULL                        |
+| `url`        | TEXT        | URL de destino       | NOT NULL                        |
+| `events`     | TEXT[]      | Eventos que disparam | Nullable                        |
+| `fields`     | JSONB       | Campos a enviar      | Nullable                        |
+| `is_active`  | BOOLEAN     | Webhook ativo        | Default: true                   |
+| `created_at` | TIMESTAMPTZ | Data de criação      | Default: now()                  |
+| `updated_at` | TIMESTAMPTZ | Data de atualização  | Default: now()                  |
+
+**RLS**: ✅ Habilitado - Usuários só veem webhooks de seus próprios funis
+
+---
+
 ### Funções RPC (Database Functions)
 
 #### `get_dashboard_metrics`
@@ -1097,6 +1319,31 @@ O sistema captura os seguintes parâmetros:
 - **utm_campaign**: Nome da campanha
 - **utm_content**: Conteúdo específico
 - **utm_term**: Termo de busca
+
+#### Facebook Ads IDs (NOVO v3.3+)
+
+- **campaign_id**: ID da campanha no Meta Ads
+- **adset_id**: ID do conjunto de anúncios
+- **ad_id**: ID do anúncio individual
+
+### Página de Analytics de UTMs (`/utms`)
+
+A página de UTMs foi redesenhada para oferecer analytics completo com drill-down por dimensão:
+
+**Tabs disponíveis:**
+
+- **Campanhas**: Agrupa por `utm_campaign` ou `campaign_id`
+- **Conjuntos**: Agrupa por `utm_content` ou `adset_id`
+- **Anúncios**: Agrupa por `ad_id`
+- **Todos UTMs**: Visão geral de todos os parâmetros
+
+**Funcionalidades:**
+
+- ✅ Filtro por período (7 dias, 14 dias, 30 dias, personalizado)
+- ✅ Métricas: Pageviews, Clicks, Leads, Leaves
+- ✅ Taxa de conversão com indicadores visuais
+- ✅ Template de UTM para copiar e usar nas campanhas
+- ✅ Drill-down por dimensão
 
 #### Geolocalização (Vercel)
 
@@ -1458,10 +1705,22 @@ Log de notificações enviadas para auditoria.
 
 O **TrackGram** é um sistema robusto e escalável que resolve efetivamente o problema de atribuição em campanhas para Telegram. A arquitetura serverless, combinada com RLS do Supabase e integração direta com APIs externas, garante segurança, performance e escalabilidade.
 
+A versão atual (4.0) inclui:
+
+- ✅ **Direct Link Mode (NOVO)**: Script v4.0 que elimina a página `/t/slug` - gera link e substitui automaticamente na landing page
+- ✅ **Loading UI Elegante**: Modal com spinner e fallback manual quando click acontece antes da substituição
+- ✅ **Bet Tracking System**: Rastreamento completo do funil Landing → Telegram → Bet com eventos CAPI de cadastro e depósito
+- ✅ **Funis Isolados por Afiliado**: Tabelas dedicadas (`bet_leads_lucasmagnotti`, `bet_leads_pedrozutti`) para evitar poluição de dados
+- ✅ **Arquitetura de Serviços Refatorada**: Handlers e serviços modulares para Telegram
+- ✅ **Integração Pushcut**: Notificações push em tempo real para iOS
+- ✅ **Multi-Pixel Support**: Envio de eventos para múltiplos pixels simultaneamente
+- ✅ **Analytics de UTMs Avançado**: Página com tabs de campanhas/conjuntos/anúncios, filtros de data e drill-down
+- ✅ **Captura de Ads IDs**: Suporte a campaign_id, adset_id, ad_id do Meta Ads
+
 A documentação acima reflete o estado atual do sistema (Dezembro 2025) e deve ser atualizada conforme novas funcionalidades forem implementadas.
 
 ---
 
 **Última atualização**: Dezembro 2025  
-**Versão do Sistema**: 3.2+  
+**Versão do Sistema**: 4.0  
 **Autor**: Análise Técnica Completa e Detalhada

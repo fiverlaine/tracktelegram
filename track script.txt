@@ -1,0 +1,368 @@
+
+/**
+ * TrackGram Tracker v3.0
+ * Sistema de tracking 1:1 para Telegram + Facebook Ads
+ * - Modo híbrido: substitui hrefs automaticamente + click handlers como fallback
+ * - Funciona com cliques manuais E redirects automáticos
+ * - Detecção automática de links do Telegram
+ * - Coleta de dados de dispositivo, cookies e comportamento
+ */
+(function() {
+  const SUPABASE_URL = 'https://xripgmamxrniobzgrobo.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyaXBnbWFteHJuaW9iemdyb2JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwMjA3NDIsImV4cCI6MjA3NzU5Njc0Mn0.DwfPzBt4Dc6FvDteuJHDdpzuETCbDqqiemJjsdJ_vMs';
+  const ASSIGN_LINK_URL = SUPABASE_URL + '/functions/v1/assign-link';
+  const PAGEVIEW_URL = SUPABASE_URL + '/functions/v1/track-pageview';
+  const PAGE_LOAD_TIME = performance.now();
+  
+  // Link trackado obtido (compartilhado entre funções)
+  let trackedInviteLink = null;
+  let isAssigning = false;
+  
+  // Regex para detectar links do Telegram (incluindo links com + para canais privados)
+  const TELEGRAM_LINK_PATTERN = /https?:\/\/(t\.me|telegram\.me|telegram\.dog)\/([a-zA-Z0-9_]+|\+[a-zA-Z0-9_\-]+)/i;
+  
+  function getChannelId() {
+    const script = document.querySelector('script[data-trackgram-channel]');
+    return script ? script.getAttribute('data-trackgram-channel') : null;
+  }
+  
+  function getCookie(name) {
+    const nameEQ = name + "=";
+    const cookies = document.cookie.split(';');
+    
+    for (let i = 0; i < cookies.length; i++) {
+      let cookie = cookies[i].trim();
+      if (cookie.indexOf(nameEQ) === 0) {
+        return decodeURIComponent(cookie.substring(nameEQ.length));
+      }
+    }
+    return null;
+  }
+  
+  function getUrlParameter(name) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(name);
+  }
+  
+  function getDeviceType() {
+    const ua = navigator.userAgent.toLowerCase();
+    const width = window.innerWidth;
+    
+    if (/mobile|android|iphone|ipod|blackberry|windows phone/.test(ua)) {
+      return 'mobile';
+    }
+    
+    if (/tablet|ipad/.test(ua) || (width >= 768 && width <= 1024)) {
+      return 'tablet';
+    }
+    
+    return 'desktop';
+  }
+  
+  function collectBrowserData() {
+    const fbclid = getUrlParameter('fbclid');
+    const fbc = getCookie('_fbc');
+    const fbp = getCookie('_fbp');
+    
+    const data = {
+      device_type: getDeviceType(),
+      time_on_page: Math.round(performance.now() - PAGE_LOAD_TIME),
+      fbc: fbc,
+      fbp: fbp,
+      fbclid: fbclid,
+      ga: getCookie('_ga'),
+      gcl_aw: getCookie('_gcl_aw'),
+      current_url: window.location.href,
+      referrer: document.referrer
+    };
+    
+    console.log('[TrackGram] Browser data collected:', {
+      fbc: fbc || 'not found',
+      fbp: fbp || 'not found',
+      fbclid: fbclid || 'not in URL',
+      device_type: data.device_type
+    });
+    
+    return data;
+  }
+  
+  function findTelegramLinks() {
+    const allLinks = document.querySelectorAll('a[href]');
+    const telegramLinks = [];
+    
+    allLinks.forEach(link => {
+      if (TELEGRAM_LINK_PATTERN.test(link.href)) {
+        telegramLinks.push(link);
+      }
+    });
+    
+    return telegramLinks;
+  }
+  
+  // Função principal: obtém link trackado e substitui hrefs
+  async function assignAndReplaceLinks() {
+    const channelId = parseInt(getChannelId(), 10);
+    
+    if (!channelId || isNaN(channelId)) {
+      console.warn('[TrackGram] ⚠️ data-trackgram-channel não encontrado');
+      return;
+    }
+    
+    // Evita chamadas duplicadas
+    if (isAssigning) {
+      console.log('[TrackGram] ⏳ Assign já em andamento...');
+      return;
+    }
+    
+    const telegramLinks = findTelegramLinks();
+    
+    if (telegramLinks.length === 0) {
+      console.log('[TrackGram] ℹ️ Nenhum link do Telegram encontrado na página');
+      return;
+    }
+    
+    console.log('[TrackGram] 🔍 Links do Telegram encontrados:', telegramLinks.length);
+    
+    isAssigning = true;
+    const clientData = collectBrowserData();
+    
+    try {
+      const response = await fetch(ASSIGN_LINK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({ 
+          channel_id: channelId,
+          client_data: clientData
+        }),
+        keepalive: true
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('[TrackGram] ❌ Erro ao obter link trackado:', data.error);
+        isAssigning = false;
+        return;
+      }
+      
+      if (data.invite_link) {
+        trackedInviteLink = data.invite_link;
+        
+        // Substitui o href de todos os links do Telegram
+        let replacedCount = 0;
+        telegramLinks.forEach(link => {
+          link.setAttribute('data-trackgram-original', link.href);
+          link.setAttribute('data-trackgram-replaced', 'true');
+          link.href = trackedInviteLink;
+          replacedCount++;
+        });
+        
+        console.log('%c[TrackGram] ✅ Modo híbrido ativo - ' + replacedCount + ' links substituídos', 'color: green; font-weight: bold');
+        console.log('[TrackGram] 🔗 Link trackado:', trackedInviteLink);
+      }
+    } catch (error) {
+      console.error('[TrackGram] ❌ Erro ao obter link trackado:', error);
+    } finally {
+      isAssigning = false;
+    }
+  }
+  
+  // Click handler como fallback (caso substituição falhe)
+  async function handleClick(event) {
+    const button = event.currentTarget;
+    
+    // Se o link já foi substituído, deixa o comportamento padrão (navegação normal)
+    if (button.hasAttribute('data-trackgram-replaced')) {
+      console.log('[TrackGram] 🚀 Redirecionando via href substituído');
+      return; // Deixa o clique seguir normalmente para o href já trackado
+    }
+    
+    // Fallback: se não foi substituído, faz o fluxo original
+    event.preventDefault();
+    const channelId = parseInt(getChannelId(), 10);
+    
+    if (!channelId || isNaN(channelId)) {
+      console.error('[TrackGram] data-trackgram-channel não encontrado ou inválido');
+      return;
+    }
+    
+    // Se já temos um link trackado em memória, usa ele
+    if (trackedInviteLink) {
+      console.log('[TrackGram] 🚀 Usando link trackado em memória');
+      window.location.href = trackedInviteLink;
+      return;
+    }
+    
+    const clientData = collectBrowserData();
+    
+    button.disabled = true;
+    const originalText = button.textContent;
+    button.textContent = '⏳ Carregando...';
+    
+    try {
+      const response = await fetch(ASSIGN_LINK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({ 
+          channel_id: channelId,
+          client_data: clientData
+        }),
+        keepalive: true
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        const errorMsg = data.error || 'Erro desconhecido';
+        
+        if (errorMsg.includes('No available links')) {
+          alert('⚠️ Nenhum link disponível no momento.');
+        } else {
+          alert('❌ Erro: ' + errorMsg);
+        }
+        
+        button.disabled = false;
+        button.textContent = originalText;
+        return;
+      }
+      
+      if (data.invite_link) {
+        window.location.href = data.invite_link;
+      } else {
+        alert('⚠️ Erro ao gerar link. Tente novamente.');
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    } catch (error) {
+      console.error('[TrackGram]', error);
+      alert('❌ Erro de conexão. Verifique sua internet e tente novamente.');
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
+  
+  async function trackPageView() {
+    const channelId = parseInt(getChannelId(), 10);
+    
+    if (!channelId || isNaN(channelId)) {
+      console.warn('[TrackGram] ⚠️ data-trackgram-channel não encontrado, PageView não será registrado');
+      return;
+    }
+    
+    const clientData = collectBrowserData();
+    
+    try {
+      const response = await fetch(PAGEVIEW_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({ 
+          channel_id: channelId,
+          client_data: clientData
+        }),
+        keepalive: true
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('[TrackGram] ❌ Erro ao registrar PageView:', response.status, errorData);
+      } else {
+        console.log('%c[TrackGram] ✅ PageView registrado', 'color: green; font-weight: bold');
+      }
+    } catch (error) {
+      console.error('[TrackGram] ❌ Erro ao registrar PageView:', error);
+    }
+  }
+  
+  function setupClickHandlers() {
+    // Busca por classe CSS (retrocompatibilidade)
+    const manualButtons = document.querySelectorAll('.trackgram-button, [data-trackgram-button]');
+    
+    // Busca automática por links do Telegram
+    const autoDetected = findTelegramLinks();
+    
+    // Une ambos e remove duplicatas
+    const allButtons = [...new Set([...manualButtons, ...autoDetected])];
+    
+    console.log('[TrackGram] Click handlers configurados:', allButtons.length);
+    
+    allButtons.forEach(btn => btn.addEventListener('click', handleClick));
+  }
+  
+  // ========== INICIALIZAÇÃO ==========
+  
+  // 1. Dispara PageView IMEDIATAMENTE (não espera DOM)
+  trackPageView();
+  
+  // 2. Quando DOM estiver pronto: substitui links + configura click handlers
+  function initHybridMode() {
+    // Primeiro substitui os hrefs (para redirects automáticos)
+    assignAndReplaceLinks();
+    
+    // Depois configura click handlers como fallback
+    setupClickHandlers();
+  }
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initHybridMode);
+  } else {
+    initHybridMode();
+  }
+  
+  // 3. Observa mudanças no DOM para LPs dinâmicas (SPA)
+  const observer = new MutationObserver((mutations) => {
+    let hasNewLinks = false;
+    
+    mutations.forEach(mutation => {
+      mutation.addedNodes.forEach(node => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          // Verifica se o nó adicionado é um link do Telegram
+          if (node.tagName === 'A' && TELEGRAM_LINK_PATTERN.test(node.href)) {
+            hasNewLinks = true;
+          }
+          // Verifica links dentro do nó adicionado
+          if (node.querySelectorAll) {
+            const links = node.querySelectorAll('a[href]');
+            links.forEach(link => {
+              if (TELEGRAM_LINK_PATTERN.test(link.href) && !link.hasAttribute('data-trackgram-replaced')) {
+                hasNewLinks = true;
+              }
+            });
+          }
+        }
+      });
+    });
+    
+    // Se encontrou novos links, processa apenas os não substituídos
+    if (hasNewLinks && trackedInviteLink) {
+      const newLinks = findTelegramLinks().filter(link => !link.hasAttribute('data-trackgram-replaced'));
+      if (newLinks.length > 0) {
+        console.log('[TrackGram] 🔄 Novos links detectados:', newLinks.length);
+        newLinks.forEach(link => {
+          link.setAttribute('data-trackgram-original', link.href);
+          link.setAttribute('data-trackgram-replaced', 'true');
+          link.href = trackedInviteLink;
+          link.addEventListener('click', handleClick);
+        });
+      }
+    }
+  });
+  
+  // Inicia observação após DOM pronto
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
+  } else {
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+})();
+  
