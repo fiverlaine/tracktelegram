@@ -328,7 +328,6 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
     overlay.innerHTML = \`
       <div class="tg-spinner"></div>
       <div class="tg-text">REDIRECIONANDO</div>
-      <div class="tg-subtext">Gerando seu link exclusivo...</div>
       <a href="#" class="tg-manual-btn" id="tg-manual-btn">Clique aqui se não redirecionar</a>
     \`;
     
