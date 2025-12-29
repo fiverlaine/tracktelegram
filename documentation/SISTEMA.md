@@ -1261,7 +1261,10 @@ Configuração de webhooks customizados para funis.
     "pageviews": 0,
     "clicks": 0,
     "joins": 0,
-    "leaves": 0
+    "leaves": 0,
+    "unique_pageviews": 0,
+    "unique_joins": 0,
+    "unique_leaves": 0
   },
   "daily": [
     {
@@ -1278,6 +1281,7 @@ Configuração de webhooks customizados para funis.
 **Lógica**:
 
 - Agrega eventos por tipo e data
+- Calcula métricas únicas (unique_pageviews, etc) baseadas em `visitor_id` distintos
 - Suporta filtros por funil e pixel
 - Inclui eventos de domínios externos (via metadata.domain_id)
 - Usa CTEs para performance
