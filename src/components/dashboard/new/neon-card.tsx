@@ -7,11 +7,12 @@ interface NeonCardProps {
   icon: LucideIcon;
   subLabel?: string;
   subValue?: string;
+  uniqueValue?: string | number; // NOVO: valor de únicos
   accent: string;
   shadow: string; // e.g. "shadow-blue-500/20"
 }
 
-export const NeonCard = ({ title, value, icon: Icon, subLabel, subValue, accent, shadow }: NeonCardProps) => (
+export const NeonCard = ({ title, value, icon: Icon, subLabel, subValue, uniqueValue, accent, shadow }: NeonCardProps) => (
   <div 
     className={cn(
       "relative w-full h-full rounded-2xl transition-all duration-300 group",
@@ -38,7 +39,16 @@ export const NeonCard = ({ title, value, icon: Icon, subLabel, subValue, accent,
 
       <div>
         <h3 className="text-neutral-500 dark:text-gray-400 text-xs font-medium mb-0.5">{title}</h3>
-        <div className="text-2xl font-bold text-neutral-900 dark:text-white mb-3 tracking-tight">{value}</div>
+        <div className="flex items-baseline gap-2">
+          <div className="text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">{value}</div>
+          {uniqueValue !== undefined && (
+            <span className="text-[10px] text-neutral-400 dark:text-gray-500 font-medium">
+              ({uniqueValue} únicos)
+            </span>
+          )}
+        </div>
+        
+        <div className="mb-3" /> {/* Spacer */}
         
         {subLabel && (
           <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-white/5">

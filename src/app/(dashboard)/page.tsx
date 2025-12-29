@@ -38,7 +38,16 @@ export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   
   const [loading, setLoading] = useState(true);
-  const [metrics, setMetrics] = useState({ pageviews: 0, clicks: 0, joins: 0, leaves: 0 });
+  const [metrics, setMetrics] = useState({ 
+    pageviews: 0, 
+    clicks: 0, 
+    joins: 0, 
+    leaves: 0,
+    // Únicos
+    unique_pageviews: 0,
+    unique_joins: 0,
+    unique_leaves: 0
+  });
   const [chartData, setChartData] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('pageviews');
   
@@ -147,6 +156,7 @@ export default function DashboardPage() {
       title: "Pageviews",
       icon: Eye,
       value: metrics.pageviews.toLocaleString(), 
+      uniqueValue: metrics.unique_pageviews > 0 ? metrics.unique_pageviews.toLocaleString() : undefined,
       status: "Estável",
       subLabel: "Conv. Geral",
       subValue: conversionRate,
@@ -169,6 +179,7 @@ export default function DashboardPage() {
       title: "Entradas",
       icon: Users,
       value: metrics.joins.toLocaleString(),
+      uniqueValue: metrics.unique_joins > 0 ? metrics.unique_joins.toLocaleString() : undefined,
       status: "Estável",
       subLabel: "Taxa Entradas",
       subValue: joinRate,
@@ -180,6 +191,7 @@ export default function DashboardPage() {
       title: "Saídas",
       icon: UserCheck,
       value: metrics.leaves.toLocaleString(),
+      uniqueValue: metrics.unique_leaves > 0 ? metrics.unique_leaves.toLocaleString() : undefined,
       status: "Estável",
       subLabel: "Retenção",
       subValue: retentionRate,
