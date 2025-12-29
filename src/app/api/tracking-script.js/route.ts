@@ -472,20 +472,30 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
 
   // ==================== CLICK HANDLER ====================
   async function handleTelegramClick(event) {
-    const link = event.currentTarget;
-    
-    // Se já foi substituído, deixa navegar normalmente
-    if (link.hasAttribute('data-trackgram-replaced') && trackedInviteLink) {
-      console.log('[TrackGram] 🚀 Redirecionando via link substituído');
-      // Registrar click
-      sendEvent('click', { button_type: 'telegram_link' });
-      return; // Deixa o navegador seguir o href
-    }
-
-    // Se não foi substituído, interceptar e mostrar loading
+    // SEMPRE prevenir navegação primeiro - decisão depois
     event.preventDefault();
     event.stopPropagation();
+    event.stopImmediatePropagation();
     
+    const link = event.currentTarget || event.target.closest('a');
+    if (!link) return;
+    
+    // Salvar href original se ainda não foi salvo
+    if (!link.hasAttribute('data-trackgram-original')) {
+      link.setAttribute('data-trackgram-original', link.href);
+    }
+    
+    const originalHref = link.getAttribute('data-trackgram-original') || link.href;
+    
+    // Se já temos link trackado, redirecionar direto
+    if (trackedInviteLink) {
+      console.log('[TrackGram] 🚀 Redirecionando via link trackado');
+      sendEvent('click', { button_type: 'telegram_link' });
+      window.location.href = trackedInviteLink;
+      return;
+    }
+    
+    // Se não temos link trackado, mostrar loading e gerar
     console.log('[TrackGram] ⏳ Link ainda não substituído - gerando...');
     showLoadingUI();
     
@@ -500,16 +510,19 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
       const manualLink = document.getElementById('trackgram-manual-link');
       if (manualLink) {
         manualLink.href = inviteLink;
+        manualLink.onclick = function() {
+          window.location.href = inviteLink;
+        };
       }
       
       // Redirecionar após pequeno delay para mostrar o loading
       setTimeout(() => {
         redirectToInvite(inviteLink);
-      }, 500);
+      }, 300);
     } else {
-      // Fallback: usar link original
+      // Fallback: usar link original (sem tracking)
+      console.warn('[TrackGram] ⚠️ Falha ao gerar link - usando original');
       hideLoadingUI();
-      const originalHref = link.getAttribute('data-trackgram-original') || link.href;
       window.location.href = originalHref;
     }
   }
@@ -520,7 +533,8 @@ if (!sessionStorage.getItem('fb_pv_fired')) {
     telegramLinks.forEach(link => {
       if (!link.hasAttribute('data-trackgram-handler')) {
         link.setAttribute('data-trackgram-handler', 'true');
-        link.addEventListener('click', handleTelegramClick);
+        // Usar capture: true para garantir que nosso handler seja chamado primeiro
+        link.addEventListener('click', handleTelegramClick, { capture: true });
       }
     });
   }
