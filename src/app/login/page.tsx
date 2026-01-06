@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2, ArrowRight, Sparkles } from "lucide-react";
+import { Eye, EyeOff, Loader2, ArrowRight, Sparkles, X, Mail, CheckCircle2, ArrowLeft } from "lucide-react";
 import { TrackGramLogo } from "@/components/ui/trackgram-logo";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 
@@ -16,6 +16,12 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  
+  // Forgot password modal states
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
 
   const router = useRouter();
   const supabase = createClient();
@@ -80,6 +86,37 @@ export default function LoginPage() {
     }
 
     setLoading(false);
+  }
+
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setForgotLoading(true);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    });
+
+    if (error) {
+      console.error("Forgot password error:", error);
+      toast.error(error.message || "Erro ao enviar email de recuperação");
+    } else {
+      setForgotSuccess(true);
+      toast.success("Email de recuperação enviado!");
+    }
+
+    setForgotLoading(false);
+  }
+
+  function openForgotModal() {
+    setForgotEmail(email); // Pre-fill with login email if available
+    setForgotSuccess(false);
+    setShowForgotModal(true);
+  }
+
+  function closeForgotModal() {
+    setShowForgotModal(false);
+    setForgotEmail("");
+    setForgotSuccess(false);
   }
 
   const features = [
@@ -197,7 +234,7 @@ export default function LoginPage() {
                   />
                   <span className="text-neutral-500 group-hover:text-neutral-900 dark:text-gray-400 dark:group-hover:text-white transition-colors">Lembrar de mim</span>
                 </label>
-                <button type="button" className="text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300 transition-colors">
+                <button type="button" onClick={openForgotModal} className="text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300 transition-colors">
                   Esqueceu a senha?
                 </button>
               </div>
@@ -302,6 +339,128 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fadeIn"
+            onClick={closeForgotModal}
+          />
+          
+          {/* Modal */}
+          <div className="relative bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-md p-8 animate-slideUp border border-neutral-200 dark:border-white/10">
+            {/* Close button */}
+            <button
+              onClick={closeForgotModal}
+              className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-neutral-600 dark:hover:text-white rounded-lg hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors"
+            >
+              <X size={20} />
+            </button>
+
+            {forgotSuccess ? (
+              // Success State
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                  <CheckCircle2 className="w-8 h-8 text-green-500" />
+                </div>
+                <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
+                  Email Enviado!
+                </h2>
+                <p className="text-neutral-500 dark:text-gray-400 mb-6">
+                  Enviamos um link de recuperação para <span className="font-medium text-violet-500">{forgotEmail}</span>. Verifique sua caixa de entrada e spam.
+                </p>
+                <button
+                  onClick={closeForgotModal}
+                  className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-semibold py-3 rounded-xl transition-all shadow-lg shadow-violet-500/25"
+                >
+                  Voltar ao Login
+                </button>
+              </div>
+            ) : (
+              // Form State
+              <>
+                <div className="text-center mb-6">
+                  <div className="w-14 h-14 bg-violet-100 dark:bg-violet-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Mail className="w-7 h-7 text-violet-500" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
+                    Esqueceu a senha?
+                  </h2>
+                  <p className="text-neutral-500 dark:text-gray-400">
+                    Não se preocupe! Digite seu email e enviaremos um link para redefinir sua senha.
+                  </p>
+                </div>
+
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-600 dark:text-gray-400 mb-2">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      placeholder="seu@email.com"
+                      required
+                      autoFocus
+                      className="w-full bg-neutral-50 border border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus:bg-white dark:bg-white/5 dark:border-white/10 dark:text-white dark:placeholder:text-gray-500 dark:focus:bg-violet-500/5 rounded-xl px-4 py-3.5 focus:outline-none focus:border-violet-500 transition-all"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={forgotLoading || !forgotEmail}
+                    className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40"
+                  >
+                    {forgotLoading ? (
+                      <Loader2 size={20} className="animate-spin" />
+                    ) : (
+                      <>
+                        Enviar Link de Recuperação
+                        <ArrowRight size={18} />
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                <button
+                  onClick={closeForgotModal}
+                  className="w-full mt-4 flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-700 dark:text-gray-400 dark:hover:text-white transition-colors py-2"
+                >
+                  <ArrowLeft size={16} />
+                  Voltar ao login
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Animation Styles */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { 
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+          }
+          to { 
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out;
+        }
+        .animate-slideUp {
+          animation: slideUp 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
