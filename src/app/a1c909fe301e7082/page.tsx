@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { format, startOfDay, endOfDay, subDays } from "date-fns";
+import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
   Users, 
@@ -11,13 +11,16 @@ import {
   Search, 
   Calendar as CalendarIcon,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   RefreshCw,
   Lock,
   TrendingUp,
   CreditCard,
   UserCheck,
   Filter,
-  MapPin
+  MapPin,
+  DollarSign
 } from 'lucide-react';
 import { NeonCard } from "@/components/dashboard/new/neon-card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -72,6 +75,49 @@ export default function RestrictedDashboardPage() {
   });
   const [search, setSearch] = useState("");
   const [selectedTable, setSelectedTable] = useState("all");
+  const [depositFilter, setDepositFilter] = useState("all"); // "all" | "deposited" | "not_deposited"
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+
+  // Date Presets
+  const setPresetDate = (preset: string) => {
+    const now = new Date();
+    let from: Date;
+    let to: Date = now;
+
+    switch (preset) {
+      case 'hoje':
+        from = now;
+        break;
+      case 'ontem':
+        from = subDays(now, 1);
+        to = subDays(now, 1);
+        break;
+      case '7dias':
+        from = subDays(now, 6);
+        break;
+      case '30dias':
+        from = subDays(now, 29);
+        break;
+      case 'este_mes':
+        from = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'mes_passado':
+        const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        from = lastMonth;
+        to = new Date(now.getFullYear(), now.getMonth(), 0);
+        break;
+      case 'all':
+        setDateRange(undefined);
+        return;
+      default:
+        from = now;
+    }
+
+    setDateRange({ from, to });
+  };
 
   useEffect(() => {
     async function checkAuth() {
@@ -91,6 +137,11 @@ export default function RestrictedDashboardPage() {
       fetchData();
     }
   }, [isAuthorized, dateRange, selectedTable]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, depositFilter, selectedTable, dateRange]);
 
   async function fetchData() {
     setLoading(true);
@@ -155,7 +206,7 @@ export default function RestrictedDashboardPage() {
   }
 
   const handleExport = () => {
-    const headers = ["ID", "Email", "Telefone", "Tabela", "Valor Depósito", "Data Depósito", "Criado em", "UTM Source"];
+    const headers = ["ID", "Email", "Telefone", "Tabela", "Valor Depósito", "Data Depósito", "Criado em", "UTM Source", "UTM Medium", "UTM Campaign", "Cidade", "Estado", "País"];
     const csvContent = [
       headers.join(","),
       ...leads.map(lead => [
@@ -166,7 +217,12 @@ export default function RestrictedDashboardPage() {
         lead.deposit_value || 0,
         lead.deposit_at ? format(new Date(lead.deposit_at), "dd/MM/yyyy HH:mm") : "",
         format(new Date(lead.created_at), "dd/MM/yyyy HH:mm"),
-        lead.utm_source || ""
+        lead.utm_source || "",
+        lead.utm_medium || "",
+        lead.utm_campaign || "",
+        lead.city || "",
+        lead.state || "",
+        lead.country || ""
       ].join(","))
     ].join("\n");
 
@@ -180,11 +236,37 @@ export default function RestrictedDashboardPage() {
     document.body.removeChild(link);
   };
 
-  const filteredLeads = leads.filter(lead => 
-    lead.id.toLowerCase().includes(search.toLowerCase()) ||
-    (lead.email && lead.email.toLowerCase().includes(search.toLowerCase())) ||
-    (lead.phone && lead.phone.includes(search))
-  );
+  // Filtered leads with deposit filter
+  const filteredLeads = useMemo(() => {
+    let filtered = leads.filter(lead => 
+      lead.id.toLowerCase().includes(search.toLowerCase()) ||
+      (lead.email && lead.email.toLowerCase().includes(search.toLowerCase())) ||
+      (lead.phone && lead.phone.includes(search))
+    );
+
+    // Apply deposit filter
+    if (depositFilter === "deposited") {
+      filtered = filtered.filter(l => l.deposit_value && l.deposit_value > 0);
+    } else if (depositFilter === "not_deposited") {
+      filtered = filtered.filter(l => !l.deposit_value || l.deposit_value === 0);
+    }
+
+    return filtered;
+  }, [leads, search, depositFilter]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
+  const paginatedLeads = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredLeads.slice(start, start + itemsPerPage);
+  }, [filteredLeads, currentPage, itemsPerPage]);
+
+  // Date display
+  const dateRangeDisplay = dateRange?.from && dateRange?.to && dateRange.from.getTime() !== dateRange.to.getTime()
+    ? `${format(dateRange.from, "dd/MM")} - ${format(dateRange.to, "dd/MM")}`
+    : dateRange?.from
+    ? format(dateRange.from, "dd/MM/yyyy")
+    : "Todo o período";
 
   if (isAuthorized === null) {
     return (
@@ -326,69 +408,152 @@ export default function RestrictedDashboardPage() {
 
         {/* Filters Section */}
         <motion.div 
-          className="mb-8 flex flex-col gap-4 rounded-3xl border border-white/5 bg-white/[0.03] p-6 backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between"
+          className="mb-8 flex flex-col gap-4 rounded-3xl border border-white/5 bg-white/[0.03] p-6 backdrop-blur-xl"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.5 }}
         >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-              <input 
-                type="text" 
-                placeholder="Filtrar por ID, Email ou Telefone..." 
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-black/40 py-2.5 pl-10 pr-4 text-sm outline-none ring-violet-500/50 transition-all focus:border-violet-500 focus:ring-4 sm:w-[320px]"
-              />
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                <input 
+                  type="text" 
+                  placeholder="Filtrar por ID, Email ou Telefone..." 
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-black/40 py-2.5 pl-10 pr-4 text-sm outline-none ring-violet-500/50 transition-all focus:border-violet-500 focus:ring-4 sm:w-[320px]"
+                />
+              </div>
+
+              {/* Date Range with Presets */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 text-sm font-medium transition-all hover:bg-white/5">
+                    <CalendarIcon size={16} className="text-violet-400" />
+                    <span>{dateRangeDisplay}</span>
+                    <ChevronDown size={14} className="ml-auto opacity-50" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto border-white/10 bg-black/95 p-0 backdrop-blur-xl" align="start">
+                  <div className="flex">
+                    {/* Preset Buttons */}
+                    <div className="w-36 border-r border-white/10 p-3 space-y-1">
+                      <button 
+                        onClick={() => setPresetDate('hoje')}
+                        className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white rounded-lg transition-colors"
+                      >
+                        Hoje
+                      </button>
+                      <button 
+                        onClick={() => setPresetDate('ontem')}
+                        className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white rounded-lg transition-colors"
+                      >
+                        Ontem
+                      </button>
+                      <button 
+                        onClick={() => setPresetDate('7dias')}
+                        className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white rounded-lg transition-colors"
+                      >
+                        Últimos 7 dias
+                      </button>
+                      <button 
+                        onClick={() => setPresetDate('30dias')}
+                        className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white rounded-lg transition-colors"
+                      >
+                        Últimos 30 dias
+                      </button>
+                      <button 
+                        onClick={() => setPresetDate('este_mes')}
+                        className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white rounded-lg transition-colors"
+                      >
+                        Este mês
+                      </button>
+                      <button 
+                        onClick={() => setPresetDate('mes_passado')}
+                        className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white rounded-lg transition-colors"
+                      >
+                        Mês passado
+                      </button>
+                      <button 
+                        onClick={() => setPresetDate('all')}
+                        className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white rounded-lg transition-colors"
+                      >
+                        Todo o período
+                      </button>
+                    </div>
+                    
+                    {/* Calendar */}
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      locale={ptBR}
+                      numberOfMonths={2}
+                      defaultMonth={new Date()}
+                      toDate={new Date()}
+                      className="p-3"
+                    />
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
-            {/* Date Range */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 text-sm font-medium transition-all hover:bg-white/5">
-                  <CalendarIcon size={16} className="text-violet-400" />
-                  <span>
-                    {dateRange?.from ? (
-                      dateRange.to ? (
-                        `${format(dateRange.from, "dd/MM")} - ${format(dateRange.to, "dd/MM")}`
-                      ) : (
-                        format(dateRange.from, "dd/MM/yyyy")
-                      )
-                    ) : (
-                      "Filtrar Período"
-                    )}
-                  </span>
-                  <ChevronDown size={14} className="ml-auto opacity-50" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto border-white/10 bg-black/95 p-0 backdrop-blur-xl" align="start">
-                <Calendar
-                  mode="range"
-                  selected={dateRange}
-                  onSelect={setDateRange}
-                  locale={ptBR}
-                  className="rounded-xl"
-                />
-              </PopoverContent>
-            </Popover>
+            <div className="flex flex-wrap gap-3">
+              {/* Deposit Filter */}
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-400" size={14} />
+                <select 
+                  value={depositFilter}
+                  onChange={(e) => setDepositFilter(e.target.value)}
+                  className="w-full appearance-none rounded-xl border border-white/10 bg-black/40 py-2.5 pl-10 pr-10 text-sm outline-none transition-all focus:border-violet-500 sm:w-auto"
+                >
+                  <option value="all">Todos os Leads</option>
+                  <option value="deposited">✅ Apenas Depositados</option>
+                  <option value="not_deposited">❌ Não Depositou</option>
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" size={12} />
+              </div>
+              
+              {/* Table Filter */}
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-violet-400" size={14} />
+                <select 
+                  value={selectedTable}
+                  onChange={(e) => setSelectedTable(e.target.value)}
+                  className="w-full appearance-none rounded-xl border border-white/10 bg-black/40 py-2.5 pl-10 pr-10 text-sm outline-none transition-all focus:border-violet-500 sm:w-auto"
+                >
+                  <option value="all">Todas as Tabelas</option>
+                  <option value="bet_leads">Geral (bet_leads)</option>
+                  <option value="bet_leads_lucasmagnotti">Lucas Magnotti</option>
+                  <option value="bet_leads_pedrozutti">Pedro Zutti</option>
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" size={12} />
+              </div>
+            </div>
           </div>
-
-          <div className="flex gap-3">
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-violet-400" size={14} />
-              <select 
-                value={selectedTable}
-                onChange={(e) => setSelectedTable(e.target.value)}
-                className="w-full appearance-none rounded-xl border border-white/10 bg-black/40 py-2.5 pl-10 pr-10 text-sm outline-none transition-all focus:border-violet-500 sm:w-auto"
+          
+          {/* Results Summary */}
+          <div className="flex items-center justify-between border-t border-white/5 pt-4 text-sm text-gray-400">
+            <span>
+              Mostrando <span className="font-bold text-white">{paginatedLeads.length}</span> de <span className="font-bold text-white">{filteredLeads.length}</span> resultados
+            </span>
+            <div className="flex items-center gap-2">
+              <span>Itens por página:</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="appearance-none rounded-lg border border-white/10 bg-black/40 px-3 py-1 text-sm outline-none focus:border-violet-500"
               >
-                <option value="all">Todas as Tabelas</option>
-                <option value="bet_leads">Geral (bet_leads)</option>
-                <option value="bet_leads_lucasmagnotti">Lucas Magnotti</option>
-                <option value="bet_leads_pedrozutti">Pedro Zutti</option>
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" size={12} />
             </div>
           </div>
         </motion.div>
@@ -422,7 +587,7 @@ export default function RestrictedDashboardPage() {
                       </td>
                     </tr>
                   ))
-                ) : filteredLeads.length === 0 ? (
+                ) : paginatedLeads.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-8 py-20 text-center">
                       <div className="flex flex-col items-center gap-2">
@@ -432,7 +597,7 @@ export default function RestrictedDashboardPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredLeads.map((lead) => (
+                  paginatedLeads.map((lead) => (
                     <tr key={`${lead.source_table}-${lead.id}`} className="group transition-colors hover:bg-white/5">
                       <td className="px-8 py-5">
                         <div className="flex flex-col">
@@ -540,6 +705,75 @@ export default function RestrictedDashboardPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {!loading && filteredLeads.length > 0 && (
+            <div className="flex items-center justify-between border-t border-white/5 px-8 py-4">
+              <span className="text-sm text-gray-400">
+                Página <span className="font-bold text-white">{currentPage}</span> de <span className="font-bold text-white">{totalPages}</span>
+              </span>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium transition-all hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Primeira
+                </button>
+                <button 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="rounded-lg border border-white/10 bg-white/5 p-2 transition-all hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                
+                {/* Page Numbers */}
+                <div className="flex gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                          currentPage === pageNum 
+                            ? 'bg-violet-600 text-white' 
+                            : 'border border-white/10 bg-white/5 hover:bg-white/10'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                <button 
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="rounded-lg border border-white/10 bg-white/5 p-2 transition-all hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight size={16} />
+                </button>
+                <button 
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium transition-all hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Última
+                </button>
+              </div>
+            </div>
+          )}
         </motion.div>
       </div>
     </div>
