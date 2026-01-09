@@ -418,139 +418,176 @@ export default function RestrictedDashboardPage() {
         </div>
 
         {/* UTM Analytics Charts - Show when filtering by specific table */}
-        {selectedTable !== "all" && stats.totalDeposits > 0 && (
-          <motion.div
-            className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-3"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            {/* UTM Source Chart */}
-            <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl">
-              <h3 className="mb-4 text-lg font-bold text-white">Depósitos por UTM Source</h3>
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={(() => {
-                        const depositsOnly = leads.filter(l => l.deposit_value && l.deposit_value > 0);
-                        const grouped = depositsOnly.reduce((acc: Record<string, { count: number; value: number }>, lead) => {
-                          const key = lead.utm_source || 'Direto';
-                          if (!acc[key]) acc[key] = { count: 0, value: 0 };
-                          acc[key].count += 1;
-                          acc[key].value += Number(lead.deposit_value) || 0;
-                          return acc;
-                        }, {});
-                        return Object.entries(grouped)
-                          .map(([name, data]) => ({ name, count: data.count, value: data.value }))
-                          .sort((a, b) => b.value - a.value)
-                          .slice(0, 8);
-                      })()}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      labelLine={false}
-                    >
-                      {CHART_COLORS.map((color, index) => (
-                        <Cell key={`cell-${index}`} fill={color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']}
-                      contentStyle={{ backgroundColor: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+        {selectedTable !== "all" && stats.totalDeposits > 0 && (() => {
+          // Pre-compute chart data
+          const depositsOnly = leads.filter(l => l.deposit_value && l.deposit_value > 0);
+          
+          const sourceData = Object.entries(
+            depositsOnly.reduce((acc: Record<string, { count: number; value: number }>, lead) => {
+              const key = lead.utm_source || 'Direto';
+              if (!acc[key]) acc[key] = { count: 0, value: 0 };
+              acc[key].count += 1;
+              acc[key].value += Number(lead.deposit_value) || 0;
+              return acc;
+            }, {})
+          ).map(([name, data]) => ({ name, count: data.count, value: data.value }))
+           .sort((a, b) => b.value - a.value)
+           .slice(0, 6);
 
-            {/* UTM Campaign Chart */}
-            <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl">
-              <h3 className="mb-4 text-lg font-bold text-white">Depósitos por Campanha</h3>
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={(() => {
-                      const depositsOnly = leads.filter(l => l.deposit_value && l.deposit_value > 0);
-                      const grouped = depositsOnly.reduce((acc: Record<string, { count: number; value: number }>, lead) => {
-                        const key = lead.utm_campaign || 'Sem campanha';
-                        if (!acc[key]) acc[key] = { count: 0, value: 0 };
-                        acc[key].count += 1;
-                        acc[key].value += Number(lead.deposit_value) || 0;
-                        return acc;
-                      }, {});
-                      return Object.entries(grouped)
-                        .map(([name, data]) => ({ name: name.length > 15 ? name.substring(0, 15) + '...' : name, fullName: name, count: data.count, value: data.value }))
-                        .sort((a, b) => b.value - a.value)
-                        .slice(0, 6);
-                    })()}
-                    layout="vertical"
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis type="number" stroke="#525252" fontSize={10} tickFormatter={(v) => `R$${v}`} />
-                    <YAxis type="category" dataKey="name" stroke="#525252" fontSize={10} width={100} />
-                    <Tooltip 
-                      formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']}
-                      contentStyle={{ backgroundColor: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                    />
-                    <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+          const campaignData = Object.entries(
+            depositsOnly.reduce((acc: Record<string, { count: number; value: number }>, lead) => {
+              const key = lead.utm_campaign || 'Sem campanha';
+              if (!acc[key]) acc[key] = { count: 0, value: 0 };
+              acc[key].count += 1;
+              acc[key].value += Number(lead.deposit_value) || 0;
+              return acc;
+            }, {})
+          ).map(([name, data]) => ({ name, count: data.count, value: data.value }))
+           .sort((a, b) => b.value - a.value)
+           .slice(0, 6);
 
-            {/* UTM Medium Chart */}
-            <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl">
-              <h3 className="mb-4 text-lg font-bold text-white">Depósitos por Mídia</h3>
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={(() => {
-                        const depositsOnly = leads.filter(l => l.deposit_value && l.deposit_value > 0);
-                        const grouped = depositsOnly.reduce((acc: Record<string, { count: number; value: number }>, lead) => {
-                          const key = lead.utm_medium || 'Orgânico';
-                          if (!acc[key]) acc[key] = { count: 0, value: 0 };
-                          acc[key].count += 1;
-                          acc[key].value += Number(lead.deposit_value) || 0;
-                          return acc;
-                        }, {});
-                        return Object.entries(grouped)
-                          .map(([name, data]) => ({ name, count: data.count, value: data.value }))
-                          .sort((a, b) => b.value - a.value)
-                          .slice(0, 8);
-                      })()}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      dataKey="count"
-                      label={({ name, count }) => `${name}: ${count}`}
-                      labelLine={false}
-                    >
-                      {CHART_COLORS.map((color, index) => (
-                        <Cell key={`cell-${index}`} fill={color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value: number, name: string, props: any) => [
-                        `${value} depósitos (R$ ${props.payload.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`,
-                        'Total'
-                      ]}
-                      contentStyle={{ backgroundColor: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+          const mediumData = Object.entries(
+            depositsOnly.reduce((acc: Record<string, { count: number; value: number }>, lead) => {
+              const key = lead.utm_medium || 'Orgânico';
+              if (!acc[key]) acc[key] = { count: 0, value: 0 };
+              acc[key].count += 1;
+              acc[key].value += Number(lead.deposit_value) || 0;
+              return acc;
+            }, {})
+          ).map(([name, data]) => ({ name, count: data.count, value: data.value }))
+           .sort((a, b) => b.value - a.value)
+           .slice(0, 6);
+
+          return (
+            <motion.div
+              className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-3"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              {/* UTM Source Chart */}
+              <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl">
+                <h3 className="mb-4 text-lg font-bold text-white">Depósitos por UTM Source</h3>
+                <div className="h-[200px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={sourceData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={40}
+                        outerRadius={70}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {sourceData.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                        contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', color: '#fff' }}
+                        labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* External Legend */}
+                <div className="mt-4 space-y-2 max-h-[120px] overflow-y-auto">
+                  {sourceData.map((item, index) => (
+                    <div key={item.name} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
+                        <span className="text-gray-300 truncate max-w-[150px]" title={item.name}>{item.name}</span>
+                      </div>
+                      <span className="text-white font-medium">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </motion.div>
-        )}
+
+              {/* UTM Campaign Chart */}
+              <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl">
+                <h3 className="mb-4 text-lg font-bold text-white">Depósitos por Campanha</h3>
+                <div className="h-[200px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={campaignData}
+                      layout="vertical"
+                      margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                      <XAxis type="number" stroke="#525252" fontSize={10} tickFormatter={(v) => `R$${v}`} />
+                      <YAxis type="category" dataKey="name" hide />
+                      <Tooltip 
+                        formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                        contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', color: '#fff' }}
+                        labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                      />
+                      <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* External Legend */}
+                <div className="mt-4 space-y-2 max-h-[120px] overflow-y-auto">
+                  {campaignData.map((item, index) => (
+                    <div key={item.name} className="flex items-center justify-between text-sm gap-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="w-3 h-3 rounded flex-shrink-0" style={{ backgroundColor: '#8b5cf6' }} />
+                        <span className="text-gray-300 truncate" title={item.name}>{item.name}</span>
+                      </div>
+                      <span className="text-white font-medium flex-shrink-0">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* UTM Medium Chart */}
+              <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl">
+                <h3 className="mb-4 text-lg font-bold text-white">Depósitos por Mídia</h3>
+                <div className="h-[200px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={mediumData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={40}
+                        outerRadius={70}
+                        paddingAngle={2}
+                        dataKey="count"
+                      >
+                        {mediumData.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value: number, name: string, props: any) => [
+                          `${value} depósitos • R$ ${props.payload.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                          props.payload.name
+                        ]}
+                        contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', color: '#fff' }}
+                        labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* External Legend */}
+                <div className="mt-4 space-y-2 max-h-[120px] overflow-y-auto">
+                  {mediumData.map((item, index) => (
+                    <div key={item.name} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
+                        <span className="text-gray-300 truncate max-w-[150px]" title={item.name}>{item.name}</span>
+                      </div>
+                      <span className="text-white font-medium">{item.count} deps</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          );
+        })()}
 
         {/* Filters Section */}
         <motion.div 
