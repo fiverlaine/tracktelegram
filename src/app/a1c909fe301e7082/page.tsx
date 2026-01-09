@@ -16,7 +16,8 @@ import {
   TrendingUp,
   CreditCard,
   UserCheck,
-  Filter
+  Filter,
+  MapPin
 } from 'lucide-react';
 import { NeonCard } from "@/components/dashboard/new/neon-card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -39,6 +40,11 @@ interface BetLead {
   utm_source: string | null;
   utm_medium: string | null;
   utm_campaign: string | null;
+  utm_content: string | null;
+  utm_term: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
   source_table: string;
 }
 
@@ -402,6 +408,7 @@ export default function RestrictedDashboardPage() {
                   <th className="px-6 py-5">Valor Depósito</th>
                   <th className="px-6 py-5">Contato</th>
                   <th className="px-6 py-5">UTMs</th>
+                  <th className="px-6 py-5">Localização</th>
                   <th className="px-6 py-5">Data Cadastro</th>
                   <th className="px-8 py-5 text-right">Ação</th>
                 </tr>
@@ -410,14 +417,14 @@ export default function RestrictedDashboardPage() {
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      <td colSpan={6} className="px-8 py-4">
+                      <td colSpan={7} className="px-8 py-4">
                         <div className="h-6 rounded bg-white/5" />
                       </td>
                     </tr>
                   ))
                 ) : filteredLeads.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-8 py-20 text-center">
+                    <td colSpan={7} className="px-8 py-20 text-center">
                       <div className="flex flex-col items-center gap-2">
                         <Users className="h-10 w-10 text-gray-600" />
                         <p className="text-gray-400">Nenhum registro encontrado.</p>
@@ -464,18 +471,52 @@ export default function RestrictedDashboardPage() {
                         </div>
                       </td>
                       <td className="px-6 py-5">
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1 max-w-[280px]">
                           {lead.utm_source && (
-                            <span className="rounded-md bg-white/5 px-2 py-0.5 text-[10px] text-gray-400">
-                              {lead.utm_source}
+                            <span className="rounded-md bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 text-[10px] text-violet-400">
+                              src: {lead.utm_source}
+                            </span>
+                          )}
+                          {lead.utm_medium && (
+                            <span className="rounded-md bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 text-[10px] text-blue-400">
+                              med: {lead.utm_medium}
                             </span>
                           )}
                           {lead.utm_campaign && (
-                            <span className="rounded-md bg-white/5 px-2 py-0.5 text-[10px] text-gray-400">
-                              {lead.utm_campaign}
+                            <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-400">
+                              cmp: {lead.utm_campaign}
                             </span>
                           )}
-                          {!lead.utm_source && !lead.utm_campaign && <span className="text-gray-600">-</span>}
+                          {lead.utm_content && (
+                            <span className="rounded-md bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] text-amber-400">
+                              cnt: {lead.utm_content}
+                            </span>
+                          )}
+                          {lead.utm_term && (
+                            <span className="rounded-md bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 text-[10px] text-rose-400">
+                              trm: {lead.utm_term}
+                            </span>
+                          )}
+                          {!lead.utm_source && !lead.utm_medium && !lead.utm_campaign && !lead.utm_content && !lead.utm_term && (
+                            <span className="text-gray-600">-</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="flex flex-col gap-0.5">
+                          {(lead.city || lead.state || lead.country) ? (
+                            <>
+                              <div className="flex items-center gap-1.5 text-gray-300">
+                                <MapPin size={12} className="text-violet-400" />
+                                {lead.city || ""}{lead.city && lead.state ? ", " : ""}{lead.state || ""}
+                              </div>
+                              {lead.country && (
+                                <span className="text-[10px] text-gray-500 pl-4">{lead.country}</span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-gray-600">-</span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-5">
