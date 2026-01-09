@@ -159,9 +159,13 @@ export default function RestrictedDashboardPage() {
           .order("created_at", { ascending: false });
 
         if (dateRange?.from) {
-          query = query.gte("created_at", dateRange.from.toISOString());
+          // Set to start of day in local timezone, then convert to ISO
+          const startDate = new Date(dateRange.from);
+          startDate.setHours(0, 0, 0, 0);
+          query = query.gte("created_at", startDate.toISOString());
         }
         if (dateRange?.to) {
+          // Set to end of day in local timezone, then convert to ISO
           const endDate = new Date(dateRange.to);
           endDate.setHours(23, 59, 59, 999);
           query = query.lte("created_at", endDate.toISOString());
