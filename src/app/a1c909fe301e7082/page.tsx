@@ -28,6 +28,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 const RESTRICTED_EMAIL = "azevedoryan0876@gmail.com";
 
@@ -67,6 +68,12 @@ export default function RestrictedDashboardPage() {
     totalDepositValue: 0,
     conversionRate: 0,
   });
+
+  // Chart colors
+  const CHART_COLORS = [
+    '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444',
+    '#ec4899', '#6366f1', '#14b8a6', '#84cc16', '#f97316'
+  ];
   
   // Filters
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -409,6 +416,141 @@ export default function RestrictedDashboardPage() {
             </motion.div>
           </AnimatePresence>
         </div>
+
+        {/* UTM Analytics Charts - Show when filtering by specific table */}
+        {selectedTable !== "all" && stats.totalDeposits > 0 && (
+          <motion.div
+            className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-3"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            {/* UTM Source Chart */}
+            <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl">
+              <h3 className="mb-4 text-lg font-bold text-white">Depósitos por UTM Source</h3>
+              <div className="h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={(() => {
+                        const depositsOnly = leads.filter(l => l.deposit_value && l.deposit_value > 0);
+                        const grouped = depositsOnly.reduce((acc: Record<string, { count: number; value: number }>, lead) => {
+                          const key = lead.utm_source || 'Direto';
+                          if (!acc[key]) acc[key] = { count: 0, value: 0 };
+                          acc[key].count += 1;
+                          acc[key].value += Number(lead.deposit_value) || 0;
+                          return acc;
+                        }, {});
+                        return Object.entries(grouped)
+                          .map(([name, data]) => ({ name, count: data.count, value: data.value }))
+                          .sort((a, b) => b.value - a.value)
+                          .slice(0, 8);
+                      })()}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      labelLine={false}
+                    >
+                      {CHART_COLORS.map((color, index) => (
+                        <Cell key={`cell-${index}`} fill={color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']}
+                      contentStyle={{ backgroundColor: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* UTM Campaign Chart */}
+            <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl">
+              <h3 className="mb-4 text-lg font-bold text-white">Depósitos por Campanha</h3>
+              <div className="h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={(() => {
+                      const depositsOnly = leads.filter(l => l.deposit_value && l.deposit_value > 0);
+                      const grouped = depositsOnly.reduce((acc: Record<string, { count: number; value: number }>, lead) => {
+                        const key = lead.utm_campaign || 'Sem campanha';
+                        if (!acc[key]) acc[key] = { count: 0, value: 0 };
+                        acc[key].count += 1;
+                        acc[key].value += Number(lead.deposit_value) || 0;
+                        return acc;
+                      }, {});
+                      return Object.entries(grouped)
+                        .map(([name, data]) => ({ name: name.length > 15 ? name.substring(0, 15) + '...' : name, fullName: name, count: data.count, value: data.value }))
+                        .sort((a, b) => b.value - a.value)
+                        .slice(0, 6);
+                    })()}
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis type="number" stroke="#525252" fontSize={10} tickFormatter={(v) => `R$${v}`} />
+                    <YAxis type="category" dataKey="name" stroke="#525252" fontSize={10} width={100} />
+                    <Tooltip 
+                      formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']}
+                      contentStyle={{ backgroundColor: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                    />
+                    <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* UTM Medium Chart */}
+            <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl">
+              <h3 className="mb-4 text-lg font-bold text-white">Depósitos por Mídia</h3>
+              <div className="h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={(() => {
+                        const depositsOnly = leads.filter(l => l.deposit_value && l.deposit_value > 0);
+                        const grouped = depositsOnly.reduce((acc: Record<string, { count: number; value: number }>, lead) => {
+                          const key = lead.utm_medium || 'Orgânico';
+                          if (!acc[key]) acc[key] = { count: 0, value: 0 };
+                          acc[key].count += 1;
+                          acc[key].value += Number(lead.deposit_value) || 0;
+                          return acc;
+                        }, {});
+                        return Object.entries(grouped)
+                          .map(([name, data]) => ({ name, count: data.count, value: data.value }))
+                          .sort((a, b) => b.value - a.value)
+                          .slice(0, 8);
+                      })()}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="count"
+                      label={({ name, count }) => `${name}: ${count}`}
+                      labelLine={false}
+                    >
+                      {CHART_COLORS.map((color, index) => (
+                        <Cell key={`cell-${index}`} fill={color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number, name: string, props: any) => [
+                        `${value} depósitos (R$ ${props.payload.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`,
+                        'Total'
+                      ]}
+                      contentStyle={{ backgroundColor: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Filters Section */}
         <motion.div 
