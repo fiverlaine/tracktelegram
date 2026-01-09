@@ -16,7 +16,8 @@ export async function middleware(request: NextRequest) {
         "/postbacks",
         "/subscription",
         "/utms",
-        "/dashboard" 
+        "/dashboard",
+        "/a1c909fe301e7082" 
     ];
 
     // Verifica se a rota atual é protegida
