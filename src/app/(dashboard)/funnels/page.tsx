@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Copy, Check, Trash2, Link as LinkIcon, ExternalLink, Pencil, ChevronDown, X } from "lucide-react";
+import { Loader2, Plus, Check, Trash2, Link as LinkIcon, Pencil, ChevronDown, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -51,7 +51,7 @@ export default function FunnelsPage() {
     });
     const [editingId, setEditingId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
-    const [copiedId, setCopiedId] = useState<string | null>(null);
+
     const [deleting, setDeleting] = useState<string | null>(null);
 
     const [hasVerifiedDomain, setHasVerifiedDomain] = useState(false);
@@ -280,13 +280,7 @@ export default function FunnelsPage() {
         setSaving(false);
     }
 
-    function handleCopyLink(slug: string) {
-        const url = `${window.location.origin}/t/${slug}`;
-        navigator.clipboard.writeText(url);
-        setCopiedId(slug);
-        toast.success("Link copiado!");
-        setTimeout(() => setCopiedId(null), 2000);
-    }
+
 
     async function handleDelete(id: string, name: string) {
         if (!confirm(`Tem certeza que deseja remover o funil "${name}"? Esta ação não pode ser desfeita.`)) {
@@ -453,7 +447,6 @@ export default function FunnelsPage() {
                     <thead className="text-xs text-neutral-500 dark:text-gray-500 uppercase bg-neutral-50 dark:bg-white/5 border-b border-neutral-200 dark:border-white/5">
                         <tr>
                             <th className="px-6 py-4 font-medium">Campanha</th>
-                            <th className="px-6 py-4 font-medium">Link Gerado</th>
                             <th className="px-6 py-4 font-medium">Configurações</th>
                             <th className="px-6 py-4 font-medium text-right">Ações</th>
                         </tr>
@@ -461,13 +454,13 @@ export default function FunnelsPage() {
                     <tbody className="divide-y divide-neutral-100 dark:divide-white/5">
                         {loading ? (
                             <tr>
-                                <td colSpan={4} className="px-6 py-8 text-center text-violet-500">
+                                <td colSpan={3} className="px-6 py-8 text-center text-violet-500">
                                     <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                                 </td>
                             </tr>
                         ) : funnels.length === 0 ? (
                             <tr>
-                                <td colSpan={4} className="px-6 py-8 text-center text-neutral-500 dark:text-gray-500">
+                                <td colSpan={3} className="px-6 py-8 text-center text-neutral-500 dark:text-gray-500">
                                     Você ainda não criou nenhum funil.
                                 </td>
                             </tr>
@@ -486,29 +479,7 @@ export default function FunnelsPage() {
                                             </div>
                                             {funnel.name}
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2 bg-neutral-100 dark:bg-black/40 p-2 rounded-lg border border-neutral-200 dark:border-white/5 text-xs font-mono max-w-[300px] overflow-hidden group/link">
-                                                <span className="truncate text-neutral-500 dark:text-gray-400 group-hover/link:text-neutral-900 dark:group-hover/link:text-gray-300 transition-colors">
-                                                    {typeof window !== 'undefined' ? `${window.location.origin}/t/${funnel.slug}` : `/t/${funnel.slug}`}
-                                                </span>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6 shrink-0 text-neutral-500 dark:text-gray-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-200 dark:hover:bg-white/10"
-                                                    onClick={() => handleCopyLink(funnel.slug)}
-                                                >
-                                                    {copiedId === funnel.slug ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                                                </Button>
-                                                <a
-                                                    href={`/t/${funnel.slug}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="h-6 w-6 flex items-center justify-center rounded-md text-neutral-500 dark:text-gray-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-200 dark:hover:bg-white/10"
-                                                >
-                                                    <ExternalLink className="h-3 w-3" />
-                                                </a>
-                                            </div>
-                                        </td>
+
                                         <td className="px-6 py-4 text-xs text-neutral-500 dark:text-gray-500">
                                             <div className="flex flex-col gap-1">
                                                 <span className="flex items-center gap-2">

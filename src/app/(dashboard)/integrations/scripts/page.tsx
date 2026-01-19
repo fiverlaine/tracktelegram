@@ -101,16 +101,8 @@ export default function ScriptsPage() {
     }
 
     const copyScript = (domainId: string) => {
-        const code = `<script>
-  (function(w,d,s,l,i){
-    w[l]=w[l]||[];
-    w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
-    var f=d.getElementsByTagName(s)[0], j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
-    j.async=true; 
-    j.src='${window.location.origin}/api/tracking-script.js?id=${domainId}';
-    f.parentNode.insertBefore(j,f);
-  })(window,document,'script','trackGramLayer','${domainId}');
-</script>`;
+        const code = `<!-- TrackGram - Script de Rastreamento -->
+<script async src="${window.location.origin}/api/tracking-script.js?id=${domainId}"></script>`;
         navigator.clipboard.writeText(code);
         toast.success("Script copiado para a área de transferência!");
     };
@@ -256,16 +248,8 @@ export default function ScriptsPage() {
                                                 bg-[#0F0F0F] border border-white/10 rounded-xl p-4 font-mono text-xs text-gray-300 overflow-x-auto transition-all duration-300
                                                 ${!isReady ? 'blur-sm select-none opacity-50 pointer-events-none' : ''}
                                             `}>
-                                                <pre>{`<script>
-  (function(w,d,s,l,i){
-    w[l]=w[l]||[];
-    w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
-    var f=d.getElementsByTagName(s)[0], j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
-    j.async=true; 
-    j.src='${typeof window !== 'undefined' ? window.location.origin : ''}/api/tracking-script.js?id=${domain.id}';
-    f.parentNode.insertBefore(j,f);
-  })(window,document,'script','trackGramLayer','${domain.id}');
-</script>`}</pre>
+                                                <pre>{`<!-- TrackGram - Script de Rastreamento -->
+<script async src="${typeof window !== 'undefined' ? window.location.origin : ''}/api/tracking-script.js?id=${domain.id}"></script>`}</pre>
                                             </div>
 
                                             {!isReady && (

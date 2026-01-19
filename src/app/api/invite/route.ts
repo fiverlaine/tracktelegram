@@ -205,20 +205,34 @@ export async function POST(request: Request) {
             );
         }
 
-        // 1. Registrar evento de Click (Server-Side)
+        // 1. Registrar evento de Click (Server-Side) com DEDUPLICAÇÃO
         if (metadata) {
-            // Fire & Forget para não bloquear
-            supabase.from("events").insert({
-                funnel_id,
-                visitor_id,
-                event_type: "click",
-                metadata: {
-                    ...metadata,
-                    source: "server_api_invite"
-                }
-            }).then(({ error }) => {
-                if (error) console.error("Erro ao salvar click:", error);
-            });
+            const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+            
+            // Verificar se já existe click recente para este visitor + funnel
+            const { data: recentClicks } = await supabase
+                .from("events")
+                .select("id")
+                .eq("visitor_id", visitor_id)
+                .eq("funnel_id", funnel_id)
+                .eq("event_type", "click")
+                .gte("created_at", fiveMinutesAgo)
+                .limit(1);
+            
+            // Só insere se NÃO houver click recente (deduplicação)
+            if (!recentClicks || recentClicks.length === 0) {
+                supabase.from("events").insert({
+                    funnel_id,
+                    visitor_id,
+                    event_type: "click",
+                    metadata: {
+                        ...metadata,
+                        source: "server_api_invite"
+                    }
+                }).then(({ error }) => {
+                    if (error) console.error("Erro ao salvar click:", error);
+                });
+            }
         }
 
         // 2. Buscar dados do funil e gerar link (On-Demand)
