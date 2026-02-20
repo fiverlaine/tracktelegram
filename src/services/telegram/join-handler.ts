@@ -202,8 +202,6 @@ export class JoinHandler {
 
         console.log(`[JoinHandler] Join Request recebido de ${telegramUserId}, invite: ${inviteName}`);
 
-        // 🚀 PASSO 1: APROVAR IMEDIATAMENTE (Buscar bot_token e aprovar PRIMEIRO)
-        // Isso elimina o delay - usuário é aceito instantaneamente
         const { data: botData } = await this.supabase
             .from("telegram_bots")
             .select("bot_token, chat_id")
@@ -215,8 +213,6 @@ export class JoinHandler {
             return;
         }
 
-        // Usar chat_id do request (mais preciso para o contexto atual - funciona para canal E grupo)
-        // Fallback para botData.chat_id se não vier no request
         const approvalChatId = chatId || botData.chat_id;
         
         if (!approvalChatId) {
@@ -224,48 +220,47 @@ export class JoinHandler {
             return;
         }
 
-        // Aprovar IMEDIATAMENTE - antes de qualquer tracking
-        try {
-            const approveResponse = await fetch(`https://api.telegram.org/bot${botData.bot_token}/approveChatJoinRequest`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    chat_id: approvalChatId,
-                    user_id: telegramUserId
-                })
-            });
-            const approveResult = await approveResponse.json();
-            if (approveResult.ok) {
-                console.log(`[JoinHandler] ✅ Auto-aprovado INSTANTÂNEO user ${telegramUserId} no chat ${approvalChatId}`);
-            } else {
-                console.error(`[JoinHandler] ❌ Erro ao aprovar:`, approveResult.description);
+        const isTrackedLink = inviteName && (inviteName.startsWith("v_") || inviteName.startsWith("pool_"));
+
+        if (!isTrackedLink) {
+            // Aprovar IMEDIATAMENTE se for um link não trackeado
+            try {
+                const approveResponse = await fetch(`https://api.telegram.org/bot${botData.bot_token}/approveChatJoinRequest`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: approvalChatId, user_id: telegramUserId })
+                });
+                const approveResult = await approveResponse.json();
+                if (approveResult.ok) {
+                    console.log(`[JoinHandler] ✅ Auto-aprovado INSTANTÂNEO user ${telegramUserId} no chat ${approvalChatId}`);
+                } else {
+                    console.error(`[JoinHandler] ❌ Erro ao aprovar:`, approveResult.description);
+                }
+            } catch (e) {
+                console.error(`[JoinHandler] ❌ Erro ao aprovar:`, e);
             }
-        } catch (e) {
-            console.error(`[JoinHandler] ❌ Erro ao aprovar:`, e);
+            return;
         }
 
-        // 🔥 PASSO 2: Executar tracking/conversão/welcome em BACKGROUND (fire-and-forget)
-        // Não bloqueia a resposta do webhook - todas as operações são assíncronas
-        if (inviteName && (inviteName.startsWith("v_") || inviteName.startsWith("pool_"))) {
-            // Fire-and-forget: Promise sem await para não bloquear
-            this.processJoinRequestBackground(
-                botId,
-                botData.bot_token,
-                approvalChatId,
-                telegramUserId,
-                telegramUsername,
-                telegramFirstName,
-                telegramFullName,
-                inviteName,
-                inviteLink?.invite_link,
-                chatTitle
-            ).catch(err => console.error('[JoinHandler] Background processing error:', err));
-        }
+        // Se for um link de visitante (TrackGram), devemos processar o envio de boas-vindas
+        // ANTES de aprovar o Join Request, pois a API do Telegram proíbe envio de msg privada
+        // após a solicitação ser aprovada (se o user não deu /start).
+        this.processJoinRequestBackground(
+            botId,
+            botData.bot_token,
+            approvalChatId,
+            telegramUserId,
+            telegramUsername,
+            telegramFirstName,
+            telegramFullName,
+            inviteName,
+            inviteLink?.invite_link,
+            chatTitle
+        ).catch(err => console.error('[JoinHandler] Background processing error:', err));
     }
 
     /**
-     * Processa atribuição, conversão, welcome, e notificações em background
-     * Executado APÓS a aprovação do usuário para não causar delay
+     * Processa atribuição, conversão, welcome, e aprovação
      */
     private async processJoinRequestBackground(
         botId: string,
@@ -288,10 +283,31 @@ export class JoinHandler {
 
             if (!visitorId || !funnelId) {
                 console.log(`[JoinHandler] Background: Sem atribuição para user ${telegramUserId}`);
+                await this.approveUser(botToken, chatId, telegramUserId);
                 return;
             }
 
-            // 2. Vincular User ID (executar em paralelo com outras operações)
+            // ⚠️ IMPORTANTE PARA A API DO TELEGRAM:
+            // Enviar Boas-vindas ANTES da aprovação
+            let welcomeSentAt = linkData?.welcome_sent_at;
+            if (!welcomeSentAt) {
+                await this.welcomeService.sendWelcome(
+                    funnelId,
+                    botId,
+                    telegramUserId,
+                    chatId,
+                    telegramFirstName,
+                    telegramUsername,
+                    inviteLinkUrl,
+                    linkData?.id || undefined,
+                    visitorId
+                );
+            }
+
+            // 3. APROVAR A REQUISIÇÃO (Após enviar mensagem)
+            await this.approveUser(botToken, chatId, telegramUserId);
+
+            // 4. Vincular User ID (em paralelo com conversão)
             const linkUserPromise = this.attributionService.linkUser(
                 visitorId,
                 funnelId,
@@ -305,7 +321,7 @@ export class JoinHandler {
                 }
             );
 
-            // 3. Processar Conversão CAPI (em paralelo)
+            // 5. Processar Conversão CAPI (em paralelo)
             const conversionPromise = this.conversionService.processLeadConversion(
                 visitorId,
                 funnelId,
@@ -318,7 +334,7 @@ export class JoinHandler {
                 "join_request_approval"
             );
 
-            // 4. Notificação Pushcut (fire-and-forget)
+            // 6. Notificação Pushcut (fire-and-forget)
             this.pushcutService.notifyJoinRequest(
                 funnelId,
                 telegramUserId,
@@ -327,38 +343,30 @@ export class JoinHandler {
                 chatTitle
             ).catch(err => console.error('[JoinHandler] Pushcut error:', err));
 
-            // Aguardar link e conversão (necessários para welcome)
-            const linkId = await linkUserPromise;
-            await conversionPromise;
-
-            // 5. Enviar Boas-vindas (se ainda não foi enviado)
-            let welcomeSentAt = linkData?.welcome_sent_at;
-            if (linkId && !welcomeSentAt) {
-                const { data } = await this.supabase
-                    .from("visitor_telegram_links")
-                    .select("welcome_sent_at")
-                    .eq("id", linkId)
-                    .maybeSingle();
-                welcomeSentAt = data?.welcome_sent_at;
-            }
-
-            if (!welcomeSentAt) {
-                await this.welcomeService.sendWelcome(
-                    funnelId,
-                    botId,
-                    telegramUserId,
-                    chatId,
-                    telegramFirstName,
-                    telegramUsername,
-                    inviteLinkUrl,
-                    linkId || undefined,
-                    visitorId
-                );
-            }
+            await Promise.all([linkUserPromise, conversionPromise]);
 
             console.log(`[JoinHandler] ✅ Background processing completed for user ${telegramUserId}`);
         } catch (error) {
             console.error(`[JoinHandler] Background processing error for user ${telegramUserId}:`, error);
+            await this.approveUser(botToken, chatId, telegramUserId).catch(e => console.error(e));
+        }
+    }
+
+    private async approveUser(botToken: string, chatId: number, userId: number) {
+        try {
+            const response = await fetch(`https://api.telegram.org/bot${botToken}/approveChatJoinRequest`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId, user_id: userId })
+            });
+            const result = await response.json();
+            if (result.ok) {
+                console.log(`[JoinHandler] ✅ Auto-aprovado user ${userId} no chat ${chatId}`);
+            } else {
+                console.error(`[JoinHandler] ❌ Erro ao aprovar:`, result.description);
+            }
+        } catch (e) {
+            console.error(`[JoinHandler] ❌ Erro ao aprovar:`, e);
         }
     }
 }
