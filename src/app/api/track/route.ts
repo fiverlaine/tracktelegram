@@ -17,6 +17,24 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { visitor_id, event_type, metadata, domain_id, funnel_id } = body;
 
+        const ip_address = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip");
+        let city = request.headers.get("x-vercel-ip-city");
+        const region = request.headers.get("x-vercel-ip-country-region");
+        const country = request.headers.get("x-vercel-ip-country");
+
+        try {
+            if (city) city = decodeURIComponent(city);
+        } catch (e) {
+            // ignore decode error
+        }
+
+        if (metadata) {
+            if (ip_address) metadata.ip_address = ip_address;
+            if (city) metadata.city = city;
+            if (region) metadata.region = region;
+            if (country) metadata.country = country;
+        }
+
         if (!visitor_id || !event_type) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }

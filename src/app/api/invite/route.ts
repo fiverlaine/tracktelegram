@@ -205,6 +205,24 @@ export async function POST(request: Request) {
             );
         }
 
+        if (metadata) {
+            const ip_address = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip");
+            let city = request.headers.get("x-vercel-ip-city");
+            const region = request.headers.get("x-vercel-ip-country-region");
+            const country = request.headers.get("x-vercel-ip-country");
+
+            try {
+                if (city) city = decodeURIComponent(city);
+            } catch (e) {
+                // ignore decode error
+            }
+
+            if (ip_address) metadata.ip_address = ip_address;
+            if (city) metadata.city = city;
+            if (region) metadata.region = region;
+            if (country) metadata.country = country;
+        }
+
         // 1. Registrar evento de Click (Server-Side) com DEDUPLICAÇÃO
         if (metadata) {
             const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
