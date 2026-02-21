@@ -231,8 +231,8 @@ export class JoinHandler {
         
         if (inviteName && (inviteName.startsWith("v_") || inviteName.startsWith("pool_"))) {
             const attribution = await this.attributionService.findVisitor(inviteName, telegramUserId, botId);
-            funnelId = attribution.funnelId;
-            visitorId = attribution.visitorId;
+            funnelId = attribution.funnelId || undefined;
+            visitorId = attribution.visitorId || undefined;
             linkData = attribution.linkData;
         }
 
