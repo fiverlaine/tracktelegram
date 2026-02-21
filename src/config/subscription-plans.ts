@@ -84,7 +84,7 @@ export const plans: Plan[] = [
         limits: {
             domains: 10,
             pixels: 10,
-            channels: 2,
+            channels: 'unlimited',
             funnels: 'unlimited',
             entries: 'unlimited'
         }
