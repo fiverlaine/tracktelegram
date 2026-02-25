@@ -293,11 +293,11 @@ export async function POST(request: Request) {
         }
 
         // Fetch Bot
-        let bot = null;
+        let bot: any = null;
         if (funnelData.bot_id) {
             const { data: b } = await supabase
                 .from("telegram_bots")
-                .select("id, bot_token, chat_id, channel_link")
+                .select("id, bot_token, chat_id, channel_link, username")
                 .eq("id", funnelData.bot_id)
                 .single();
             bot = b;
