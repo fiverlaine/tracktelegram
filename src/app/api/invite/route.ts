@@ -44,7 +44,7 @@ export async function GET(request: Request) {
         // 1. Buscar dados do funil e suas configurações de boas-vindas (Manual Join)
         const { data: funnelData, error: funnelError } = await supabase
             .from("funnels")
-            .select("id, name, bot_id, use_join_request")
+            .select("id, name, bot_id, use_join_request, redirection_type")
             .eq("id", funnelId)
             .single();
 
@@ -57,11 +57,11 @@ export async function GET(request: Request) {
         }
 
         // Fetch Bot
-        let bot = null;
+        let bot: any = null;
         if (funnelData.bot_id) {
             const { data: b } = await supabase
                 .from("telegram_bots")
-                .select("id, bot_token, chat_id, channel_link")
+                .select("id, bot_token, chat_id, channel_link, username")
                 .eq("id", funnelData.bot_id)
                 .single();
             bot = b;
@@ -91,7 +91,7 @@ export async function GET(request: Request) {
             );
         }
 
-        if (!bot?.chat_id) {
+        if (!bot?.chat_id && funnelData.redirection_type !== 'via_bot') {
             // Fallback: retornar o channel_link estático se não tiver chat_id
             if (bot?.channel_link) {
                 return NextResponse.json({
@@ -104,6 +104,30 @@ export async function GET(request: Request) {
                 { error: "chat_id não configurado. Configure o ID do canal na página de Canais." },
                 { status: 400 }
             );
+        }
+
+        // 2. Lógica de Redirecionamento (Direto vs Bot)
+        if (funnelData.redirection_type === 'via_bot' && bot?.username) {
+            const botLink = `https://t.me/${bot.username}?start=v_${visitorId}`;
+            
+            // Salvar vínculo inicial para tracking
+            await supabase.from("visitor_telegram_links").upsert({
+                visitor_id: visitorId,
+                funnel_id: funnelId,
+                bot_id: bot.id,
+                telegram_user_id: 0,
+                metadata: {
+                    invite_link: botLink,
+                    type: "bot_redirect",
+                    generated_at: new Date().toISOString()
+                }
+            }, { onConflict: "visitor_id,telegram_user_id" });
+
+            return NextResponse.json({
+                invite_link: botLink,
+                is_dynamic: true,
+                type: "bot"
+            });
         }
 
         // 2. Gerar link de convite único usando a API do Telegram
@@ -260,7 +284,7 @@ export async function POST(request: Request) {
         // 2. Buscar dados do funil e gerar link (On-Demand) - Manual Join
         const { data: funnelData, error: funnelError } = await supabase
             .from("funnels")
-            .select("id, name, bot_id, use_join_request")
+            .select("id, name, bot_id, use_join_request, redirection_type")
             .eq("id", funnel_id)
             .single();
 
@@ -300,7 +324,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Bot não configurado" }, { status: 400 });
         }
 
-        if (!bot?.chat_id) {
+        if (!bot?.chat_id && funnelData.redirection_type !== 'via_bot') {
             if (bot?.channel_link) {
                 return NextResponse.json({
                     invite_link: bot.channel_link,
@@ -309,6 +333,29 @@ export async function POST(request: Request) {
                 });
             }
             return NextResponse.json({ error: "chat_id não configurado" }, { status: 400 });
+        }
+
+        // 3. Lógica de Redirecionamento (Direto vs Bot)
+        if (funnelData.redirection_type === 'via_bot' && bot?.username) {
+            const botLink = `https://t.me/${bot.username}?start=v_${visitor_id}`;
+            
+            await supabase.from("visitor_telegram_links").upsert({
+                visitor_id: visitor_id,
+                funnel_id,
+                bot_id: bot.id,
+                telegram_user_id: 0,
+                metadata: {
+                    invite_link: botLink,
+                    type: "bot_redirect_post",
+                    generated_at: new Date().toISOString()
+                }
+            }, { onConflict: "visitor_id,telegram_user_id" });
+
+            return NextResponse.json({
+                invite_link: botLink,
+                is_dynamic: true,
+                type: "bot"
+            });
         }
 
         // 3. Gerar Invite Link (Telegram API)

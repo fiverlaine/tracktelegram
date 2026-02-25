@@ -23,6 +23,7 @@ interface Funnel {
     slug: string;
     pixel_id: string; // legacy/primary
     bot_id: string;
+    redirection_type: 'direct_group' | 'via_bot';
     created_at: string;
     pixels?: { name: string };
     telegram_bots?: { name: string };
@@ -47,7 +48,8 @@ export default function FunnelsPage() {
         name: "",
         slug: "",
         pixel_ids: [] as string[],
-        bot_id: ""
+        bot_id: "",
+        redirection_type: 'direct_group' as 'direct_group' | 'via_bot'
     });
     const [editingId, setEditingId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
@@ -198,7 +200,13 @@ export default function FunnelsPage() {
         }
 
         setEditingId(null);
-        setFormData({ name: "", slug: "", pixel_ids: [], bot_id: "" });
+        setFormData({ 
+            name: "", 
+            slug: "", 
+            pixel_ids: [], 
+            bot_id: "", 
+            redirection_type: 'direct_group' 
+        });
         setOpen(true);
     };
 
@@ -214,7 +222,8 @@ export default function FunnelsPage() {
             name: funnel.name,
             slug: funnel.slug,
             pixel_ids: linkedPixelIds,
-            bot_id: funnel.bot_id
+            bot_id: funnel.bot_id,
+            redirection_type: funnel.redirection_type || 'direct_group'
         });
         setOpen(true);
     };
@@ -257,7 +266,8 @@ export default function FunnelsPage() {
                     name: formData.name,
                     slug: formData.slug,
                     pixel_ids: formData.pixel_ids,
-                    bot_id: formData.bot_id
+                    bot_id: formData.bot_id,
+                    redirection_type: formData.redirection_type
                 });
                 toast.success("Funil atualizado com sucesso!");
             } else {
@@ -265,13 +275,20 @@ export default function FunnelsPage() {
                     name: formData.name,
                     slug: formData.slug,
                     pixel_ids: formData.pixel_ids,
-                    bot_id: formData.bot_id
+                    bot_id: formData.bot_id,
+                    redirection_type: formData.redirection_type
                 });
                 toast.success("Funil criado com sucesso!");
             }
 
             setOpen(false);
-            setFormData({ name: "", slug: "", pixel_ids: [], bot_id: "" });
+            setFormData({ 
+                name: "", 
+                slug: "", 
+                pixel_ids: [], 
+                bot_id: "", 
+                redirection_type: 'direct_group' 
+            });
             fetchFunnels();
         } catch (error: any) {
             console.error(error);
@@ -429,6 +446,27 @@ export default function FunnelsPage() {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label className="text-neutral-500 dark:text-gray-400">Objetivo do Funil</Label>
+                                <Select
+                                    value={formData.redirection_type}
+                                    onValueChange={(val: any) => setFormData({ ...formData, redirection_type: val })}
+                                >
+                                    <SelectTrigger className="bg-neutral-100 dark:bg-black/40 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white">
+                                        <SelectValue placeholder="Selecione o fluxo" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-white dark:bg-[#0a0a0a] border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white">
+                                        <SelectItem value="direct_group" className="focus:bg-neutral-100 dark:focus:bg-white/10 focus:text-neutral-900 dark:focus:text-white">Direto para o Grupo (Recomendado)</SelectItem>
+                                        <SelectItem value="via_bot" className="focus:bg-neutral-100 dark:focus:bg-white/10 focus:text-neutral-900 dark:focus:text-white">Primeiro para o Bot (Melhor Tracking)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-[10px] text-neutral-500 dark:text-gray-500 px-1">
+                                    {formData.redirection_type === 'direct_group' 
+                                        ? "O usuário entra direto no grupo via link único de convite."
+                                        : "O usuário é enviado para o bot e recebe o link do grupo lá. Oferece mais opções de tracking."}
+                                </p>
                             </div>
                         </div>
                         <div className="flex justify-end gap-2">

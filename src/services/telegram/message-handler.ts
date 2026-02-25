@@ -28,9 +28,16 @@ export class MessageHandler {
         const args = message.text.split(" ");
         if (args.length <= 1) return;
 
-        const visitorId = args[1].trim();
+        let visitorId = args[1].trim();
+        if (visitorId.startsWith("v_")) {
+            visitorId = visitorId.substring(2);
+        }
+
         const telegramUserId = message.from.id;
         const telegramUsername = message.from.username;
+        const telegramFirstName = message.from.first_name || "";
+        const telegramLastName = message.from.last_name || "";
+        const telegramFullName = `${telegramFirstName} ${telegramLastName}`.trim();
 
         console.log(`[MessageHandler] /start - Linking Visitor ${visitorId} to Telegram ID ${telegramUserId}`);
 
@@ -52,8 +59,12 @@ export class MessageHandler {
             telegram_username: telegramUsername,
             bot_id: botId,
             funnel_id: botData?.id,
-            linked_at: new Date().toISOString()
-        }, { onConflict: 'visitor_id' });
+            linked_at: new Date().toISOString(),
+            metadata: {
+                telegram_name: telegramFullName,
+                linked_via: "bot_start_command"
+            }
+        }, { onConflict: 'visitor_id,telegram_user_id' });
 
         const botRelation: any = botData?.telegram_bots;
         const botToken = Array.isArray(botRelation) ? botRelation[0]?.bot_token : botRelation?.bot_token;

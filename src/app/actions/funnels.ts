@@ -9,8 +9,9 @@ import { revalidatePath } from "next/cache";
 interface CreateFunnelData {
     name: string;
     slug: string;
-    pixel_ids: string[]; // Changed from pixel_id string to array
+    pixel_ids: string[];
     bot_id: string;
+    redirection_type?: 'direct_group' | 'via_bot';
 }
 
 export async function createFunnel(data: CreateFunnelData) {
@@ -77,7 +78,8 @@ export async function createFunnel(data: CreateFunnelData) {
             name: data.name,
             slug: finalSlug,
             pixel_id: primaryPixelId,
-            bot_id: data.bot_id
+            bot_id: data.bot_id,
+            redirection_type: data.redirection_type || 'direct_group'
         }).select().single();
 
         if (insertError) {
@@ -133,7 +135,8 @@ export async function updateFunnel(id: string, data: CreateFunnelData) {
             name: data.name,
             slug: data.slug,
             pixel_id: primaryPixelId,
-            bot_id: data.bot_id
+            bot_id: data.bot_id,
+            redirection_type: data.redirection_type
         })
         .eq("id", id)
         .eq("user_id", user.id);
